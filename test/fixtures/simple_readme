@@ -1,0 +1,32 @@
+= Simple
+
+Simple is a simple repository with three branches that fork at the initial
+commit and result in a 3-way merge. The master branch illustrates the adding,
+changing and removal of files.
+
+* master
+* caps
+* xyz
+
+== master
+
+  a1aafafbb5f74fb48312afedb658569b00f4a796 Merge branches 'caps' and 'xyz'
+  ee9a1ca4441ab2bf937808b26eab784f3d041643 added files x, y, and z
+  19377b7ec7b83909b8827e52817c53a47db96cf0 changed contents of one, two, and three
+  449b5502e8dc49264d862b4fc0c01ba115fc9f82 removed files a, b, and c
+  7d3db1d8b487a098e9f5bca17c21c668d800f749 changed contents of a, b, and c
+  990191ea92e4dc85f598203e123849df1f8bd124 added files a, b, and c
+  c6746dd1882d772e540342f8e180d3125a9364ad initial commit with files one, two, and three
+
+== caps
+
+  19377b7ec7b83909b8827e52817c53a47db96cf0 changed contents of one, two, and three
+  990191ea92e4dc85f598203e123849df1f8bd124 added files a, b, and c
+  c6746dd1882d772e540342f8e180d3125a9364ad initial commit with files one, two, and three
+
+== xyz
+
+  ee9a1ca4441ab2bf937808b26eab784f3d041643 added files x, y, and z
+  990191ea92e4dc85f598203e123849df1f8bd124 added files a, b, and c
+  c6746dd1882d772e540342f8e180d3125a9364ad initial commit with files one, two, and three
+
