@@ -13,6 +13,7 @@ Gem::Specification.new do |s|
   s.add_dependency("sinatra", "= 0.9.4")
   s.add_dependency("RedCloth", "= 4.2.2")
   s.add_dependency("mojombo-grit", "= 1.1.1")
+  s.add_dependency("georgi-git_store", "= 0.3")
   
   s.add_development_dependency("rack-test", "= 0.3")
   s.add_development_dependency("tap-test", ">= 0.2.0")

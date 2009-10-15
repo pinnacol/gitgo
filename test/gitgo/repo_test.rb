@@ -33,7 +33,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def contents(tree)
-    tree.contents.collect {|obj| obj.name }
+    tree.contents.collect {|obj| obj.name }.sort
   end
   
   def test_get_returns_an_object_corresponding_to_the_path
@@ -44,10 +44,10 @@ class RepoTest < Test::Unit::TestCase
     assert_equal ["comments", "issues", "pages", "users"], contents(tree)
 
     tree = repo.get("/pages")
-    assert_equal ["one.txt", "one"], contents(tree)
+    assert_equal ["one", "one.txt"], contents(tree)
     
     tree = repo.get("/pages/")
-    assert_equal ["one.txt", "one"], contents(tree)
+    assert_equal ["one", "one.txt"], contents(tree)
     
     blob = repo.get("/pages/one.txt")
     assert_equal "one.txt", blob.name
@@ -60,5 +60,23 @@ Page one}, blob.data
     assert_equal nil, repo.get("/non_existant")
     assert_equal nil, repo.get("/pages/non_existant.txt")
     assert_equal nil, repo.get("/pages/one.txt/path_under_a_blob")
+  end
+  
+  #
+  # put test
+  #
+  
+  def test_put_writes_content_to_the_specified_path
+    repo.put("/path/to/file.txt", "file content")
+    repo.store.commit("added a file")
+    
+    tree = repo.get("")
+    assert_equal ["comments", "issues", "pages", "path", "users"], contents(tree)
+
+    tree = repo.get("/path/to")
+    assert_equal ["file.txt"], contents(tree)
+    
+    blob = repo.get("/path/to/file.txt")
+    assert_equal %Q{file content}, blob.data
   end
 end
