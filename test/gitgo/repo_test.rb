@@ -14,18 +14,13 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # commit test
+  # user test
   #
   
-  def test_commit
-    repo.branch = "3477b8e166167db65b3a44101f7a362ba5239764"
-    assert_equal "initial import of fixture data", repo.commit.message
-  end
-  
-  def test_commit_raises_error_on_invalid_branch
-    repo.branch = "non_existant"
-    err = assert_raises(RuntimeError) { repo.commit }
-    assert_equal "invalid branch: non_existant", err.message
+  def test_user_determines_a_default_user_from_the_repo_config
+    user = repo.user
+    assert_equal "User One", user.name
+    assert_equal "user.one@email.com", user.email
   end
   
   #
@@ -62,13 +57,19 @@ Page one}, blob.data
     assert_equal nil, repo.get("/pages/one.txt/path_under_a_blob")
   end
   
+  def test_get_raises_error_on_invalid_branch
+    repo.branch = "non_existant"
+    err = assert_raises(RuntimeError) { repo.get("") }
+    assert_equal "invalid branch: non_existant", err.message
+  end
+  
   #
-  # put test
+  # add test
   #
   
-  def test_put_writes_content_to_the_specified_path
-    repo.put("/path/to/file.txt", "file content")
-    repo.store.commit("added a file")
+  def test_add_writes_content_to_the_specified_path
+    repo.add("/path/to/file.txt", "file content")
+    repo.commit("added a file")
     
     tree = repo.get("")
     assert_equal ["comments", "issues", "pages", "path", "users"], contents(tree)

@@ -1,9 +1,11 @@
+require 'zlib'
+require 'digest/sha1'
+require 'fileutils'
 require 'grit'
 require 'git_store'
 
 module Gitgo
   class Repo
-    
     # The internal Grit::Repo
     attr_reader :repo
     
@@ -13,9 +15,24 @@ module Gitgo
     # The active branch/commit name
     attr_reader :branch
     
+    # Sets the user.
+    attr_writer :user
+    
     def initialize(path=".", options={})
       @repo = Grit::Repo.new(path, options)
       self.branch = options[:branch] || 'gitgo'
+      self.user = options[:user]
+    end
+    
+    # Returns the configured user (which should be a Grit::Actor, or similar).
+    # If no user is is currently set, a default user will be determined from
+    # the repo configurations.
+    def user
+      @user ||= begin
+        name =  repo.config['user.name']
+        email = repo.config['user.email']
+        Grit::Actor.new(name, email)
+      end
     end
     
     # Sets the active branch/commit (note this also resets store).
@@ -30,15 +47,9 @@ module Gitgo
       store.handler.clear
     end
     
-    # Returns the commit for branch.  Raises an error if no commit can
-    # be found for the branch.
-    def commit
-      repo.commits(branch, 1).first or raise "invalid branch: #{branch}"
-    end
-    
     # Gets the object at the specified path
     def get(path)
-      current = commit.tree
+      current = self.current.tree
       
       paths = path.split("/")
       while seg = paths.shift
@@ -50,8 +61,60 @@ module Gitgo
       current
     end
     
-    def put(path, content)
+    # Write a raw object to the repository.
+    #
+    # Returns the object id.
+    def put(type, content)
+      data = "#{type} #{content.length}\0#{content}"    
+      id = Digest::SHA1.hexdigest(data)[0, 40]
+      path = "#{repo.path}/objects/#{id[0...2]}/#{id[2..39]}"
+
+      unless File.exists?(path)
+        FileUtils.mkpath(File.dirname(path))
+        open(path, 'wb') do |f|
+          f.write Zlib::Deflate.deflate(data)
+        end
+      end
+
+      id
+    end
+    
+    def commit(message, options={})
+      author = options[:author] || user
+      authored_date = options[:authored_date] || Time.now
+      committer = options[:committer] || author
+      committed_date = options[:committed_date] || Time.now
+      
+      lines = []
+      lines << "tree #{store.root.write}"
+      lines << "parent #{current.id}"
+      lines << "author #{format_user(author)} #{format_time authored_date}"
+      lines << "committer #{format_user(committer)} #{format_time committed_date}"
+      lines << ""
+      lines << message
+      
+      id = put('commit', lines.join("\n"))
+      File.open("#{repo.path}/refs/heads/#{branch}", "w") {|io| io << id }
+      id
+    end
+    
+    def add(path, content)
       store[path] = content
+    end
+    
+    protected
+    
+    # returns the current commit
+    def current # :nodoc:
+      repo.commits(branch, 1).first or raise "invalid branch: #{branch}"
+    end
+    
+    def format_user(user)
+      "#{user.name} <#{user.email}>"
+    end
+    
+    def format_time(time) # :nodoc:
+      time.strftime("%s %z")
     end
   end
 end

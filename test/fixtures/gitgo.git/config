@@ -4,4 +4,5 @@
 	bare = true
 	ignorecase = true
 [user]
+	name = User One
 	email = user.one@email.com
