@@ -51,9 +51,7 @@ module Gitgo
     def get(path)
       current = self.current.tree
       
-      paths = path.split("/")
-      while seg = paths.shift
-        next if seg.empty?
+      segments(path) do |seg|
         return nil unless current.respond_to?(:/)
         current = current / seg
       end
@@ -64,7 +62,7 @@ module Gitgo
     # Write a raw object to the repository.
     #
     # Returns the object id.
-    def put(type, content)
+    def set(type, content)
       data = "#{type} #{content.length}\0#{content}"    
       id = Digest::SHA1.hexdigest(data)[0, 40]
       path = "#{repo.path}/objects/#{id[0...2]}/#{id[2..39]}"
@@ -88,12 +86,12 @@ module Gitgo
       lines = []
       lines << "tree #{store.root.write}"
       lines << "parent #{current.id}"
-      lines << "author #{format_user(author)} #{format_time authored_date}"
-      lines << "committer #{format_user(committer)} #{format_time committed_date}"
+      lines << "author #{author.name} <#{author.email}> #{authored_date.strftime("%s %z")}"
+      lines << "committer #{committer.name} <#{committer.email}> #{committed_date.strftime("%s %z")}"
       lines << ""
       lines << message
       
-      id = put('commit', lines.join("\n"))
+      id = set('commit', lines.join("\n"))
       File.open("#{repo.path}/refs/heads/#{branch}", "w") {|io| io << id }
       id
     end
@@ -109,12 +107,16 @@ module Gitgo
       repo.commits(branch, 1).first or raise "invalid branch: #{branch}"
     end
     
-    def format_user(user)
-      "#{user.name} <#{user.email}>"
-    end
-    
-    def format_time(time) # :nodoc:
-      time.strftime("%s %z")
+    def segments(path, return_last=false)
+      paths = path.split("/")
+      last = return_last ? paths.pop : nil
+      
+      while seg = paths.shift
+        next if seg.empty?
+        yield(seg)
+      end
+      
+      last
     end
   end
 end
