@@ -2,7 +2,6 @@ require 'zlib'
 require 'digest/sha1'
 require 'fileutils'
 require 'grit'
-require 'git_store'
 
 module Gitgo
   class Repo
@@ -13,15 +12,19 @@ module Gitgo
     attr_reader :store
     
     # The active branch/commit name
-    attr_reader :branch
+    attr_accessor :branch
     
     # Sets the user.
     attr_writer :user
     
+    attr_reader :tree
+    
     def initialize(path=".", options={})
       @repo = Grit::Repo.new(path, options)
-      self.branch = options[:branch] || 'gitgo'
-      self.user = options[:user]
+      @branch = options[:branch] || 'gitgo'
+      @user = options[:user]
+      
+      @tree = self["/"]
     end
     
     # Returns the configured user (which should be a Grit::Actor, or similar).
@@ -35,18 +38,6 @@ module Gitgo
       end
     end
     
-    # Sets the active branch/commit (note this also resets store).
-    def branch=(branch)
-      @branch = branch
-      
-      # git_store-0.3 does not support bare repositories; if the
-      # repo looks bare (ie x.git), then use the parent directory
-      path = repo.path
-      path = File.dirname(path) if File.basename(path) == '.git' || File.extname(path) == '.git'
-      @store = GitStore.new(path, branch)
-      store.handler.clear
-    end
-    
     # Gets the object at the specified path
     def get(path)
       current = self.current.tree
@@ -57,6 +48,27 @@ module Gitgo
       end
       
       current
+    end
+    
+    def [](path)
+      obj = get(path)
+      
+      case obj
+      when Grit::Tree
+        tree = recursive_hash do |key|
+          self[File.join(path, key)]
+        end
+        
+        obj.contents.each do |object|
+          tree[object.name] = [object.mode, object.id]
+        end
+        tree
+        
+      when Grit::Blob
+        obj.data
+        
+      else obj
+      end
     end
     
     # Write a raw object to the repository.
@@ -83,8 +95,10 @@ module Gitgo
       committer = options[:committer] || author
       committed_date = options[:committed_date] || Time.now
       
+      mode, tree_id = set_tree
+      
       lines = []
-      lines << "tree #{store.root.write}"
+      lines << "tree #{tree_id}"
       lines << "parent #{current.id}"
       lines << "author #{author.name} <#{author.email}> #{authored_date.strftime("%s %z")}"
       lines << "committer #{committer.name} <#{committer.email}> #{committed_date.strftime("%s %z")}"
@@ -93,11 +107,26 @@ module Gitgo
       
       id = set('commit', lines.join("\n"))
       File.open("#{repo.path}/refs/heads/#{branch}", "w") {|io| io << id }
+      @tree = self["/"]
       id
     end
     
-    def add(path, content)
-      store[path] = content
+    def add(files)
+      files.each_pair do |path, content|
+        tree = @tree
+        base = segments(path, true) do |seg|
+          tree.delete(seg) unless tree[seg].kind_of?(Hash)
+          tree = tree[seg]
+        end
+        
+        unless content.kind_of?(Array)
+          content = ["100644", set("blob", content)]
+        end
+        
+        tree[base] = content
+      end
+      
+      self
     end
     
     protected
@@ -117,6 +146,24 @@ module Gitgo
       end
       
       last
+    end
+    
+    # note this is destructive to the tree
+    def set_tree(tree=@tree) # :nodoc:
+      lines = tree.keys.sort!.collect! do |key|
+        value = tree[key]
+        value = set_tree(value) if value.kind_of?(Hash)
+        "#{value.shift} #{key}\0#{value.pack("H*")}"
+      end
+      
+      ["040000", set("tree", lines.join("\n"))]
+    end
+    
+    def recursive_hash
+      Hash.new do |hash, key|
+        default = block_given? ? yield(key) : nil
+        hash[key] = default || recursive_hash
+      end
     end
   end
 end
