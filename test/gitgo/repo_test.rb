@@ -104,42 +104,27 @@ Page one}, blob.data
   # AGET test
   #
   
-  def test_AGET_returns_tree_objects
-    assert_equal ["100644", "703c947591298f9ef248544c67656e966c03600f"], repo["/pages/one.txt"]
+  def test_AGET_returns_blob_content
+    assert_equal %Q{--- 
+author: user.one@email.com
+date: 2009-09-09 09:00:00 -06:00
+--- 
+Page one}, repo["/pages/one.txt"]
 
-    assert_equal({
-      "one" =>     ["040000", "681f31a2b2f9557b0d1ec1b1a9203231f4bb0139"], 
-      "one.txt" => ["100644", "703c947591298f9ef248544c67656e966c03600f"]
-    }, repo["/pages"])
-    
-    assert_equal(nil, repo["/non_existant"])
-    assert_equal(nil, repo["/pages/non_existant.txt"])
-    assert_equal(nil, repo["/pages/one.txt/path_under_a_blob"])
+    assert_equal(nil, repo["/pages"])
+    assert_equal(nil, repo["/non_existant.txt"])
+    assert_equal(nil, repo["/pages/one.txt/non_existant.txt"])
   end
   
-  def test_AGET_trees_can_dynamically_resolve_and_add_content
-    root = repo["/"]
-    root.delete("pages")
+  #
+  # ASET test
+  #
+  
+  def test_ASET_adds_blob_content
+    repo["/pages/one.txt"] = "New content"
+    repo.commit("added new content")
     
-    assert_equal({
-      "one" =>     ["040000", "681f31a2b2f9557b0d1ec1b1a9203231f4bb0139"], 
-      "one.txt" => ["100644", "703c947591298f9ef248544c67656e966c03600f"]
-    }, root["pages"])
-    
-    assert_equal({}, root["un"]["known"])
-    
-    assert_equal({
-      "comments" =>  ["040000", "2975636a667e91f4d460c4eefb0008164f7a7168"],
-      "issues" =>    ["040000", "487866701e307c11f376e20e5e6ba20958006c5f"],
-      "pages" => {
-        "one" =>     ["040000", "681f31a2b2f9557b0d1ec1b1a9203231f4bb0139"], 
-        "one.txt" => ["100644", "703c947591298f9ef248544c67656e966c03600f"]
-      },
-      "users" =>     ["040000", "a799273ec817022cca6bf7fa51a26751ea3641b6"],
-      "un" => {
-        "known" => {}
-      }
-    }, root)
+    assert_equal "New content", repo["/pages/one.txt"]
   end
   
   #

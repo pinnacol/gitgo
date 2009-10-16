@@ -137,7 +137,7 @@ module Gitgo
     # Sets the current branch and updates tree.
     def branch=(branch)
       @branch = branch
-      @tree = self["/"] || recursive_hash
+      @tree = get_tree("/") || recursive_hash
     end
     
     # Returns the configured user (which should be a Grit::Actor, or similar).
@@ -164,25 +164,16 @@ module Gitgo
       current
     end
     
+    # Gets the content for path.  Returns nil if path doesn't exist (or maps
+    # to a tree).
     def [](path)
       obj = get(path)
-      
-      case obj
-      when Grit::Tree
-        tree = recursive_hash do |key|
-          self[File.join(path, key)]
-        end
-        
-        obj.contents.each do |object|
-          tree[object.name] = [object.mode, object.id]
-        end
-        tree
-        
-      when Grit::Blob
-        [obj.mode, obj.id]
-      
-      else obj
-      end
+      obj.respond_to?(:data) ? obj.data : nil
+    end
+    
+    # Sets content for path.
+    def []=(path, content)
+      add(path => content)
     end
     
     # Commits the current tree to branch with the specified message.  The
@@ -209,7 +200,7 @@ module Gitgo
   
       id = write('commit', lines.join("\n"))
       File.open(repo_path, "w") {|io| io << id }
-      @tree = self["/"]
+      @tree = get_tree("/")
       id
     end
     
@@ -225,6 +216,7 @@ module Gitgo
           tree = tree[seg]
         end
         
+        # todo :replace mode for overwrite a dir... ?
         entry = content.kind_of?(Array) ? content : ["100644", write("blob", content)]
         entry[2] = :add
         tree[base] = entry
@@ -282,6 +274,27 @@ module Gitgo
       end
       
       last
+    end
+    
+    def get_tree(path)
+      obj = get(path)
+      
+      case obj
+      when Grit::Tree
+        tree = recursive_hash do |key|
+          get_tree(File.join(path, key))
+        end
+        
+        obj.contents.each do |object|
+          tree[object.name] = [object.mode, object.id]
+        end
+        tree
+        
+      when Grit::Blob
+        [obj.mode, obj.id]
+      
+      else obj
+      end
     end
     
     def write_tree(tree=@tree) # :nodoc:
