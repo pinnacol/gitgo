@@ -4,9 +4,11 @@ module Gitgo
   
   # A wrapper to a Grit::Repo that allows access and modification of
   # repository data by path, without checking the repository out.  The api is
-  # patterned after commands you'd invoke on the command line.
+  # patterned after commands you'd invoke on the command line.  Several key
+  # methods of this class are patterned after
+  # {GitStore}[http://github.com/georgi/git_store] (see license below). 
   #
-  # === Usage
+  # == Usage
   #
   # Checkout, add, and commit new content:
   #
@@ -26,7 +28,7 @@ module Gitgo
   #   repo.rm("remove_this_file")
   #   repo.commit("removed extra file")
   #   repo.current.id                     # => ""
-  #  
+  #        
   # Now access the content:
   #
   #   repo["/"]
@@ -49,30 +51,93 @@ module Gitgo
   #   repo.get("/lib").id                # => ""
   #   repo.get("/lib/project.rb").id     # => ""
   #
+  # ==== Implementation Notes
+  #
+  # Changes to the repo are tracked by tree until being committed. Tree is a
+  # strange little hash that's designed to allow automatic recursive nesting
+  # while preserving whatever is currently in the tree.  
+  #
+  # For example, to start with tree just shows the contents of the commit
+  # tree, indexed by filename:
+  #
+  #   repo = Repo.new
+  #   repo.tree
+  #
+  # == {GitStore}[http://github.com/georgi/git_store] License
+  #
+  # Copyright (c) 2008 Matthias Georgi <http://www.matthias-georgi.de>
+  #   
+  # Permission is hereby granted, free of charge, to any person obtaining a
+  # copy of this software and associated documentation files (the "Software"),
+  # to deal in the Software without restriction, including without limitation
+  # the rights to use, copy, modify, merge, publish, distribute, sublicense,
+  # and/or sell copies of the Software, and to permit persons to whom the
+  # Software is furnished to do so, subject to the following conditions:
+  #   
+  # The above copyright notice and this permission notice shall be included in
+  # all copies or substantial portions of the Software.
+  #   
+  # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+  # THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+  # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+  # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  #   
   class Repo
+    class << self
+      # Initializes a Repo for path, creating the repo if necessary.
+      def init(path, options={})
+        unless File.exists?(path)
+          if options[:is_bare] || path =~ /\.git$/
+            FileUtils.mkdir_p(File.dirname(path))
+            `GIT_DIR='#{path}' git init --bare`
+          else
+            FileUtils.mkdir_p(path)
+            Dir.chdir(path) { `git init` }
+          end
+        end
+        
+        new(path, options)
+      end
+    end
+    
+    DEFAULT_BRANCH = 'gitgo'
+    
     # The internal Grit::Repo
     attr_reader :repo
     
     # The active branch/commit name
-    attr_accessor :branch
+    attr_reader :branch
     
     # Sets the user.
     attr_writer :user
     
+    # The internal tree tracking any adds and removes.
     attr_reader :tree
     
+    # Initializes a new repo at the specified path.  Raises an error if no
+    # such repo exists.  Options can specify the following:
+    #
+    #   :branch     the branch for self
+    #   :user       the user for self
+    #   + any Grit::Repo options
+    #
     def initialize(path=".", options={})
       @repo = Grit::Repo.new(path, options)
-      @branch = options[:branch] || 'gitgo'
-      @user = options[:user]
-      
-      @tree = self["/"]
+      self.branch = options[:branch] || DEFAULT_BRANCH
+      self.user = options[:user]
     end
     
-    # Returns the current commit for branch.  Raises an error if branch
-    # doesn't point to a commit.
+    # Returns the current commit for branch.
     def current
-      repo.commits(branch, 1).first or raise "invalid branch: #{branch}"
+      repo.commits(branch, 1).first
+    end
+    
+    # Sets the current branch and updates tree.
+    def branch=(branch)
+      @branch = branch
+      @tree = self["/"] || recursive_hash
     end
     
     # Returns the configured user (which should be a Grit::Actor, or similar).
@@ -88,8 +153,9 @@ module Gitgo
     
     # Gets the object at the specified path
     def get(path)
-      current = self.current.tree
-      
+      return nil unless current = self.current
+      current = current.tree
+
       segments(path) do |seg|
         return nil unless current.respond_to?(:/)
         current = current / seg
@@ -114,36 +180,36 @@ module Gitgo
         
       when Grit::Blob
         obj.data
-        
+      
       else obj
       end
     end
     
+    # Commits the current tree to branch with the specified message.  The
+    # branch is created if it doesn't already exist.
     def commit(message, options={})
       repo_path = "#{repo.path}/refs/heads/#{branch}"
-      unless File.exists?(repo_path)
-        raise "cannot commit unless on an existing, local branch"
-      end
-      
       lock = "#{repo_path}.lock"
+      
       file = File.open(lock, "w")
       file.flock(File::LOCK_EX)
       Thread.current['gitgo_lock'] = file
-      
+    
       mode, tree_id = write_tree
+      parent = self.current
       author = options[:author] || user
       authored_date = options[:authored_date] || Time.now
       committer = options[:committer] || author
       committed_date = options[:committed_date] || Time.now
-    
+      
       lines = []
       lines << "tree #{tree_id}"
-      lines << "parent #{current.id}"
+      lines << "parent #{parent.id}" if parent
       lines << "author #{author.name} <#{author.email}> #{authored_date.strftime("%s %z")}"
       lines << "committer #{committer.name} <#{committer.email}> #{committed_date.strftime("%s %z")}"
       lines << ""
       lines << message
-    
+  
       id = write('commit', lines.join("\n"))
       File.open(repo_path, "w") {|io| io << id }
       @tree = self["/"]
@@ -154,7 +220,7 @@ module Gitgo
         file.close if file.respond_to?(:close)
         Thread.current['gitgo_lock'] = nil
       end
-      
+    
       File.unlink(lock) if File.exists?(lock)
     end
     

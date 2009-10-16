@@ -6,11 +6,54 @@ class RepoTest < Test::Unit::TestCase
   
   include RepoTestHelper
   
-  attr_accessor :repo
+  attr_writer :repo
+  
+  # helper to setup the gitgo.git fixture 
+  def repo
+    @repo ||= Repo.new(setup_repo("gitgo.git"))
+  end
   
   def setup
     super
-    @repo = Repo.new(setup_repo("gitgo.git"))
+    @repo = nil
+  end
+  
+  #
+  # init test
+  #
+  
+  def test_init_initializes_non_existant_repos
+    path = method_root[:tmp]
+    assert !File.exists?(path)
+    
+    repo = Repo.init(path)
+    
+    git_path = method_root.path(:tmp, ".git")
+    assert File.exists?(git_path)
+    assert_equal git_path, repo.repo.path
+    
+    repo.add("path" => "content")
+    repo.commit("initial commit")
+    
+    assert_equal "initial commit", repo.current.message
+    assert_equal "content", repo["path"]
+  end
+  
+  def test_init_initializes_bare_repo_if_specified
+    path = method_root[:tmp]
+    assert !File.exists?(path)
+    
+    repo = Repo.init(path, :is_bare => true)
+    
+    assert !File.exists?(method_root.path(:tmp, ".git"))
+    assert File.exists?(path)
+    assert_equal path, repo.repo.path
+    
+    repo.add("path" => "content")
+    repo.commit("initial commit")
+    
+    assert_equal "initial commit", repo.current.message
+    assert_equal "content", repo["path"]
   end
   
   #
@@ -55,12 +98,6 @@ Page one}, blob.data
     assert_equal nil, repo.get("/non_existant")
     assert_equal nil, repo.get("/pages/non_existant.txt")
     assert_equal nil, repo.get("/pages/one.txt/path_under_a_blob")
-  end
-  
-  def test_get_raises_error_on_invalid_branch
-    repo.branch = "non_existant"
-    err = assert_raises(RuntimeError) { repo.get("") }
-    assert_equal "invalid branch: non_existant", err.message
   end
   
   #
