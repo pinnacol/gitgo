@@ -7,7 +7,9 @@ Gem::Specification.new do |s|
   s.platform = Gem::Platform::RUBY
   s.summary = "Issues, comments, and a wiki for git projects."
   s.require_path = "lib"
-  # s.rubyforge_project = ""
+  s.rubyforge_project = "gitgo"
+  s.has_rdoc = true
+  s.rdoc_options.concat %W{--main README -S -N --title Gitgo}
   
   # add dependencies
   s.add_dependency("sinatra", "= 0.9.4")
@@ -16,9 +18,6 @@ Gem::Specification.new do |s|
   
   s.add_development_dependency("rack-test", "= 0.3")
   s.add_development_dependency("tap-test", ">= 0.2.0")
-  
-  s.has_rdoc = true
-  s.rdoc_options.concat %W{--main README -S -N --title Gitgo}
   
   # list extra rdoc files here.
   s.extra_rdoc_files = %W{

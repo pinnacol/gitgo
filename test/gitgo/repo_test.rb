@@ -2,9 +2,8 @@ require File.dirname(__FILE__) + "/../test_helper"
 require 'gitgo/repo'
 
 class RepoTest < Test::Unit::TestCase
-  Repo = Gitgo::Repo
-  
   include RepoTestHelper
+  Repo = Gitgo::Repo
   
   attr_writer :repo
   

@@ -84,8 +84,7 @@ end
 desc 'Default: Run tests.'
 task :default => :test
 
-desc 'Run the tests'
-task :test do
+task :check_bundle do
   unless File.exists?("vendor/gems/environment.rb")
     puts %Q{
 Tests cannot be run until the dependencies have been
@@ -98,10 +97,25 @@ bundled.  Use these commands and try again:
 }
     exit(1)
   end
+end
+
+desc 'Run the tests'
+task :test => ['test:model', 'test:gitgo']
+
+namespace :test do
+  desc 'Run gitgo tests'
+  task :gitgo => :check_bundle do
+    tests = Dir.glob('test/gitgo/**/*_test.rb')
+    cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
+    sh(*cmd)
+  end
   
-  tests = Dir.glob('test/**/*_test.rb')
-  cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
-  sh(*cmd)
+  desc 'Run data model tests'
+  task :model => :check_bundle do
+    tests = Dir.glob('test/model/**/*_test.rb')
+    cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
+    sh(*cmd)
+  end
 end
 
 desc "Update bundle for CruiseControl"

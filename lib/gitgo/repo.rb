@@ -197,7 +197,8 @@ module Gitgo
       lines << "committer #{committer.name} <#{committer.email}> #{committed_date.strftime("%s %z")}"
       lines << ""
       lines << message
-  
+      lines << ""
+      
       id = write('commit', lines.join("\n"))
       File.open(repo_path, "w") {|io| io << id }
       @tree = get_tree("/")
@@ -248,7 +249,7 @@ module Gitgo
     #
     # Returns the object id.
     def write(type, content)
-      data = "#{type} #{content.length}\0#{content}"    
+      data = "#{type} #{content.length}\0#{content}"
       id = Digest::SHA1.hexdigest(data)[0, 40]
       path = "#{repo.path}/objects/#{id[0...2]}/#{id[2..39]}"
 
@@ -306,7 +307,7 @@ module Gitgo
         "#{mode} #{key}\0#{[id].pack("H*")}"
       end
       
-      ["040000", write("tree", lines.join("\n")), :add]
+      ["040000", write("tree", lines.join("")), :add]
     end
     
     def prune_tree(tree=@tree) # :nodoc:
