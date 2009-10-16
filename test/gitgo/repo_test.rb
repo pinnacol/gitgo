@@ -36,7 +36,7 @@ class RepoTest < Test::Unit::TestCase
     repo.commit("initial commit")
     
     assert_equal "initial commit", repo.current.message
-    assert_equal "content", repo["path"]
+    assert_equal "content", repo.get("path").data
   end
   
   def test_init_initializes_bare_repo_if_specified
@@ -53,7 +53,7 @@ class RepoTest < Test::Unit::TestCase
     repo.commit("initial commit")
     
     assert_equal "initial commit", repo.current.message
-    assert_equal "content", repo["path"]
+    assert_equal "content", repo.get("path").data
   end
   
   #
@@ -104,12 +104,8 @@ Page one}, blob.data
   # AGET test
   #
   
-  def test_AGET_pre_processes_objects_into_content
-    assert_equal %Q{--- 
-author: user.one@email.com
-date: 2009-09-09 09:00:00 -06:00
---- 
-Page one}, repo["/pages/one.txt"]
+  def test_AGET_returns_tree_objects
+    assert_equal ["100644", "703c947591298f9ef248544c67656e966c03600f"], repo["/pages/one.txt"]
 
     assert_equal({
       "one" =>     ["040000", "681f31a2b2f9557b0d1ec1b1a9203231f4bb0139"], 
@@ -144,6 +140,44 @@ Page one}, repo["/pages/one.txt"]
         "known" => {}
       }
     }, root)
+  end
+  
+  #
+  # commit test
+  #
+  
+  def test_commit_raises_error_if_there_are_no_staged_changes
+    err = assert_raises(RuntimeError) { repo.commit("no changes!") }
+    assert_equal "no changes to commit", err.message
+  end
+  
+  #
+  # status test
+  #
+  
+  def test_status_returns_staged_changes
+    assert_equal({}, repo.status)
+    
+    repo.add(
+      "/pages/a.txt" => "file a content",
+      "/pages/a/b.txt" => "file b content",
+      "/pages/a/c.txt" => "file c content"
+    )
+    
+    repo.rm("pages/one", "pages/one.txt", "/pages/a/c.txt")
+    
+    assert_equal({
+      "pages" => {
+        "a" => {
+          "b.txt" => :add
+        },
+        "a.txt" => :add,
+        "one" => {
+          "two.txt" => :rm
+        },
+        "one.txt" => :rm
+      }
+    }, repo.status)
   end
   
   #

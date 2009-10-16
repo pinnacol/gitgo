@@ -179,7 +179,7 @@ module Gitgo
         tree
         
       when Grit::Blob
-        obj.data
+        [obj.mode, obj.id]
       
       else obj
       end
@@ -188,6 +188,8 @@ module Gitgo
     # Commits the current tree to branch with the specified message.  The
     # branch is created if it doesn't already exist.
     def commit(message, options={})
+      raise "no changes to commit" if status.empty?
+      
       repo_path = "#{repo.path}/refs/heads/#{branch}"
       
       mode, tree_id = write_tree
@@ -211,6 +213,10 @@ module Gitgo
       id
     end
     
+    def status
+      prune_tree.delete_if {|key, value| value.nil? }
+    end
+    
     def add(files)
       files.each_pair do |path, content|
         tree = @tree
@@ -219,11 +225,28 @@ module Gitgo
           tree = tree[seg]
         end
         
-        unless content.kind_of?(Array)
-          content = ["100644", write("blob", content)]
+        entry = content.kind_of?(Array) ? content : ["100644", write("blob", content)]
+        entry[2] = :add
+        tree[base] = entry
+      end
+      
+      self
+    end
+    
+    def rm(*paths)
+      paths.each do |path|
+        tree = @tree
+        segments(path) do |seg|
+          tree.delete(seg) unless tree[seg].kind_of?(Hash)
+          tree = tree[seg]
         end
         
-        tree[base] = content
+        if tree.kind_of?(Array)
+          tree[2] = :rm
+        else
+          recursive_paths = tree.keys.collect! {|key| File.join(path, key) }
+          rm *recursive_paths
+        end
       end
       
       self
@@ -261,15 +284,30 @@ module Gitgo
       last
     end
     
-    # note this is destructive to the tree
     def write_tree(tree=@tree) # :nodoc:
       lines = tree.keys.sort!.collect! do |key|
         value = tree[key]
         value = write_tree(value) if value.kind_of?(Hash)
-        "#{value.shift} #{key}\0#{value.pack("H*")}"
+        
+        mode, id = value
+        "#{mode} #{key}\0#{[id].pack("H*")}"
       end
       
-      ["040000", write("tree", lines.join("\n"))]
+      ["040000", write("tree", lines.join("\n")), :add]
+    end
+    
+    def prune_tree(tree=@tree) # :nodoc:
+      hash = {}
+      tree.each_pair do |key, value|
+        if value.kind_of?(Hash)
+          value = prune_tree(value)
+        end
+        
+        next if value.nil?
+        hash[key] = value.kind_of?(Hash) ? value : value[2]
+      end
+      
+      hash.empty? ? nil : hash
     end
     
     def recursive_hash # :nodoc:
