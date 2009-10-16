@@ -189,12 +189,7 @@ module Gitgo
     # branch is created if it doesn't already exist.
     def commit(message, options={})
       repo_path = "#{repo.path}/refs/heads/#{branch}"
-      lock = "#{repo_path}.lock"
       
-      file = File.open(lock, "w")
-      file.flock(File::LOCK_EX)
-      Thread.current['gitgo_lock'] = file
-    
       mode, tree_id = write_tree
       parent = self.current
       author = options[:author] || user
@@ -214,14 +209,6 @@ module Gitgo
       File.open(repo_path, "w") {|io| io << id }
       @tree = self["/"]
       id
-      
-    ensure
-      if file = Thread.current['gitgo_lock']
-        file.close if file.respond_to?(:close)
-        Thread.current['gitgo_lock'] = nil
-      end
-    
-      File.unlink(lock) if File.exists?(lock)
     end
     
     def add(files)
@@ -251,9 +238,9 @@ module Gitgo
       path = "#{repo.path}/objects/#{id[0...2]}/#{id[2..39]}"
 
       unless File.exists?(path)
-        FileUtils.mkpath(File.dirname(path))
-        File.open(path, 'wb') do |f|
-          f.write Zlib::Deflate.deflate(data)
+        FileUtils.mkdir_p(File.dirname(path))
+        File.open(path, 'wb') do |io|
+          io.write Zlib::Deflate.deflate(data)
         end
       end
 
