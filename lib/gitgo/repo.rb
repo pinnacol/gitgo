@@ -190,6 +190,18 @@ module Gitgo
       committer = options[:committer] || author
       committed_date = options[:committed_date] || Time.now
       
+      # commit format:
+      #---------------------------------------------------
+      #   tree sha
+      #   parent sha
+      #   author name <email> time_as_int zone_offset
+      #   committer name <email> time_as_int zone_offset
+      #   
+      #   messsage
+      #   
+      #---------------------------------------------------
+      # Note there is a trailing newlines after the message.
+      #
       lines = []
       lines << "tree #{tree_id}"
       lines << "parent #{parent.id}" if parent
@@ -299,6 +311,12 @@ module Gitgo
     end
     
     def write_tree(tree=@tree) # :nodoc:
+      
+      # tree format:
+      #---------------------------------------------------
+      #   mode name\0[packedsha]mode name\0[packedsha]...
+      #---------------------------------------------------
+      # note there are no newlines separating tree entries.
       lines = tree.keys.sort!.collect! do |key|
         value = tree[key]
         value = write_tree(value) if value.kind_of?(Hash)
@@ -307,7 +325,7 @@ module Gitgo
         "#{mode} #{key}\0#{[id].pack("H*")}"
       end
       
-      ["040000", write("tree", lines.join("")), :add]
+      ["040000", write("tree", lines.join), :add]
     end
     
     def prune_tree(tree=@tree) # :nodoc:
