@@ -1,0 +1,11 @@
+h1. Merging
+
+Merging is the central challenge of Gitgo.  Merging always requires a working directory, so unfortunately large projects will suffer when they have to checkout a boatload of tickets/comments/etc to pull in new changes.  Getting around that fact is currently beyond my abilities.
+
+However, a nice feature of Gitgo is that it can write and update itself without checking out the repository.  This means that it can be run in a central place to accept changes from anyone.  Only the developers have to suffer the challenges of pulling in and merging changes.
+
+Moreover, it can be done in the background, in a separate working directory in most cases.  You'd only need to visit that directory when you have a conflict.
+
+h2. Future
+
+You might be able to internally implement the logic for the merges, especially if the model ends up being as deterministic as it seems like it will be.

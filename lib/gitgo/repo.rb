@@ -200,7 +200,7 @@ module Gitgo
       #   messsage
       #   
       #---------------------------------------------------
-      # Note there is a trailing newlines after the message.
+      # Note there is a trailing newline after the message.
       #
       lines = []
       lines << "tree #{tree_id}"

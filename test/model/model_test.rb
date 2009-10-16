@@ -91,4 +91,5 @@ class ModelTest < Test::Unit::TestCase
     assert_equal "content", a['sample']
     assert_equal "content", b['sample']
   end
+
 end

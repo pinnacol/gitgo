@@ -1,0 +1,16 @@
+h1. Issues Index
+
+Issues are a bit problematic in that they need some sort of index to track the current state, in order to ensure performance in the long run (100s of tickets).  This may not be a real issue under normal circumstances.
+
+Also the solution could be as easy as:
+
+  comments/
+    issueone/
+      commentone
+  index/
+    issueone/
+      currentstate   # issueone.merge(commentone)
+  issues/
+    issueone
+    
+Every time you add a comment you update the current state(s), adding and removing as necessary.  You will just have to test how this model works under stressful merge conditions.
