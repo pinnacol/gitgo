@@ -30,6 +30,15 @@ unless Object.const_defined?(:RepoTestHelper)
       base.acts_as_file_test(:root => calling_file)
     end
     
+    def setup
+      super
+      Grit.debug = false
+    end
+
+    def debug!
+      Grit.debug = true
+    end
+    
     # Copies the repo over from fixtures into a temporary directory and
     # returns the repo_path.  Note the repo is cleaned up upon teardown.
     def setup_repo(repo, repo_path=nil) # :yields: repo_path

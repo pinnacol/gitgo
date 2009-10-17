@@ -17,15 +17,6 @@ class RepoTest < Test::Unit::TestCase
     @repo = nil
   end
   
-  def teardown
-    super
-    Grit.debug = false
-  end
-  
-  def debug!
-    Grit.debug = true
-  end
-  
   #
   # init test
   #

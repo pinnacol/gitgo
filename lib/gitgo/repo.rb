@@ -264,9 +264,9 @@ module Gitgo
       self
     end
     
-    def checkout
-      FileUtils.mkdir_p(work_path) unless File.exists?(work_path)
-      repo.git.run("GIT_WORK_TREE='#{work_path}' ", :checkout, '', {}, branch)
+    def checkout(path=work_path)
+      FileUtils.mkdir_p(path) unless File.exists?(path)
+      repo.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', {}, branch)
     end
     
     def clone(path, options={})
@@ -369,7 +369,9 @@ module Gitgo
         value = tree[key]
         value = write_tree(value) if value.kind_of?(Hash)
         
-        mode, id = value
+        mode, id, flag = value
+        next if flag == :rm
+        
         "#{mode} #{key}\0#{[id].pack("H*")}"
       end
       
