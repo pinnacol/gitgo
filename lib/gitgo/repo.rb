@@ -268,6 +268,14 @@ module Gitgo
       git(:checkout, branch)
     end
     
+    def clone(path, options={})
+      repo.git.clone(options, repo.path, path)
+      clone = Grit::Repo.new(path)
+      clone.git.branch({}, branch, "--track", "origin/#{branch}")
+      
+      Repo.new(clone, :branch => branch, :user => user)
+    end
+    
     protected
     
     # executes the git command in the working tree

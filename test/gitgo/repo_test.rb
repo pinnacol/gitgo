@@ -230,4 +230,42 @@ date: 2009-09-09 09:00:00 -06:00
 --- 
 Page one}, File.read(repo.work_path("pages/one.txt"))
   end
+  
+  #
+  # clone test
+  #
+  
+  def test_clone_clones_a_repository
+    a = Repo.init(method_root.path(:tmp, "a"))
+    a.add("a" => "a content").commit("added a file")
+    
+    b = a.clone(method_root.path(:tmp, "b"))
+    b.add("b" => "b content").commit("added a file")
+    
+    assert_equal a.branch, b.branch
+    assert_equal method_root.path(:tmp, "a/.git"), a.repo.path
+    assert_equal method_root.path(:tmp, "b/.git"), b.repo.path
+    
+    assert_equal "a content", a["a"]
+    assert_equal nil, a["b"]
+    assert_equal "a content", b["a"]
+    assert_equal "b content", b["b"]
+  end
+  
+  def test_clone_clones_a_bare_repository
+    a = Repo.init(method_root.path(:tmp, "a.git"))
+    a.add("a" => "a content").commit("added a file")
+    
+    b = a.clone(method_root.path(:tmp, "b.git"), :bare => true)
+    b.add("b" => "b content").commit("added a file")
+
+    assert_equal a.branch, b.branch
+    assert_equal method_root.path(:tmp, "a.git"), a.repo.path
+    assert_equal method_root.path(:tmp, "b.git"), b.repo.path
+    
+    assert_equal "a content", a["a"]
+    assert_equal nil, a["b"]
+    assert_equal "a content", b["a"]
+    assert_equal "b content", b["b"]
+  end
 end
