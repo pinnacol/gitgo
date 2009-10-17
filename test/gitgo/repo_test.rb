@@ -213,4 +213,21 @@ Page one}, repo["/pages/one.txt"]
     tree = repo.get("/pages/a")
     assert_equal ["b.txt", "c.txt"], contents(tree)
   end
+  
+  #
+  # checkout test
+  #
+  
+  def test_checkout_checks_the_repo_out_into_a_gitgo_directory_under_gitdir
+    assert !File.exists?(repo.work_path)
+    
+    repo.checkout
+
+    assert File.exists?(repo.work_path)
+    assert_equal %Q{--- 
+author: user.one@email.com
+date: 2009-09-09 09:00:00 -06:00
+--- 
+Page one}, File.read(repo.work_path("pages/one.txt"))
+  end
 end

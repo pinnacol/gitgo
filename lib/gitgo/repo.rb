@@ -89,13 +89,12 @@ module Gitgo
       # Initializes a Repo for path, creating the repo if necessary.
       def init(path, options={})
         unless File.exists?(path)
-          if options[:is_bare] || path =~ /\.git$/
-            FileUtils.mkdir_p(File.dirname(path))
-            `GIT_DIR='#{path}' git init --bare`
-          else
-            FileUtils.mkdir_p(path)
-            Dir.chdir(path) { `git init` }
+          unless options[:is_bare] || path =~ /\.git$/
+            path = File.join(path, ".git")
           end
+          
+          git = Grit::Git.new(path)
+          git.init({})
         end
         
         new(path, options)
@@ -124,9 +123,17 @@ module Gitgo
     #   + any Grit::Repo options
     #
     def initialize(path=".", options={})
-      @repo = Grit::Repo.new(path, options)
+      @repo = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
       self.branch = options[:branch] || DEFAULT_BRANCH
       self.user = options[:user]
+    end
+    
+    def path(*paths)
+      File.join(repo.path, *paths)
+    end
+    
+    def work_path(*paths)
+      File.join(repo.path, "gitgo", *paths)
     end
     
     # Returns the current commit for branch.
@@ -181,7 +188,7 @@ module Gitgo
     def commit(message, options={})
       raise "no changes to commit" if status.empty?
       
-      repo_path = "#{repo.path}/refs/heads/#{branch}"
+      repo_path = path("refs/heads/#{branch}")
       
       mode, tree_id = write_tree
       parent = self.current
@@ -257,25 +264,22 @@ module Gitgo
       self
     end
     
-    # Write a raw object to the repository.
-    #
-    # Returns the object id.
-    def write(type, content)
-      data = "#{type} #{content.length}\0#{content}"
-      id = Digest::SHA1.hexdigest(data)[0, 40]
-      path = "#{repo.path}/objects/#{id[0...2]}/#{id[2..39]}"
-
-      unless File.exists?(path)
-        FileUtils.mkdir_p(File.dirname(path))
-        File.open(path, 'wb') do |io|
-          io.write Zlib::Deflate.deflate(data)
-        end
-      end
-
-      id
+    def checkout
+      git(:checkout, branch)
     end
     
     protected
+    
+    # executes the git command in the working tree
+    def git(cmd, *args) # :nodoc:
+      unless File.exists?(work_path)
+        FileUtils.mkdir_p(work_path)
+      end
+      
+      Dir.chdir(work_path) do
+        repo.git.run("GIT_WORK_TREE='#{work_path}' ", cmd, '', {}, args)
+      end
+    end
     
     def segments(path, return_last=false) # :nodoc:
       paths = path.split("/")
@@ -287,6 +291,24 @@ module Gitgo
       end
       
       last
+    end
+    
+    # Write a raw object to the repository.
+    #
+    # Returns the object id.
+    def write(type, content)
+      data = "#{type} #{content.length}\0#{content}"
+      id = Digest::SHA1.hexdigest(data)[0, 40]
+      path = self.path("/objects/#{id[0...2]}/#{id[2..39]}")
+
+      unless File.exists?(path)
+        FileUtils.mkdir_p(File.dirname(path))
+        File.open(path, 'wb') do |io|
+          io.write Zlib::Deflate.deflate(data)
+        end
+      end
+
+      id
     end
     
     def get_tree(path)
