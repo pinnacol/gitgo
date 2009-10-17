@@ -265,25 +265,43 @@ module Gitgo
     end
     
     def checkout
-      git(:checkout, branch)
+      FileUtils.mkdir_p(work_path) unless File.exists?(work_path)
+      repo.git.run("GIT_WORK_TREE='#{work_path}' ", :checkout, '', {}, branch)
     end
     
     def clone(path, options={})
       repo.git.clone(options, repo.path, path)
       clone = Grit::Repo.new(path)
-      clone.git.branch({}, branch, "--track", "origin/#{branch}")
       
+      if options[:bare]
+        # bare origins directly copy branch heads without mapping them to
+        # 'refs/remotes/origin/' (see git-clone docs). this maps the branch
+        # head so the bare repo can checkout branch
+        clone.git.remote({}, "add", "origin", repo.path)
+        clone.git.fetch({}, "origin")
+        clone.git.branch({}, "-D", branch)
+      end
+      
+      # sets up branch to track the origin to enable pulls
+      clone.git.branch({:track => true}, branch, "origin/#{branch}")
       Repo.new(clone, :branch => branch, :user => user)
+    end
+    
+    def pull(remote="origin")
+      git(:pull, remote)
     end
     
     protected
     
     # executes the git command in the working tree
     def git(cmd, *args) # :nodoc:
-      unless File.exists?(work_path)
-        FileUtils.mkdir_p(work_path)
-      end
+      checkout unless File.exists?(work_path)
       
+      # chdir + setting the work tree may seem redundant, but it's not in the
+      # case of a bare repository because:
+      # * some operations need to be done in the work tree
+      # * git will guess the parent dir of the repo if no work tree is set
+      #
       Dir.chdir(work_path) do
         repo.git.run("GIT_WORK_TREE='#{work_path}' ", cmd, '', {}, args)
       end

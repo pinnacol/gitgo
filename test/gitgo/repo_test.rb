@@ -17,6 +17,15 @@ class RepoTest < Test::Unit::TestCase
     @repo = nil
   end
   
+  def teardown
+    super
+    Grit.debug = false
+  end
+  
+  def debug!
+    Grit.debug = true
+  end
+  
   #
   # init test
   #
@@ -267,5 +276,37 @@ Page one}, File.read(repo.work_path("pages/one.txt"))
     assert_equal nil, a["b"]
     assert_equal "a content", b["a"]
     assert_equal "b content", b["b"]
+  end
+  
+  #
+  # pull test
+  #
+  
+  def test_clone_pulls_from_origin
+    a = Repo.init(method_root.path(:tmp, "a"))
+    a.add("a" => "a content").commit("added a file")
+    
+    b = a.clone(method_root.path(:tmp, "b"))
+    assert_equal "a content", b["a"]
+    
+    a.add("a" => "A content").commit("updated file")
+    assert_equal "a content", b["a"]
+
+    b.pull
+    assert_equal "A content", b["a"]
+  end
+  
+  def test_bare_clone_pulls_from_origin
+    a = Repo.init(method_root.path(:tmp, "a.git"))
+    a.add("a" => "a content").commit("added a file")
+    
+    b = a.clone(method_root.path(:tmp, "b.git"), :bare => true)
+    assert_equal "a content", b["a"]
+    
+    a.add("a" => "A content").commit("updated file")
+    assert_equal "a content", b["a"]
+    
+    b.pull
+    assert_equal "A content", b["a"]
   end
 end
