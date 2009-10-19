@@ -102,6 +102,7 @@ module Gitgo
     end
     
     DEFAULT_BRANCH = 'gitgo'
+    WORK_TREE = 'gitgo'
     
     # The internal Grit::Repo
     attr_reader :repo
@@ -128,12 +129,17 @@ module Gitgo
       self.user = options[:user]
     end
     
+    # Returns the specified path relative to the git repo (ie the .git
+    # directory as indicated by repo.path).  With no arguments path returns
+    # the git repo path.
     def path(*paths)
       File.join(repo.path, *paths)
     end
     
+    # Returns a path relative to the gitgo work tree (.git/gitgo).  With no
+    # arguments work_path returns the path to the work tree.
     def work_path(*paths)
-      File.join(repo.path, "gitgo", *paths)
+      File.join(repo.path, WORK_TREE, *paths)
     end
     
     # Returns the current commit for branch.
@@ -225,7 +231,8 @@ module Gitgo
     end
     
     def status
-      prune_tree.delete_if {|key, value| value.nil? }
+      return {} unless tree = prune_tree
+      tree.delete_if {|key, value| value.nil? }
     end
     
     def add(files)
@@ -264,11 +271,20 @@ module Gitgo
       self
     end
     
+    # Checks out self into the directory specified by path.
     def checkout(path=work_path)
       FileUtils.mkdir_p(path) unless File.exists?(path)
       repo.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', {}, branch)
     end
     
+    # Pulls from the remote into the work tree.
+    def pull(remote="origin")
+      git(:pull, remote)
+    end
+    
+    # Clones self into the specified path and sets up tracking of branch in
+    # the new repo.  Clone was primarily implemented for testing; normally
+    # clones are managed by the user.
     def clone(path, options={})
       repo.git.clone(options, repo.path, path)
       clone = Grit::Repo.new(path)
@@ -287,10 +303,6 @@ module Gitgo
       Repo.new(clone, :branch => branch, :user => user)
     end
     
-    def pull(remote="origin")
-      git(:pull, remote)
-    end
-    
     protected
     
     # executes the git command in the working tree
@@ -307,9 +319,11 @@ module Gitgo
       end
     end
     
-    def segments(path, return_last=false) # :nodoc:
+    # splits path and yields each path segment to the block.  if specified,
+    # the basename will be returned instead of being yielded to the block.
+    def segments(path, return_basename=false) # :nodoc:
       paths = path.split("/")
-      last = return_last ? paths.pop : nil
+      last = return_basename ? paths.pop : nil
       
       while seg = paths.shift
         next if seg.empty?
@@ -319,10 +333,9 @@ module Gitgo
       last
     end
     
-    # Write a raw object to the repository.
-    #
-    # Returns the object id.
-    def write(type, content)
+    # Write a raw object to the repository and returns the object id.  This
+    # method is patterned after GitStore#write
+    def write(type, content) # :nodoc:
       data = "#{type} #{content.length}\0#{content}"
       id = Digest::SHA1.hexdigest(data)[0, 40]
       path = self.path("/objects/#{id[0...2]}/#{id[2..39]}")
@@ -337,7 +350,7 @@ module Gitgo
       id
     end
     
-    def get_tree(path)
+    def get_tree(path) # :nodoc:
       obj = get(path)
       
       case obj
