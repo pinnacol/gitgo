@@ -99,6 +99,39 @@ Page one}, blob.data
     assert_equal nil, repo.get("/pages/one.txt/path_under_a_blob")
   end
   
+  def test_get_accepts_an_array_path
+    tree = repo.get([])
+    assert_equal ["comments", "issues", "pages", "users"], contents(tree)
+
+    tree = repo.get([""])
+    assert_equal ["comments", "issues", "pages", "users"], contents(tree)
+
+    tree = repo.get(["pages"])
+    assert_equal ["one", "one.txt"], contents(tree)
+
+    tree = repo.get(["", "pages", ""])
+    assert_equal ["one", "one.txt"], contents(tree)
+
+    blob = repo.get(["pages", "one.txt"])
+    assert_equal "one.txt", blob.name
+    assert_equal %Q{--- 
+author: user.one@email.com
+date: 2009-09-09 09:00:00 -06:00
+--- 
+Page one}, blob.data
+
+    assert_equal nil, repo.get(["non_existant"])
+    assert_equal nil, repo.get(["pages", "non_existant.txt"])
+    assert_equal nil, repo.get(["pages", "one.txt", "path_under_a_blob"])
+  end
+  
+  def test_get_is_not_destructive_to_array_paths
+    array = ["", "pages", ""]
+    tree = repo.get(array)
+    assert_equal ["", "pages", ""], array
+    assert_equal ["one", "one.txt"], contents(tree)
+  end
+  
   #
   # AGET test
   #

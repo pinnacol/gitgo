@@ -116,17 +116,33 @@ module Gitgo
     # The internal tree tracking any adds and removes.
     attr_reader :tree
     
+    # Flag to rebase on pull (default true).  It is technically safer to set
+    # rebase to false on pulls rather than rebase, but it results in a
+    # nonlinear history and for, as far as I know, no real benefit given the
+    # Gitgo data model.
+    #
+    # Debate this point, please.
+    attr_reader :rebase
+    
     # Initializes a new repo at the specified path.  Raises an error if no
     # such repo exists.  Options can specify the following:
     #
     #   :branch     the branch for self
     #   :user       the user for self
+    #   :rebas      flags rebase on pull
     #   + any Grit::Repo options
     #
     def initialize(path=".", options={})
+      options = {
+        :branch => DEFAULT_BRANCH,
+        :user => nil,
+        :rebase => true
+      }.merge(options)
+      
       @repo = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
-      self.branch = options[:branch] || DEFAULT_BRANCH
+      self.branch = options[:branch]
       self.user = options[:user]
+      @rebase = options[:rebase]
     end
     
     # Returns the specified path relative to the git repo (ie the .git
@@ -140,6 +156,15 @@ module Gitgo
     # arguments work_path returns the path to the work tree.
     def work_path(*paths)
       File.join(repo.path, WORK_TREE, *paths)
+    end
+    
+    def sha_path(dir, sha, extension=nil)
+      path = dir.length == 40 ?
+        File.join(dir[0,2], dir[2,38], sha[0,2], sha[2,38]) :
+        File.join(dir, sha[0,2], sha[2,38])
+      
+      path += extension if extension
+      path
     end
     
     # Returns the current commit for branch.
@@ -177,10 +202,14 @@ module Gitgo
       current
     end
     
+    def sha_get(dir, sha, extension=nil)
+      get sha_path(dir, sha, extension)
+    end
+    
     # Gets the content for path.  Returns nil if path doesn't exist (or maps
     # to a tree).
-    def [](path)
-      obj = get(path)
+    def [](path, sha=nil, extension=nil)
+      obj = sha ? sha_get(path, sha, extension) : get(path)
       obj.respond_to?(:data) ? obj.data : nil
     end
     
@@ -271,6 +300,17 @@ module Gitgo
       self
     end
     
+    def sha_add(dir, content, extension=nil)
+      sha = write("blob", content)
+      add(sha_path(dir, sha, extension) => ["100644", sha])
+      sha
+    end
+    
+    def sha_rm(dir, sha, extension=nil)
+      rm(sha_path(dir, sha, extension))
+      sha
+    end
+    
     # Checks out self into the directory specified by path.
     def checkout(path=work_path)
       FileUtils.mkdir_p(path) unless File.exists?(path)
@@ -278,8 +318,8 @@ module Gitgo
     end
     
     # Pulls from the remote into the work tree.
-    def pull(remote="origin")
-      git(:pull, remote)
+    def pull(remote="origin", rebase=self.rebase)
+      git(:pull, remote, :rebase => rebase)
     end
     
     # Clones self into the specified path and sets up tracking of branch in
@@ -315,14 +355,15 @@ module Gitgo
       # * git will guess the parent dir of the repo if no work tree is set
       #
       Dir.chdir(work_path) do
-        repo.git.run("GIT_WORK_TREE='#{work_path}' ", cmd, '', {}, args)
+        options = args.last.kind_of?(Hash) ? args.pop : {}
+        repo.git.run("GIT_WORK_TREE='#{work_path}' ", cmd, '', options, args)
       end
     end
     
     # splits path and yields each path segment to the block.  if specified,
     # the basename will be returned instead of being yielded to the block.
     def segments(path, return_basename=false) # :nodoc:
-      paths = path.split("/")
+      paths = path.kind_of?(String) ? path.split("/") : path.dup
       last = return_basename ? paths.pop : nil
       
       while seg = paths.shift
