@@ -24,7 +24,7 @@ module Gitgo
   #
   #   repo.rm("remove_this_file")
   #   repo.commit("removed extra file")
-  #             
+  #                 
   # Now access the content:
   #
   #   repo["/"]                          # => ["README", "lib"]
@@ -44,7 +44,8 @@ module Gitgo
   # ==== The Working Tree
   #
   # Changes to the repo are tracked by tree until being committed. Tree is a
-  # hash of (path, [mode, sha]) pairs representing the tree contents.
+  # hash of (path, [mode, sha]) pairs representing the tree contents.  Symbol
+  # paths indicate a subtree that could be expanded.
   #
   #   repo.branch = "gitgo"
   #   repo.tree
@@ -53,10 +54,8 @@ module Gitgo
   #   #   :lib     => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
   #   # }
   #
-  # As you can see, tree also tracks the mode and sha of the tree by keys 0
-  # and 1, in order to echo what's happening in the content arrays.  When the
-  # repo adds or removes content, the tree is expanded as needed to show the
-  # changes.
+  # When the repo adds or removes content, the subtrees are expanded as needed
+  # to show the changes.
   #
   #   repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
   #   repo.tree
@@ -86,6 +85,11 @@ module Gitgo
   #   #   }
   #   # }
   #
+  # As you can see, subtrees also track the mode for the subtree.  Note that the expanded
+  # subtrees have not been written to the repo and so they don't have id at this point
+  # (this echos what happens when you stage changes with 'git add' but have yet to commit
+  # the changes with 'git commit').
+  #
   # A summary of the blobs that have changed can be obtained via status:
   #
   #   repo.status
@@ -93,28 +97,28 @@ module Gitgo
   #   #   "README" => :rm
   #   #   "lib/project/utils.rb" => :add
   #   # }
-  # 
+  #     
   # == {GitStore}[http://github.com/georgi/git_store] License
   #
   # Copyright (c) 2008 Matthias Georgi <http://www.matthias-georgi.de>
-  #       
+  #           
   # Permission is hereby granted, free of charge, to any person obtaining a
   # copy of this software and associated documentation files (the "Software"),
   # to deal in the Software without restriction, including without limitation
   # the rights to use, copy, modify, merge, publish, distribute, sublicense,
   # and/or sell copies of the Software, and to permit persons to whom the
   # Software is furnished to do so, subject to the following conditions:
-  #       
+  #           
   # The above copyright notice and this permission notice shall be included in
   # all copies or substantial portions of the Software.
-  #       
+  #           
   # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
   # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
   # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
   # THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
   # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
   # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  #       
+  #           
   class Repo
     class << self
       # Initializes a Repo for path, creating the repo if necessary.
