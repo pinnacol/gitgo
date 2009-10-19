@@ -18,6 +18,78 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # documentation test
+  #
+  
+  def test_repo_documentation
+    repo = Repo.init(method_root.path(:tmp, "example"), :user => "John Doe <jdoe@example.com>")
+    repo.add(
+      "README" => "New Project",
+      "lib/project.rb" => "module Project\nend",
+      "remove_this_file" => "won't be here long...")
+
+    repo.commit("setup a new project")
+
+    repo.rm("remove_this_file")
+    repo.commit("removed extra file")
+
+    assert_equal ["README", "lib"], repo["/"]
+    assert_equal "module Project\nend", repo["/lib/project.rb"]
+    assert_equal nil, repo["/remove_this_file"]
+
+    repo.branch = "gitgo^"
+    assert_equal "won't be here long...", repo["/remove_this_file"]
+
+    assert_equal "cad0dc0df65848aa8f3fee72ce047142ec707320", repo.get("/lib").id
+    assert_equal "636e25a2c9fe1abc3f4d3f380956800d5243800e", repo.get("/lib/project.rb").id
+    
+    #####
+    
+    repo.branch = "gitgo"
+    expected = {
+      "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+      "lib"    => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
+    }
+    assert_equal expected, repo.tree
+  
+    repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
+    expected = {
+      "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+      "lib"    => {
+        0 => "040000",
+        "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
+        "project" => {
+          "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add],
+        }
+      }
+    }
+    assert_equal expected, repo.tree
+  
+    repo.rm("README")
+    expected = {
+      "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1", :rm],
+      "lib"    => {
+        0 => "040000",
+        "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
+        "project" => {
+          "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add],
+        }
+      }
+    }
+    assert_equal expected, repo.tree
+  
+    expected = {
+      "README" => :rm,
+      "lib"    => {
+        "project" => {
+          "utils.rb" => :add,
+        }
+      }
+    }
+    assert_equal expected, repo.status
+  end
+  
+  #
   # init test
   #
   
@@ -136,14 +208,14 @@ Page one}, blob.data
   # AGET test
   #
   
-  def test_AGET_returns_blob_content
+  def test_AGET_returns_blob_or_tree_content
     assert_equal %Q{--- 
 author: user.one@email.com
 date: 2009-09-09 09:00:00 -06:00
 --- 
 Page one}, repo["/pages/one.txt"]
 
-    assert_equal(nil, repo["/pages"])
+    assert_equal(["one.txt", "one"], repo["/pages"])
     assert_equal(nil, repo["/non_existant.txt"])
     assert_equal(nil, repo["/pages/one.txt/non_existant.txt"])
   end

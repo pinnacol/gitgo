@@ -2,9 +2,7 @@ require File.dirname(__FILE__) + "/../test_helper"
 require 'gitgo/repo'
 
 # These model tests are intended to test the various add/remove scenarios and
-# to ensure that pull will cleanly rebase changes together.  ModelTest is a
-# kind of general scenario test.  GitgoModelTest test the following scenarios
-# directly.
+# to ensure that pull will cleanly rebase changes together.
 #
 # == Issue Scenarios
 #
@@ -27,7 +25,7 @@ require 'gitgo/repo'
 # * renames _old_issue as _new_issue
 # * updates index
 #
-# == Page Scenarios (todo)
+# == Page Scenarios
 #
 # add a page:
 # * adds    pages/page

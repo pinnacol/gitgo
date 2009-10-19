@@ -12,78 +12,113 @@ module Gitgo
   #
   # Checkout, add, and commit new content:
   #
-  #   repo = Repo.new
-  #   repo.checkout "branch", :b => true
-  #
+  #   repo = Repo.init("example", :user => "John Doe <jdoe@example.com>")
   #   repo.add(
   #     "README" => "New Project",
   #     "lib/project.rb" => "module Project\nend",
   #     "remove_this_file" => "won't be here long...")
   #
   #   repo.commit("setup a new project")
-  #   repo.current.id                     # => ""
   #
   # Content may be removed as well:
   #
   #   repo.rm("remove_this_file")
   #   repo.commit("removed extra file")
-  #   repo.current.id                     # => ""
-  #        
+  #             
   # Now access the content:
   #
-  #   repo["/"]
-  #   # => {
-  #   #  "lib"    => ["040000", ""],
-  #   #  "README" => ["100644", ""]
-  #   # }
-  #
+  #   repo["/"]                          # => ["README", "lib"]
   #   repo["/lib/project.rb"]            # => "module Project\nend"
   #   repo["/remove_this_file"]          # => nil
   #
-  # You can go back in time if you wish (but commits won't work unless you're
-  # on a valid branch):
+  # You can go back in time if you wish:
   #
-  #   repo.branch = ""
+  #   repo.branch = "gitgo^"
   #   repo["/remove_this_file"]          # => "won't be here long..."
   #
   # For access to the Grit objects, use get:
   #
-  #   repo.get("/lib").id                # => ""
-  #   repo.get("/lib/project.rb").id     # => ""
+  #   repo.get("/lib").id                # => "cad0dc0df65848aa8f3fee72ce047142ec707320"
+  #   repo.get("/lib/project.rb").id     # => "636e25a2c9fe1abc3f4d3f380956800d5243800e"
   #
-  # ==== Implementation Notes
+  # ==== The Working Tree
   #
   # Changes to the repo are tracked by tree until being committed. Tree is a
-  # strange little hash that's designed to allow automatic recursive nesting
-  # while preserving whatever is currently in the tree.  
+  # hash of (path, [mode, sha]) pairs representing the tree contents.
   #
-  # For example, to start with tree just shows the contents of the commit
-  # tree, indexed by filename:
-  #
-  #   repo = Repo.new
+  #   repo.branch = "gitgo"
   #   repo.tree
+  #   # => {
+  #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+  #   #   "lib"    => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
+  #   # }
   #
+  # As you can see, tree also tracks the mode and sha of the tree by keys 0
+  # and 1, in order to echo what's happening in the content arrays.  When the
+  # repo adds or removes content, the tree is expanded as needed to show the
+  # changes.
+  #
+  #   repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
+  #   repo.tree
+  #   # => {
+  #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+  #   #   "lib"    => {
+  #   #     0 => "040000"
+  #   #     "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
+  #   #     "project" => {
+  #   #       0 => "040000",
+  #   #       "utils" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add]
+  #   #     }
+  #   #   }
+  #   # }
+  #
+  #   repo.rm("README")
+  #   repo.tree
+  #   # => {
+  #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1", :rm],
+  #   #   "lib"    => {
+  #   #     0 => "040000",
+  #   #     "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
+  #   #     "project" => {
+  #   #       0 => "040000",
+  #   #       "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add]
+  #   #     }
+  #   #   }
+  #   # }
+  #
+  # A summary of the blobs that have changed can be obtained via status:
+  #
+  #   repo.status
+  #   # => {
+  #   #   "README" => :rm
+  #   #   "lib"    => {
+  #   #     "project" => {
+  #   #       "utils" => :add
+  #   #     }
+  #   #   }
+  #   # }
+  # 
   # == {GitStore}[http://github.com/georgi/git_store] License
   #
   # Copyright (c) 2008 Matthias Georgi <http://www.matthias-georgi.de>
-  #   
+  #       
   # Permission is hereby granted, free of charge, to any person obtaining a
   # copy of this software and associated documentation files (the "Software"),
   # to deal in the Software without restriction, including without limitation
   # the rights to use, copy, modify, merge, publish, distribute, sublicense,
   # and/or sell copies of the Software, and to permit persons to whom the
   # Software is furnished to do so, subject to the following conditions:
-  #   
+  #       
   # The above copyright notice and this permission notice shall be included in
   # all copies or substantial portions of the Software.
-  #   
+  #       
   # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
   # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
   # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
   # THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
   # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
   # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  #   
+  #       
   class Repo
     class << self
       # Initializes a Repo for path, creating the repo if necessary.
@@ -110,9 +145,6 @@ module Gitgo
     # The active branch/commit name
     attr_reader :branch
     
-    # Sets the user.
-    attr_writer :user
-    
     # The internal tree tracking any adds and removes.
     attr_reader :tree
     
@@ -120,8 +152,6 @@ module Gitgo
     # rebase to false on pulls rather than rebase, but it results in a
     # nonlinear history and for, as far as I know, no real benefit given the
     # Gitgo data model.
-    #
-    # Debate this point, please.
     attr_reader :rebase
     
     # Initializes a new repo at the specified path.  Raises an error if no
@@ -175,7 +205,7 @@ module Gitgo
     # Sets the current branch and updates tree.
     def branch=(branch)
       @branch = branch
-      @tree = get_tree("/") || recursive_hash
+      @tree = get_tree("/") || tree_hash
     end
     
     # Returns the configured user (which should be a Grit::Actor, or similar).
@@ -186,6 +216,18 @@ module Gitgo
         name =  repo.config['user.name']
         email = repo.config['user.email']
         Grit::Actor.new(name, email)
+      end
+    end
+    
+    # Sets the user.  The input may be a Grit::Actor, an array like [user,
+    # email], a git-formatted user string (ex 'John Doe <jdoe@example.com>'),
+    # or nil.
+    def user=(input)
+      @user = case input
+      when Grit::Actor, nil then input
+      when Array  then Grit::Actor.new(*input)
+      when String then Grit::Actor.from_string(*input)
+      else raise "could not convert to Grit::Actor: #{input.class}"
       end
     end
     
@@ -210,7 +252,12 @@ module Gitgo
     # to a tree).
     def [](path, sha=nil, extension=nil)
       obj = sha ? sha_get(path, sha, extension) : get(path)
-      obj.respond_to?(:data) ? obj.data : nil
+      
+      case obj
+      when Grit::Blob then obj.data
+      when Grit::Tree then obj.contents.collect {|content| content.name }
+      else nil
+      end
     end
     
     # Sets content for path.
@@ -272,8 +319,13 @@ module Gitgo
           tree = tree[seg]
         end
         
-        # todo :replace mode for overwrite a dir... ?
-        entry = content.kind_of?(Array) ? content : ["100644", write("blob", content)]
+        entry = case content
+        when Array, Hash
+          content
+        else 
+          ["100644", write("blob", content)]
+        end 
+        
         entry[2] = :add
         tree[base] = entry
       end
@@ -289,11 +341,11 @@ module Gitgo
           tree = tree[seg]
         end
         
-        if tree.kind_of?(Array)
-          tree[2] = :rm
-        else
-          recursive_paths = tree.keys.collect! {|key| File.join(path, key) }
-          rm *recursive_paths
+        tree[2] = :rm
+        
+        if tree.kind_of?(Hash)
+          recursive_paths = keys(tree).collect! {|key| File.join(path, key) }
+          rm(*recursive_paths)
         end
       end
       
@@ -396,13 +448,13 @@ module Gitgo
       
       case obj
       when Grit::Tree
-        tree = recursive_hash do |key|
-          get_tree(File.join(path, key))
-        end
+        tree = tree_hash(path)
+        tree[0] = obj.mode if obj.mode
         
         obj.contents.each do |object|
           tree[object.name] = [object.mode, object.id]
         end
+        
         tree
         
       when Grit::Blob
@@ -419,7 +471,7 @@ module Gitgo
       #   mode name\0[packedsha]mode name\0[packedsha]...
       #---------------------------------------------------
       # note there are no newlines separating tree entries.
-      lines = tree.keys.sort!.collect! do |key|
+      lines = keys(tree).sort!.collect! do |key|
         value = tree[key]
         value = write_tree(value) if value.kind_of?(Hash)
         
@@ -429,28 +481,44 @@ module Gitgo
         "#{mode} #{key}\0#{[id].pack("H*")}"
       end
       
-      ["040000", write("tree", lines.join), :add]
+      [tree[0] || "040000", write("tree", lines.join)]
     end
     
     def prune_tree(tree=@tree) # :nodoc:
       hash = {}
-      tree.each_pair do |key, value|
+      keys(tree).each do |key|
+        value = tree[key]
+        
         if value.kind_of?(Hash)
           value = prune_tree(value)
         end
         
         next if value.nil?
-        hash[key] = value.kind_of?(Hash) ? value : value[2]
+        
+        if value.kind_of?(Hash)
+          hash[key] = value
+        elsif state = value[2]
+          hash[key] = state
+        end
       end
       
       hash.empty? ? nil : hash
     end
     
-    def recursive_hash # :nodoc:
+    def tree_hash(path=nil) # :nodoc:
       Hash.new do |hash, key|
-        default = block_given? ? yield(key) : nil
-        hash[key] = default || recursive_hash
+        next if key.kind_of?(Integer)
+        
+        tree = path ? get_tree(File.join(path, key)) : nil
+        hash[key] = tree || tree_hash
       end
     end
+    
+    def keys(tree) # :nodoc:
+      tree.keys.delete_if do |key|
+        key.kind_of?(Integer)
+      end
+    end
+    
   end
 end
