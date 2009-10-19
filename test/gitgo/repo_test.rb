@@ -48,7 +48,7 @@ class RepoTest < Test::Unit::TestCase
     repo.branch = "gitgo"
     expected = {
       "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
-      "lib"    => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
+      :lib     => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
     }
     assert_equal expected, repo.tree
   
@@ -260,6 +260,7 @@ Page one}, repo["/pages/one.txt"]
     assert_equal({
       "pages/a.txt"=>:add,
       "pages/a/b.txt"=>:add,
+      "pages/a/c.txt"=>:rm,
       "pages/one.txt"=>:rm,
       "pages/one/two.txt"=>:rm
     }, repo.status)

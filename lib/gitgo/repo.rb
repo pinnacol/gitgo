@@ -50,7 +50,7 @@ module Gitgo
   #   repo.tree
   #   # => {
   #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
-  #   #   "lib"    => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
+  #   #   :lib     => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
   #   # }
   #
   # As you can see, tree also tracks the mode and sha of the tree by keys 0
@@ -310,7 +310,7 @@ module Gitgo
       files.each_pair do |path, content|
         tree = @tree
         base = segments(path, true) do |seg|
-          tree.delete(seg) unless tree[seg].kind_of?(Hash)
+          tree.delete(seg.to_sym)
           tree = tree[seg]
         end
         
@@ -332,7 +332,7 @@ module Gitgo
       paths.each do |path|
         tree = @tree
         segments(path) do |seg|
-          tree.delete(seg) unless tree[seg].kind_of?(Hash)
+          tree.delete(seg.to_sym)
           tree = tree[seg]
         end
         
@@ -445,9 +445,12 @@ module Gitgo
       when Grit::Tree
         tree = tree_hash(path)
         tree[0] = obj.mode if obj.mode
+        # tree[1] = obj.id
         
         obj.contents.each do |object|
-          tree[object.name] = [object.mode, object.id]
+          key = object.name
+          key = key.to_sym if object.kind_of?(Grit::Tree)
+          tree[key] = [object.mode, object.id]
         end
         
         tree
@@ -466,7 +469,9 @@ module Gitgo
       #   mode name\0[packedsha]mode name\0[packedsha]...
       #---------------------------------------------------
       # note there are no newlines separating tree entries.
-      lines = keys(tree).sort!.collect! do |key|
+      lines = keys(tree).sort_by do |key|
+        key.to_s
+      end.collect! do |key|
         value = tree[key]
         value = write_tree(value) if value.kind_of?(Hash)
         
@@ -482,7 +487,7 @@ module Gitgo
     def diff_tree(tree=@tree, target={}, path=nil) # :nodoc:
       keys(tree).each do |key|
         value = tree[key]
-        key = File.join(path, key) if path
+        key = File.join(path, key.to_s) if path
         
         case
         when value.kind_of?(Hash)
