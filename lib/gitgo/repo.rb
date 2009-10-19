@@ -91,11 +91,7 @@ module Gitgo
   #   repo.status
   #   # => {
   #   #   "README" => :rm
-  #   #   "lib"    => {
-  #   #     "project" => {
-  #   #       "utils" => :add
-  #   #     }
-  #   #   }
+  #   #   "lib/project/utils.rb" => :add
   #   # }
   # 
   # == {GitStore}[http://github.com/georgi/git_store] License
@@ -307,8 +303,7 @@ module Gitgo
     end
     
     def status
-      return {} unless tree = prune_tree
-      tree.delete_if {|key, value| value.nil? }
+      diff_tree
     end
     
     def add(files)
@@ -484,25 +479,20 @@ module Gitgo
       [tree[0] || "040000", write("tree", lines.join)]
     end
     
-    def prune_tree(tree=@tree) # :nodoc:
-      hash = {}
+    def diff_tree(tree=@tree, target={}, path=nil) # :nodoc:
       keys(tree).each do |key|
         value = tree[key]
+        key = File.join(path, key) if path
         
-        if value.kind_of?(Hash)
-          value = prune_tree(value)
-        end
-        
-        next if value.nil?
-        
-        if value.kind_of?(Hash)
-          hash[key] = value
-        elsif state = value[2]
-          hash[key] = state
+        case
+        when value.kind_of?(Hash)
+          diff_tree(value, target, key)
+        when state = value[2]
+          target[key] = state
         end
       end
       
-      hash.empty? ? nil : hash
+      target
     end
     
     def tree_hash(path=nil) # :nodoc:

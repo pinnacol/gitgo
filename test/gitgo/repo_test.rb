@@ -80,11 +80,7 @@ class RepoTest < Test::Unit::TestCase
   
     expected = {
       "README" => :rm,
-      "lib"    => {
-        "project" => {
-          "utils.rb" => :add,
-        }
-      }
+      "lib/project/utils.rb" => :add
     }
     assert_equal expected, repo.status
   end
@@ -253,19 +249,19 @@ Page one}, repo["/pages/one.txt"]
       "/pages/a/c.txt" => "file c content"
     )
     
+    assert_equal({
+      "pages/a.txt"=>:add,
+      "pages/a/b.txt"=>:add,
+      "pages/a/c.txt"=>:add
+    }, repo.status)
+    
     repo.rm("pages/one", "pages/one.txt", "/pages/a/c.txt")
     
     assert_equal({
-      "pages" => {
-        "a" => {
-          "b.txt" => :add
-        },
-        "a.txt" => :add,
-        "one" => {
-          "two.txt" => :rm
-        },
-        "one.txt" => :rm
-      }
+      "pages/a.txt"=>:add,
+      "pages/a/b.txt"=>:add,
+      "pages/one.txt"=>:rm,
+      "pages/one/two.txt"=>:rm
     }, repo.status)
   end
   
