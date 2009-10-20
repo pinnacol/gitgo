@@ -143,10 +143,10 @@ class RepoTest < Test::Unit::TestCase
   
   def test_get_returns_an_object_corresponding_to_the_path
     tree = repo.get("")
-    assert_equal ["comments", "issues", "pages", "users"], contents(tree)
+    assert_equal ["11", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
     
     tree = repo.get("/")
-    assert_equal ["comments", "issues", "pages", "users"], contents(tree)
+    assert_equal ["11", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
 
     tree = repo.get("/pages")
     assert_equal ["one", "one.txt"], contents(tree)
@@ -169,10 +169,10 @@ Page one}, blob.data
   
   def test_get_accepts_an_array_path
     tree = repo.get([])
-    assert_equal ["comments", "issues", "pages", "users"], contents(tree)
+    assert_equal ["11", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
 
     tree = repo.get([""])
-    assert_equal ["comments", "issues", "pages", "users"], contents(tree)
+    assert_equal ["11", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
 
     tree = repo.get(["pages"])
     assert_equal ["one", "one.txt"], contents(tree)
@@ -316,6 +316,96 @@ Page one}, repo["/pages/one.txt"]
     assert_equal ["b.txt", "c.txt"], contents(tree)
   end
   
+  #
+  # link test
+  #
+  
+  def test_link_links_the_parent_sha_to_the_child_sha
+    parent = repo.write("blob", "parent content")
+    child = repo.write("blob", "child content")
+    
+    repo.link(parent, child).commit("linked a file")
+    assert_equal "child content", repo["#{parent[0,2]}/#{parent[2,38]}/#{child}"]
+    
+    repo.link(parent, child + ".ext", "100644", child).commit("linked a file with an extension")
+    assert_equal "child content", repo["#{parent[0,2]}/#{parent[2,38]}/#{child}.ext"]
+  end
+  
+  #
+  # links test
+  #
+  
+  def test_links_returns_array_of_children
+    assert_equal [], repo.links("3a2662fad86206d8562adbf551855c01f248d4a2")
+    
+    assert_equal [
+      "c1a80236d015d612d6251fca9611847362698e1c"
+    ], repo.links("11361c0dbe9a65c223ff07f084cceb9c6cf3a043")
+    
+    assert_equal [
+      "0407a96aebf2108e60927545f054a02f20e981ac",
+      "feff7babf81ab6dae82e2036fe457f0347d74c4f"
+    ], repo.links("dfe0ffed95402aed8420df921852edf6fcba2966")
+  end
+  
+  #
+  # unlink test
+  #
+  
+  def test_unlink_removes_the_parent_child_linkage
+    parent = "11361c0dbe9a65c223ff07f084cceb9c6cf3a043"
+    child = "c1a80236d015d612d6251fca9611847362698e1c"
+    grandchild = "0407a96aebf2108e60927545f054a02f20e981ac"
+
+    assert_equal %Q{--- 
+author: user.two@email.com
+date: 2009-09-10 09:00:00 -06:00
+--- 
+Issue Two Comment
+}, repo["#{parent[0,2]}/#{parent[2,38]}/#{child}"]
+    
+    assert_equal %Q{--- 
+author: user.one@email.com
+date: 2009-09-11 09:00:00 -06:00
+state: closed
+}, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
+
+
+    repo.unlink(parent, child).commit("unlinked a file")
+    
+    assert_equal nil, repo["#{parent[0,2]}/#{parent[2,38]}/#{child}"]
+    assert_equal %Q{--- 
+author: user.one@email.com
+date: 2009-09-11 09:00:00 -06:00
+state: closed
+}, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
+  end
+  
+  def test_unlink_reursively_removes_children_if_specified
+    parent = "11361c0dbe9a65c223ff07f084cceb9c6cf3a043"
+    child = "c1a80236d015d612d6251fca9611847362698e1c"
+    grandchild = "0407a96aebf2108e60927545f054a02f20e981ac"
+
+    assert_equal %Q{--- 
+author: user.two@email.com
+date: 2009-09-10 09:00:00 -06:00
+--- 
+Issue Two Comment
+}, repo["#{parent[0,2]}/#{parent[2,38]}/#{child}"]
+
+    assert_equal %Q{--- 
+author: user.one@email.com
+date: 2009-09-11 09:00:00 -06:00
+state: closed
+}, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
+
+
+    repo.unlink(parent, child, true).commit("recursively unlinked a file")
+
+    assert_equal nil, repo["#{parent[0,2]}/#{parent[2,38]}/#{child}"]
+    assert_equal nil, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
+  end
+    
   #
   # checkout test
   #

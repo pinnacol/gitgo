@@ -262,13 +262,13 @@ class ModelTest < Test::Unit::TestCase
     
     a.commit("added an issue")
     
-    assert_equal "issue", a["issues", issue]
-    assert_equal "index", a[issue, index, "i"]
+    assert_equal "issue", a["issues/#{issue}"]
+    assert_equal "index", a["#{issue}/#{index}i"]
 
     b.pull
     
-    assert_equal "issue", b["issues", issue]
-    assert_equal "index", b[issue, index, "i"]
+    assert_equal "issue", b["issues/#{issue}"]
+    assert_equal "index", b["#{issue}/#{index}i"]
   end
   
   def test_a_and_b_add_an_issue
@@ -284,8 +284,8 @@ class ModelTest < Test::Unit::TestCase
     
     b.pull
     
-    assert_equal "issue", b["issues", issue]
-    assert_equal "index", b[issue, index, "i"]
+    assert_equal "issue", b["issues/#{issue}"]
+    assert_equal "index", b["#{issue}/#{index}i"]
     
     assert_log_equal [
       "a added one",
@@ -309,17 +309,17 @@ class ModelTest < Test::Unit::TestCase
     
     a.commit("modified an issue")
     
-    assert_equal "issue",       a["issues", issue]
-    assert_equal "comment",     a[issue, comment]
-    assert_equal nil,           a[issue, old_index, "i"]
-    assert_equal "new index",   a[issue, new_index, "i"]
+    assert_equal "issue",       a["issues/#{issue}"]
+    assert_equal "comment",     a["#{issue}/#{comment}"]
+    assert_equal nil,           a["#{issue}/#{old_index}i"]
+    assert_equal "new index",   a["#{issue}/#{new_index}i"]
 
     b.pull
     
-    assert_equal "issue",       b["issues", issue]
-    assert_equal "comment",     b[issue, comment]
-    assert_equal nil,           b[issue, old_index, "i"]
-    assert_equal "new index",   b[issue, new_index, "i"]
+    assert_equal "issue",       b["issues/#{issue}"]
+    assert_equal "comment",     b["#{issue}/#{comment}"]
+    assert_equal nil,           b["#{issue}/#{old_index}i"]
+    assert_equal "new index",   b["#{issue}/#{new_index}i"]
   end
   
   def test_a_and_b_modifies_an_issue
@@ -342,12 +342,12 @@ class ModelTest < Test::Unit::TestCase
     
     b.pull
     
-    assert_equal "issue",       b["issues", issue]
-    assert_equal "a comment",   b[issue, comment_a]
-    assert_equal "b comment",   b[issue, comment_b]
-    assert_equal nil,           b[issue, old_index, "i"]
-    assert_equal "new a index", b[issue, new_a_index, "i"]
-    assert_equal "new b index", b[issue, new_b_index, "i"]
+    assert_equal "issue",       b["issues/#{issue}"]
+    assert_equal "a comment",   b["#{issue}/#{comment_a}"]
+    assert_equal "b comment",   b["#{issue}/#{comment_b}"]
+    assert_equal nil,           b["#{issue}/#{old_index}i"]
+    assert_equal "new a index", b["#{issue}/#{new_a_index}i"]
+    assert_equal "new b index", b["#{issue}/#{new_b_index}i"]
     
     assert_log_equal [
       "a added one",
@@ -371,13 +371,13 @@ class ModelTest < Test::Unit::TestCase
     
     a.commit("removed an issue")
     
-    assert_equal nil, a["issues", issue]
-    assert_equal nil, a[issue, index, "i"]
+    assert_equal nil, a["issues/#{issue}"]
+    assert_equal nil, a["issues/#{issue}i"]
 
     b.pull
     
-    assert_equal nil, b["issues", issue]
-    assert_equal nil, b[issue, index, "i"]
+    assert_equal nil, b["issues/#{issue}"]
+    assert_equal nil, b["issues/#{issue}i"]
   end
   
   def test_a_and_b_remove_an_issue
@@ -400,8 +400,8 @@ class ModelTest < Test::Unit::TestCase
     
     b.pull
     
-    assert_equal nil, b["issues", issue]
-    assert_equal nil, b[issue, index, "i"]
+    assert_equal nil, b["issues/#{issue}"]
+    assert_equal nil, b["issues/#{issue}i"]
     
     assert_log_equal [
       "a added one",

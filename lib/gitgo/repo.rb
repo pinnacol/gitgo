@@ -138,6 +138,9 @@ module Gitgo
     
     DEFAULT_BRANCH = 'gitgo'
     WORK_TREE = 'gitgo'
+
+    DEFAULT_BLOB_MODE = "100644"
+    DEFAULT_TREE_MODE = "040000"
     
     # The internal Grit::Repo
     attr_reader :repo
@@ -188,15 +191,6 @@ module Gitgo
       File.join(repo.path, WORK_TREE, *paths)
     end
     
-    def sha_path(dir, sha, extension=nil)
-      path = dir.length == 40 ?
-        File.join(dir[0,2], dir[2,38], sha[0,2], sha[2,38]) :
-        File.join(dir, sha[0,2], sha[2,38])
-      
-      path += extension if extension
-      path
-    end
-    
     # Returns the current commit for branch.
     def current
       repo.commits(branch, 1).first
@@ -244,14 +238,10 @@ module Gitgo
       current
     end
     
-    def sha_get(dir, sha, extension=nil)
-      get sha_path(dir, sha, extension)
-    end
-    
     # Gets the content for path.  Returns nil if path doesn't exist (or maps
     # to a tree).
-    def [](path, sha=nil, extension=nil)
-      obj = sha ? sha_get(path, sha, extension) : get(path)
+    def [](path)
+      obj = get(path)
       
       case obj
       when Grit::Blob then obj.data
@@ -261,8 +251,29 @@ module Gitgo
     end
     
     # Sets content for path.
-    def []=(path, content)
-      add(path => content)
+    def []=(path, content=nil)
+      if content.nil?
+        rm(path)
+      else
+        add(path => content)
+      end
+    end
+    
+    # Write a raw object to the repository and returns the object id.  This
+    # method is patterned after GitStore#write
+    def write(type, content)
+      data = "#{type} #{content.length}\0#{content}"
+      id = Digest::SHA1.hexdigest(data)[0, 40]
+      path = self.path("/objects/#{id[0...2]}/#{id[2..39]}")
+
+      unless File.exists?(path)
+        FileUtils.mkdir_p(File.dirname(path))
+        File.open(path, 'wb') do |io|
+          io.write Zlib::Deflate.deflate(data)
+        end
+      end
+
+      id
     end
     
     # Commits the current tree to branch with the specified message.  The
@@ -322,7 +333,7 @@ module Gitgo
         when Array, Hash
           content
         else 
-          ["100644", write("blob", content)]
+          [DEFAULT_BLOB_MODE, write("blob", content)]
         end 
         
         entry[2] = :add
@@ -351,15 +362,29 @@ module Gitgo
       self
     end
     
-    def sha_add(dir, content, extension=nil)
-      sha = write("blob", content)
-      add(sha_path(dir, sha, extension) => ["100644", sha])
-      sha
+    # Links the parent and child by adding a reference to the child under the
+    # sha-path for the parent.
+    def link(parent, child, mode=DEFAULT_BLOB_MODE, sha=child)
+      add(sha_path(parent, child) => [mode, sha])
+      self
     end
-    
-    def sha_rm(dir, sha, extension=nil)
-      rm(sha_path(dir, sha, extension))
-      sha
+
+    # Returns references under sha-path for the parent. 
+    def links(parent)
+      self[sha_path(parent)] || []
+    end
+
+    # Unlinks the parent and child by removing the reference to the child
+    # under the sha-path for the parent.  Unlink will recursively remove all
+    # links to the child if specified.
+    def unlink(parent, child, recursive=false)
+      rm(sha_path(parent, child))
+
+      links(child).each do |grandchild|
+        unlink(child, grandchild, recursive)
+      end if recursive
+
+      self
     end
     
     # Checks out self into the directory specified by path.
@@ -411,6 +436,10 @@ module Gitgo
       end
     end
     
+    def sha_path(sha, *paths) # :nodoc:
+      File.join(sha[0,2], sha[2,38], *paths)
+    end
+    
     # splits path and yields each path segment to the block.  if specified,
     # the basename will be returned instead of being yielded to the block.
     def segments(path, return_basename=false) # :nodoc:
@@ -423,23 +452,6 @@ module Gitgo
       end
       
       last
-    end
-    
-    # Write a raw object to the repository and returns the object id.  This
-    # method is patterned after GitStore#write
-    def write(type, content) # :nodoc:
-      data = "#{type} #{content.length}\0#{content}"
-      id = Digest::SHA1.hexdigest(data)[0, 40]
-      path = self.path("/objects/#{id[0...2]}/#{id[2..39]}")
-
-      unless File.exists?(path)
-        FileUtils.mkdir_p(File.dirname(path))
-        File.open(path, 'wb') do |io|
-          io.write Zlib::Deflate.deflate(data)
-        end
-      end
-
-      id
     end
     
     def get_tree(path) # :nodoc:
@@ -485,7 +497,7 @@ module Gitgo
         "#{mode} #{key}\0#{[id].pack("H*")}"
       end
       
-      [tree[0] || "040000", write("tree", lines.join)]
+      [tree[0] || DEFAULT_TREE_MODE, write("tree", lines.join)]
     end
     
     def diff_tree(tree=@tree, target={}, path=nil) # :nodoc:
