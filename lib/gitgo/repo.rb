@@ -122,7 +122,7 @@ module Gitgo
   class Repo
     class << self
       # Initializes a Repo for path, creating the repo if necessary.
-      def init(path, options={})
+      def init(path=Dir.pwd, options={})
         unless File.exists?(path)
           unless options[:is_bare] || path =~ /\.git$/
             path = File.join(path, ".git")
@@ -165,7 +165,7 @@ module Gitgo
     #   :rebas      flags rebase on pull
     #   + any Grit::Repo options
     #
-    def initialize(path=".", options={})
+    def initialize(path=Dir.pwd, options={})
       options = {
         :branch => DEFAULT_BRANCH,
         :user => nil,

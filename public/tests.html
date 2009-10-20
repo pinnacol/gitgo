@@ -1,0 +1,25 @@
+<html>
+  <head>
+    <title>Blocks Tests</title>
+    <link type="text/css" rel="stylesheet" href="/spec/jspec.css" />
+    <link type="text/css" rel="stylesheet" href="/css/project.css">
+    <script src="/spec/jspec.js"></script>
+    <script src="/javascript/project.js"></script>
+    <script>
+      function runSuites() {
+        JSpec
+        .exec('/spec/project_spec.js')
+        .run()
+        .report()
+      }
+    </script>
+  </head>
+  <body class="jspec" onLoad="runSuites();">
+    <div id="jspec-top"><h2 id="jspec-title">JSpec <em><script>document.write(JSpec.version)</script></em></h2></div>
+    <div id="jspec"></div>
+    <div id="jspec-bottom"></div>
+    <ul>
+      <li><a href="/">Back to Index</a></li>
+    </ul>
+  </body>
+</html>

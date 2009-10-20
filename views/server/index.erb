@@ -1,0 +1,31 @@
+<h1><%= repo.path %></h1>
+
+<div>
+  <h2><a href="/comments">Code</a></h2>
+  
+  <% branches = grit.branches %>
+  <% if branches.empty? %>
+  <em>No branches yet.</em>
+  <% end %>
+
+  <ul>
+  <% branches.each do |ref| %>
+  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li>
+  <% end %>
+  </ul>
+
+  <h2>Tags</h2>
+
+  <% tags = grit.tags %>
+  <% if tags.empty? %>
+  <em>No tags yet.</em>
+  <% end %>
+
+  <ul>
+  <% tags.each do |ref| %>
+  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li>
+  <% end %>
+  </ul>
+</div>
+
+

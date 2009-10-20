@@ -1,0 +1,15 @@
+<%= erb :_commit, :locals => {:commit => commit }, :layout => false %>
+
+<ul>
+<% commit.diffs.each do |diff| %>
+<li>
+<%   if diff.new_file %>
+(add) <%= diff.b_path %>
+<%   elsif diff.deleted_file %>
+(rm)  <%= diff.a_path %>
+<%   else %>
+<pre><%= diff.diff %></pre>
+<%   end %>
+</li>
+<% end %>
+</ul>

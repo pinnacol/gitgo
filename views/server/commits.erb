@@ -1,0 +1,21 @@
+<h1>Commits</h1>
+
+<ul>
+<% if page >= 1 %>
+<li><a href="/<%= id %>/commits?page=<%= page - 1 %>&per_page=<%= per_page %>">previous</a></li>
+<% else %>
+<li>(previous)</li>
+<% end %>
+<% if commits.length == per_page %>
+<li><a href="/<%= id %>/commits?page=<%= page + 1 %>&per_page=<%= per_page %>">next</a></li>
+<% else %>
+<li>(next)</li>
+<% end %>
+</ul>
+
+<ul>
+<% commits.each do |commit| %>
+<li><%= erb :_commit, :locals => {:commit => commit }, :layout => false %></li>
+<% end %>
+</ul>
+

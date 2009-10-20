@@ -1,0 +1,7 @@
+<%= erb :_commit, :locals => {:commit => commit }, :layout => false %>
+
+<p><%= path_links(id, path) %></p>
+
+<pre>
+<%= blob.data %>
+</pre>

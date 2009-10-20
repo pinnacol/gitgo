@@ -1,0 +1,26 @@
+<dl>
+  <dt>message</dt>
+  <dd><%= commit.message %></dd>
+  <dt>author</dt>
+  <dd><%= commit.author.name %> (<%= commit.author.email %>)</dd>
+  <dt>date</dt>
+  <dd><%= commit.authored_date %>
+<% if commit.author.to_s != commit.committer.to_s %>
+  <dt>committer</dt>
+  <dd><%= commit.committer %> (<%= commit.committer.email %>)
+  <dt>date</dt>
+  <dd><%= commit.committed_date %></dd>
+<% end %>
+  <dt>commit</dt>
+  <dd><%= commit_link(commit.sha) %></dd>
+  <dt>tree</dt>
+  <dd><%= tree_link(commit.sha) %></dd>
+  <dt>parents</dt>
+  <dd>
+    <ul>
+<% commit.parents.each do |parent| %>
+    <li><%= commit_link(parent.sha) %></li>
+<% end %>
+    </ul>
+  </dd>
+</dd>
