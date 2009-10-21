@@ -1,5 +1,5 @@
 require 'gitgo/repo'
-require 'gitgo/comments'
+require 'gitgo/documents'
 
 module Gitgo
   class Server < Controller
@@ -16,9 +16,10 @@ module Gitgo
     get('/tree/:id/*')  {|id, path| show_tree(id, path) }
     get('/blob/:id/*')  {|id, path| show_blob(id, path) }
     get('/show/:sha')   {|sha| show_sha(sha) }
+    get('/timeline')    { timeline }
     get("/:id/commits") {|id| show_history(id) }
     
-    use Comments
+    use Documents
     
     def show_commit(id)
       commit = self.commit(id) || not_found
@@ -52,6 +53,17 @@ module Gitgo
         erb :diff, :locals => {:commit => grit.commit(sha)}
       else not_found
       end
+    end
+    
+    def timeline
+      page = (request[:page] || 0).to_i
+      per_page = (request[:per_page] || 10).to_i
+      
+      erb :timeline, :locals => {
+        :page => page,
+        :per_page => per_page,
+        :shas => latest(per_page, page * per_page)
+      }
     end
     
     def show_history(id)

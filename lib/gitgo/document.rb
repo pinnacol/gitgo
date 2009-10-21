@@ -1,9 +1,6 @@
-require 'gitgo/utils/sorted_to_yaml'
-
 module Gitgo
   class Document
     class << self
-
       protected
 
       def attribute_reader(key)
@@ -67,9 +64,26 @@ module Gitgo
     def to_s
       @str ||= begin
         attrs = @attributes.dup
-        attrs.extend(Utils::SortedToYaml)
+        attrs.extend(SortedToYaml)
         content = attrs.delete('content')
         "#{attrs.to_yaml}--- \n#{content}"
+      end
+    end
+    
+    # From: http://snippets.dzone.com/posts/show/5811
+    module SortedToYaml
+      
+      # Replacing the to_yaml function so it'll serialize hashes sorted (by their keys)
+      #
+      # Original function is in /usr/lib/ruby/1.8/yaml/rubytypes.rb
+      def to_yaml( opts = {} )
+        YAML::quick_emit( object_id, opts ) do |out|
+          out.map( taguri, to_yaml_style ) do |map|
+            sort.each do |k, v|   # <-- here's my addition (the 'sort')
+              map.add( k, v )
+            end
+          end
+        end
       end
     end
   end
