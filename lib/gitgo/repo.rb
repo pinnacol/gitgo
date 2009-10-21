@@ -361,7 +361,7 @@ module Gitgo
       
       self
     end
-    
+
     # Links the parent and child by adding a reference to the child under the
     # sha-path for the parent.
     def link(parent, child, mode=DEFAULT_BLOB_MODE, sha=child)
@@ -382,6 +382,37 @@ module Gitgo
 
       links(child).each do |grandchild|
         unlink(child, grandchild, recursive)
+      end if recursive
+
+      self
+    end
+    
+    # Registers the object to the specified type by adding a reference to the
+    # sha under the type directory.
+    def register(type, sha, mode=DEFAULT_BLOB_MODE)
+      add(registry_path(type, sha) => [mode, sha])
+      self
+    end
+    
+    # Returns a list of shas registered to the type.
+    def registry(type)
+      shas = []
+      (self[type] || []).each do |ab|
+        self[File.join(type, ab)].each do |xyz|
+          shas << ab + xyz
+        end
+      end
+      shas
+    end
+    
+    # Unregisters the sha to the type by removing the reference to the sha
+    # under the type directory.  Unregister will recursively remove all links
+    # to the sha if specified.
+    def unregister(type, sha, recursive=false)
+      rm(registry_path(type, sha))
+
+      links(sha).each do |child|
+        unlink(sha, child, recursive)
       end if recursive
 
       self
@@ -438,6 +469,10 @@ module Gitgo
     
     def sha_path(sha, *paths) # :nodoc:
       File.join(sha[0,2], sha[2,38], *paths)
+    end
+    
+    def registry_path(type, sha) # :nodoc:
+      File.join(type, sha[0,2], sha[2,38])
     end
     
     # splits path and yields each path segment to the block.  if specified,

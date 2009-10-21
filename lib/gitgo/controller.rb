@@ -47,13 +47,6 @@ module Gitgo
     set :repo, nil
     set :user, nil
     
-    attr_reader :repo
-    
-    def initialize(app=nil, repo=nil)
-      super(app)
-      @repo = repo || options.repo
-    end
-    
     template(:layout) do 
       File.read("views/layout.erb")
     end
@@ -70,6 +63,16 @@ module Gitgo
       erb :error, :views => "views", :locals => {:err => env['sinatra.error']}
     end
     
+    # Returns the Gitgo::Repo for self
+    attr_reader :repo
+    
+    def initialize(app=nil, repo=nil)
+      super(app)
+      @repo = repo || options.repo
+    end
+    
+    # Nests path under the class resource_name, if set.  Otherwise url simply
+    # returns the path.
     def url(path="/")
       return path unless resource_name = options.resource_name
       path == "/" || path == "" ? "/#{resource_name}" : File.join("/#{resource_name}", path)

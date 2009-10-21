@@ -405,7 +405,117 @@ state: closed
     assert_equal nil, repo["#{parent[0,2]}/#{parent[2,38]}/#{child}"]
     assert_equal nil, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
   end
+  
+  #
+  # register test
+  #
+  
+  def test_register_adds_the_sha_to_the_type_directory
+    issue = repo.write("blob", "new issue")
     
+    repo.register("issues", issue).commit("added an issue")
+    assert_equal "new issue", repo["issues/#{issue[0,2]}/#{issue[2,38]}"]
+  end
+  
+  def test_register_can_register_new_types
+    thing = repo.write("blob", "new thing")
+    
+    repo.register("things", thing).commit("added a thing")
+    assert_equal "new thing", repo["things/#{thing[0,2]}/#{thing[2,38]}"]
+  end
+  
+  #
+  # registry test
+  #
+  
+  def test_registry_returns_array_of_registered_shas
+    assert_equal [], repo.registry("non_existant")
+    
+    assert_equal [
+      "11361c0dbe9a65c223ff07f084cceb9c6cf3a043",
+      "3a2662fad86206d8562adbf551855c01f248d4a2",
+      "dfe0ffed95402aed8420df921852edf6fcba2966"
+    ], repo.registry("issues")
+  end
+  
+  #
+  # unregister test
+  #
+  
+  def test_unregister_removes_sha_from_the_type_directory
+    issue = "11361c0dbe9a65c223ff07f084cceb9c6cf3a043"
+    child = "c1a80236d015d612d6251fca9611847362698e1c"
+
+    assert_equal %Q{--- 
+author: user.one@email.com
+date: 2009-09-09 09:00:00 -06:00
+title: Issue Two
+state: open
+tags:
+- a
+- b
+- c
+--- 
+Issue Two Content
+}, repo["issues/#{issue[0,2]}/#{issue[2,38]}"]
+
+    assert_equal %Q{--- 
+author: user.two@email.com
+date: 2009-09-10 09:00:00 -06:00
+--- 
+Issue Two Comment
+}, repo["#{issue[0,2]}/#{issue[2,38]}/#{child}"]
+
+    repo.unregister("issues", issue).commit("removed an issue")
+
+    assert_equal nil, repo["issues/#{issue[0,2]}/#{issue[2,38]}"]
+    assert_equal %Q{--- 
+author: user.two@email.com
+date: 2009-09-10 09:00:00 -06:00
+--- 
+Issue Two Comment
+}, repo["#{issue[0,2]}/#{issue[2,38]}/#{child}"]
+  end
+  
+  def test_unregister_reursively_removes_children_if_specified
+    issue = "11361c0dbe9a65c223ff07f084cceb9c6cf3a043"
+    child = "c1a80236d015d612d6251fca9611847362698e1c"
+    grandchild = "0407a96aebf2108e60927545f054a02f20e981ac"
+
+    assert_equal %Q{--- 
+author: user.one@email.com
+date: 2009-09-09 09:00:00 -06:00
+title: Issue Two
+state: open
+tags:
+- a
+- b
+- c
+--- 
+Issue Two Content
+}, repo["issues/#{issue[0,2]}/#{issue[2,38]}"]
+    
+    assert_equal %Q{--- 
+author: user.two@email.com
+date: 2009-09-10 09:00:00 -06:00
+--- 
+Issue Two Comment
+}, repo["#{issue[0,2]}/#{issue[2,38]}/#{child}"]
+
+    assert_equal %Q{--- 
+author: user.one@email.com
+date: 2009-09-11 09:00:00 -06:00
+state: closed
+}, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
+
+
+    repo.unregister("issues", issue, true).commit("recursively removed an issue")
+    
+    assert_equal nil, repo["issues/#{issue[0,2]}/#{issue[2,38]}"]
+    assert_equal nil, repo["#{issue[0,2]}/#{issue[2,38]}/#{child}"]
+    assert_equal nil, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
+  end
+  
   #
   # checkout test
   #
