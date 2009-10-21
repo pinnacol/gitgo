@@ -82,6 +82,10 @@ module Gitgo
       @repo = repo || options.repo
     end
     
+    def grit
+      repo.repo
+    end
+    
     # Nests path under the class resource_name, if set.  Otherwise url simply
     # returns the path.
     def url(path="/")

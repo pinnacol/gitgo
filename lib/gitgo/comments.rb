@@ -1,4 +1,5 @@
 require 'gitgo/controller'
+require 'gitgo/document'
 
 module Gitgo
   class Comments < Controller
@@ -73,6 +74,15 @@ module Gitgo
         :per_page => per_page,
         :shas => latest(per_page, page * per_page)
       }
+    end
+    
+    def show(id)
+      if blob = grit.blob(id)
+        comment = Document.new(blob.data, id)
+        erb :comment, :locals => {:comment => comment}
+      else
+        not_found
+      end
     end
   end
 end

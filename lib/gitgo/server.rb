@@ -20,10 +20,6 @@ module Gitgo
     
     use Comments
     
-    def grit
-      repo.repo
-    end
-    
     def show_commit(id)
       commit = self.commit(id) || not_found
       erb :diff, :locals => {:commit => commit}
