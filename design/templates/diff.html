@@ -1,0 +1,33 @@
+<div class="diff">
+  <ul class="diff">
+  <li class="diff">
+    <!-- todo: split this into a list -->
+    <pre>
+--- a/design/calc.rb
++++ b/design/calc.rb
+@@ -1 +1,65 @@
++sizes = {}
++(1..10).each do |n|
++  (1..10).each do |m|
++    size = (38*n + 2*m - 95)
++    (sizes[(n+m-1)] ||= []) &lt;&lt; [n, m, size, size &gt; 0 ? "nest" : "non-nest"]
++  end
++end
++
++File.open("results.csv", "w") do |io|
++  (1..10).each do |i|
++    min = sizes[i].min {|a, b| a[2] &lt;=&gt; b[2] }
++    max = sizes[i].max {|a, b| a[2] &lt;=&gt; b[2] }
++    
++    io.puts "#{i} commits"
++    io.puts "  #{min.join(',')}"
++    io.puts "  #{max.join(',')}"
++    io.puts
++  end
++end
+    </pre>
+  </li>
+  <li class="add">path/to/a</li>
+  <li class="remove">path/to/b</li>
+  </ul>
+</div>
