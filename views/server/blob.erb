@@ -1,6 +1,7 @@
 <%= erb :_commit, :locals => {:commit => commit }, :layout => false %>
 
-<div class="blob">
 <%= erb :_treenav, :locals => {:id => id, :path => path}, :layout => false %>
+
+<div class="blob">
   <pre class="content"><%= escape_html(blob.data) %></pre>
 </div>

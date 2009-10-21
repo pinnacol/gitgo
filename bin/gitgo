@@ -26,8 +26,8 @@ OptionParser.new do |opts|
     options[:port] = port.to_i
   end
   
-  opts.on("-r", "--repo=REPO", "The path to the repo (#{options[:repo]})") do |repo_path|
-    options[:repo_path] = repo_path
+  opts.on("-r", "--repo=REPO", "The path to the repo (#{options[:repo]})") do |repo|
+    options[:repo] = repo
   end
   
   opts.on("-h", "--help", "Prints this help") do |ports|
@@ -45,5 +45,5 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-options[:repo] = Gitgo::Repo.init(options.delete(:repo_path))
 Gitgo::Server.run!(options)
+puts Gitgo::Server.prototype.repo.path

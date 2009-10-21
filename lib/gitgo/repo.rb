@@ -276,6 +276,11 @@ module Gitgo
       id
     end
     
+    # Returns the type of the object identified by sha.
+    def type(sha)
+      repo.git.cat_file({:t => true}, sha)
+    end
+    
     # Commits the current tree to branch with the specified message.  The
     # branch is created if it doesn't already exist.
     def commit(message, options={})

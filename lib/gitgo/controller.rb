@@ -1,6 +1,7 @@
 require 'erb'
 require 'redcloth'
 require 'sinatra/base'
+require 'gitgo/utils'
 
 module Gitgo
   class Controller < Sinatra::Base
@@ -9,20 +10,29 @@ module Gitgo
       # The resource name (ex 'blob', 'tree', 'commit')
       attr_accessor :resource_name
       
-      # The Gitgo repo, by default initialized to '.'.
+      # The Gitgo repo, by default initialized to '.'. Repo is stored as a
+      # class variable to make it available in all subclasses.
       def repo
-        @repo ||= Repo.init
+        @@repo ||= Repo.init
       end
-      attr_writer :repo
       
-      # The default user.
+      def repo=(input)
+        @prototype = nil
+        @@repo = input.kind_of?(String) ? Gitgo::Repo.init(input) : input
+      end
+      
+      # The default user. User is stored as a class variable to make it
+      # available in all subclasses.
       def user
-        @user ||= begin
+        @@user ||= begin
           config = repo.repo.config
           Grit::Actor.new(config['user.name'], config['user.email'])
         end
       end
-      attr_writer :user
+      
+      def user=(input)
+        @@user = input
+      end
       
       private
       
@@ -53,6 +63,7 @@ module Gitgo
     
     helpers do
       include Rack::Utils
+      include Utils
     end
     
     not_found do

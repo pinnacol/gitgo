@@ -143,10 +143,10 @@ class RepoTest < Test::Unit::TestCase
   
   def test_get_returns_an_object_corresponding_to_the_path
     tree = repo.get("")
-    assert_equal ["11", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
+    assert_equal ["11", "2009", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
     
     tree = repo.get("/")
-    assert_equal ["11", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
+    assert_equal ["11", "2009", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
 
     tree = repo.get("/pages")
     assert_equal ["one", "one.txt"], contents(tree)
@@ -169,10 +169,10 @@ Page one}, blob.data
   
   def test_get_accepts_an_array_path
     tree = repo.get([])
-    assert_equal ["11", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
+    assert_equal ["11", "2009", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
 
     tree = repo.get([""])
-    assert_equal ["11", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
+    assert_equal ["11", "2009", "7b", "c1", "df", "issues", "pages", "users"], contents(tree)
 
     tree = repo.get(["pages"])
     assert_equal ["one", "one.txt"], contents(tree)
