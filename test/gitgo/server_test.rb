@@ -28,7 +28,7 @@ class ServerTest < Test::Unit::TestCase
   
   def setup_app(repo)
     repo = Gitgo::Repo.new(setup_repo(repo))
-    app.set :prototype, app.new(nil, repo)
+    app.instance_variable_set :@prototype, app.new(nil, repo)
   end
   
   #

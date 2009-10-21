@@ -5,13 +5,24 @@ require 'sinatra/base'
 module Gitgo
   class Controller < Sinatra::Base
     class << self
+      
+      # The resource name (ex 'blob', 'tree', 'commit')
+      attr_accessor :resource_name
+      
       # The Gitgo repo, by default initialized to '.'.
       def repo
         @repo ||= Repo.init
       end
+      attr_writer :repo
       
-      # The resource name (ex 'blob', 'tree', 'commit')
-      attr_accessor :resource_name
+      # The default user.
+      def user
+        @user ||= begin
+          config = repo.repo.config
+          Grit::Actor.new(config['user.name'], config['user.email'])
+        end
+      end
+      attr_writer :user
       
       private
       
@@ -34,6 +45,7 @@ module Gitgo
     set :dump_errors, true
     set :resource_name, nil
     set :repo, nil
+    set :user, nil
     
     attr_reader :repo
     
@@ -58,11 +70,9 @@ module Gitgo
       erb :error, :views => "views", :locals => {:err => env['sinatra.error']}
     end
     
-    protected
-    
     def url(path="/")
       return path unless resource_name = options.resource_name
-      path == "/" ? "/#{resource_name}" : File.join("/#{resource_name}", path)
+      path == "/" || path == "" ? "/#{resource_name}" : File.join("/#{resource_name}", path)
     end
     
     # Returns a title for pages served from this controller; either the
@@ -70,6 +80,18 @@ module Gitgo
     def title
       name = options.resource_name || self.class.to_s.split("::").last
       name.capitalize
+    end
+    
+    # Returns the active user as defined by the session user/email, or using
+    # the user set for the class.
+    def user
+      @user ||= begin
+        if request && user = request.env['rack.session']['user']
+          Grit::Actor.from_string(user)
+        else
+          options.user
+        end
+      end
     end
     
     # Renders template as erb, then formats using RedCloth.
