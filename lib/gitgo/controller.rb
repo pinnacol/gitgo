@@ -46,6 +46,10 @@ module Gitgo
       File.read("views/layout.erb")
     end
     
+    helpers do
+      include Rack::Utils
+    end
+    
     not_found do
       erb :not_found, :views => "views"
     end

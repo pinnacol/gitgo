@@ -1,26 +1,28 @@
-<dl>
-  <dt>message</dt>
-  <dd><%= commit.message %></dd>
-  <dt>author</dt>
-  <dd><%= commit.author.name %> (<%= commit.author.email %>)</dd>
-  <dt>date</dt>
-  <dd><%= commit.authored_date %>
-<% if commit.author.to_s != commit.committer.to_s %>
-  <dt>committer</dt>
-  <dd><%= commit.committer %> (<%= commit.committer.email %>)
-  <dt>date</dt>
-  <dd><%= commit.committed_date %></dd>
-<% end %>
-  <dt>commit</dt>
-  <dd><%= commit_link(commit.sha) %></dd>
-  <dt>tree</dt>
-  <dd><%= tree_link(commit.sha) %></dd>
-  <dt>parents</dt>
-  <dd>
-    <ul>
-<% commit.parents.each do |parent| %>
-    <li><%= commit_link(parent.sha) %></li>
-<% end %>
-    </ul>
+<div class="commit">
+  <dl class="commit">
+  <dt class="message">message</dt>
+  <dd class="message"><%= commit.message %></dd>
+  <dt class="author">author</dt>
+  <dd class="author">
+<%= erb :_user, :locals => {:user => commit.author}, :layout => false %>
   </dd>
-</dd>
+  <dt class="author-date">authored date</dt>
+  <dd class="author-date"><%= commit.authored_date %></dd><% if commit.author.to_s != commit.committer.to_s %>
+  <dt class="committer">author</dt>
+  <dd class="committer">
+<%= erb :_user, :locals => {:user => commit.committer}, :layout => false %>
+  </dd>
+  <dt class="committed-date">committed date</dt>
+  <dd class="committed-date"><%= commit.committed_date %></dd><% end %>
+  <dt class="sha">commit</dt>
+  <dd class="sha"><%= commit_link(commit.sha) %></dd>
+  <dt class="tree">tree</dt>
+  <dd class="tree"><%= tree_link(commit.sha) %></dd>
+  <dt class="parents">parents</dt>
+  <dd class="parents">
+  <ul class="parents"><% commit.parents.each do |parent| %>
+    <li class="parent"><a><%= commit_link(parent.sha) %></li><% end %>
+  </ul>
+  </dd>
+  </dl>
+</div>

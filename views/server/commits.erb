@@ -1,21 +1,13 @@
 <h1>Commits</h1>
-
-<ul>
-<% if page >= 1 %>
-<li><a href="/<%= id %>/commits?page=<%= page - 1 %>&per_page=<%= per_page %>">previous</a></li>
-<% else %>
-<li>(previous)</li>
-<% end %>
-<% if commits.length == per_page %>
-<li><a href="/<%= id %>/commits?page=<%= page + 1 %>&per_page=<%= per_page %>">next</a></li>
-<% else %>
-<li>(next)</li>
-<% end %>
+<ul class="commitnav">
+<li class="newer"><% if page >= 1 %><a href="/<%= id %>/commits?page=<%= page - 1 %>&per_page=<%= per_page %>">newer</a><% else %>(newer)<% end %></li>
+<li class="older"><% if commits.length == per_page %><a href="/<%= id %>/commits?page=<%= page + 1 %>&per_page=<%= per_page %>">older</a><% else %>(older)<% end %></li>
 </ul>
 
-<ul>
-<% commits.each do |commit| %>
-<li><%= erb :_commit, :locals => {:commit => commit }, :layout => false %></li>
-<% end %>
+<div class="commits">
+<ul class="commits"><% commits.each do |commit| %>
+<li>
+<%= erb :_commit, :locals => {:commit => commit }, :layout => false %>
+</li><% end %>
 </ul>
-
+</div>

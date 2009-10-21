@@ -26,11 +26,11 @@ module Gitgo
         current = ""
         paths.collect! do |path| 
           current = File.join(current, path)
-          %Q{/ <a href="/tree#{current}">#{path}</a>}
+          %Q{<a href="/tree#{current}">#{path}</a>}
         end
 
-        paths.push "/ #{base}"
-        paths.join(" ")
+        paths.push(base) if base
+        paths
       end
     end
     
@@ -66,7 +66,7 @@ module Gitgo
     
     def show_commit(id)
       commit = self.commit(id) || not_found
-      erb :commit, :locals => {:commit => commit, :id => id }
+      erb :diff, :locals => {:commit => commit, :id => id }
     end
     
     def show_tree(id, path="")
