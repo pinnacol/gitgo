@@ -1,5 +1,10 @@
 module Gitgo
   module Utils
+    
+    def grit
+      repo.repo
+    end
+    
     def commit_link(id)
       %Q{<a href="/commit/#{id}">#{id}</a>}
     end
@@ -76,6 +81,32 @@ module Gitgo
 
     def shas(year, month, day)
       repo["/%04d/%02d/%02d" % [year.to_i, month.to_i, day.to_i]]
+    end
+    
+    def render_comments(id)
+      comments = repo.links(id) {|sha| repo.doc(sha) }
+      if comments.empty?
+        return erb(:_comment_form, :locals => {:id => id}, :layout => false)
+      end
+      
+      @nesting_depth ||= 0
+      @nesting_depth += 1
+      result = erb :_comments, :locals => {
+        :comments => comments, 
+        :nesting_depth => @nesting_depth
+      }, :layout => false
+      @nesting_depth -= 1
+    
+      result
+    end
+    
+    def commit(id)
+      (id.length == 40 ? grit.commit(id) : nil) || commit_by_ref(id)
+    end
+    
+    def commit_by_ref(name)
+      ref = grit.refs.find {|ref| ref.name == name }
+      ref ? ref.commit : nil
     end
   end
 end

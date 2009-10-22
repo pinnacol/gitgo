@@ -82,10 +82,6 @@ module Gitgo
       @repo = repo || options.repo
     end
     
-    def grit
-      repo.repo
-    end
-    
     # Nests path under the class resource_name, if set.  Otherwise url simply
     # returns the path.
     def url(path="/")
@@ -104,12 +100,16 @@ module Gitgo
     # the user set for the class.
     def user
       @user ||= begin
-        if request && user = request.env['rack.session']['user']
-          Grit::Actor.from_string(user)
+        if session && session['user']
+          Grit::Actor.from_string(session['user'])
         else
           options.user
         end
       end
+    end
+    
+    def session
+      request ? request.env['rack.session'] : nil
     end
     
     # Renders template as erb, then formats using RedCloth.
