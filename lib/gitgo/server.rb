@@ -21,7 +21,7 @@ module Gitgo
     get("/:id/commits") {|id| show_history(id) }
     
     use Comments
-    
+
     def index
       erb :index, :locals => {
         :branches => grit.branches,
@@ -96,6 +96,10 @@ module Gitgo
       }
     end
     
+    #
+    # helpers
+    #
+    
     def doc(id)
       blob = grit.blob(id)
       blob.data.empty? ? nil : Document.new(blob.data, id)
@@ -103,6 +107,20 @@ module Gitgo
     
     def comments(id)
       repo.links(id, true) {|sha| doc(sha) }
+    end
+    
+    def render_comments(comments)
+      return nil if comments.empty?
+      
+      @nesting_depth ||= 0
+      @nesting_depth += 1
+      result = erb :_comments, :locals => {
+        :comments => comments, 
+        :nesting_depth => @nesting_depth
+      }, :layout => false
+      @nesting_depth -= 1
+      
+      result
     end
     
     def commit(id)

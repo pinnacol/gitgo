@@ -4,6 +4,4 @@
   <dt class="<%= key %>"><%= key %></dt>
   <dd class="<%= key %>"><%= value %></dd><% end %>
   </dl>
-</div><% unless comments.empty? %>
-
-<%= erb :_comments, :locals => {:comments => comments}, :layout => false %><% end %>
+</div><%= render_comments(comments) %>
