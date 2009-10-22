@@ -1,11 +1,9 @@
 <h2><%= document.sha %></h2>
 <div class="document">
-  <dl class="document">
-  <dt class="author">author</dt>
-  <dd class="author"><%= document.author %></dd>
-  <dt class="date">date</dt>
-  <dd class="date"><%= document.date %></dd>
-  <dt class="content">content</dt>
-  <dd class="content"><%= document.content %></dd>
+  <dl class="document"><% document.each_pair do |key, value| %>
+  <dt class="<%= key %>"><%= key %></dt>
+  <dd class="<%= key %>"><%= value %></dd><% end %>
   </dl>
-</div>
+</div><% unless comments.empty? %>
+
+<%= erb :_comments, :locals => {:comments => comments}, :layout => false %><% end %>

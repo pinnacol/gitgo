@@ -1,4 +1,6 @@
 <h2>Blob <%= blob.id %></h2>
 <div class="blob">
   <pre class="content"><%= escape_html(blob.data) %></pre>
-</div>
+</div><% unless comments.empty? %>
+
+<%= erb :_comments, :locals => {:comments => comments}, :layout => false %><% end %>

@@ -378,9 +378,13 @@ module Gitgo
     # Returns an array of references under sha-path for the parent.  If
     # recursive is specified, links will recursively seek links for each
     # child.  In that case links returns a nested hash of linked shas.
-    def links(parent, recursive=false)
+    def links(parent, recursive=false, &block)
       links = self[sha_path(parent)] || []
-      return links unless recursive
+      
+      unless recursive
+        links.collect!(&block) if block_given?
+        return links
+      end
       
       # for compactness, links doubles-up the meaning of recursive
       # to pass the visited array (used to detect circular links)
@@ -395,7 +399,8 @@ module Gitgo
           raise "circular link detected:\n  #{visited.join("\n  ")}\n"
         end
         
-        tree[child] = links(child, visited)
+        key = block_given? ? yield(child) : child
+        tree[key] = links(child, visited, &block)
         visited.pop
       end
       

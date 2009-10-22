@@ -46,6 +46,13 @@ module Gitgo
       @sha = sha
     end
     
+    def each_pair
+      attributes.keys.sort!.each do |key|
+        next unless value = attributes[key]
+        yield(key, value)
+      end
+    end
+    
     def attributes
       @attributes ||= begin
         attrs, content = @str.split(/\n--- \n/m, 2)

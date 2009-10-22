@@ -52,23 +52,21 @@ module Gitgo
       erb :blob, :locals => {:commit => commit, :blob => blob, :id => id, :path => path }
     end
     
-    def show_sha(sha)
-      case repo.type(sha)
+    def show_sha(id)
+      case repo.type(id)
       when "blob"
-        erb :sha_blob, :locals => {:blob => grit.blob(sha)}
+        erb :sha_blob, :locals => {:blob => grit.blob(id), :comments => comments(id)}
       when "tree"
-        erb :sha_tree, :locals => {:tree => grit.tree(sha)}
+        erb :sha_tree, :locals => {:tree => grit.tree(id), :comments => comments(id)}
       when "commit", "tag"
-        erb :diff, :locals => {:commit => grit.commit(sha)}
+        erb :diff, :locals => {:commit => grit.commit(id), :comments => comments(id)}
       else not_found
       end
     end
     
     def show_doc(id)
-      blob = grit.blob(id)
-      
-      if !blob.data.empty? 
-        erb :document, :locals => {:document => Document.new(blob.data, id)}
+      if document = doc(id)
+        erb :document, :locals => {:document => document, :comments => comments(id)}
       else
         not_found
       end
@@ -96,6 +94,15 @@ module Gitgo
         :per_page => per_page,
         :commits => grit.commits(commit.sha, per_page, page * per_page)
       }
+    end
+    
+    def doc(id)
+      blob = grit.blob(id)
+      blob.data.empty? ? nil : Document.new(blob.data, id)
+    end
+    
+    def comments(id)
+      repo.links(id, true) {|sha| doc(sha) }
     end
     
     def commit(id)

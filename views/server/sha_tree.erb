@@ -3,4 +3,6 @@
   <ul class="contents"><% tree.contents.each do |obj| %>
     <li class="<%= obj.type %>"><%= show_link(obj) %></li><% end %>
   </ul>
-</div>
+</div><% unless comments.empty? %>
+
+<%= erb :_comments, :locals => {:comments => comments}, :layout => false %><% end %>
