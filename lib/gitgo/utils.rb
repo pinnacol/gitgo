@@ -62,7 +62,8 @@ module Gitgo
     end
 
     def years
-      repo["/"].select {|dir| dir =~ /\A\d{4}\z/ }.sort
+      return [] unless tree = repo["/"]
+      tree.select {|dir| dir =~ /\A\d{4}\z/ }.sort
     end
 
     def months(year)

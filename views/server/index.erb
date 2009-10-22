@@ -1,31 +1,23 @@
 <h1><%= repo.path %></h1>
 
-<div>
-  <h2><a href="/comments">Code</a></h2>
-  
-  <% branches = grit.branches %>
-  <% if branches.empty? %>
-  <em>No branches yet.</em>
-  <% end %>
-
-  <ul>
-  <% branches.each do |ref| %>
-  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li>
-  <% end %>
+<h2>Code</h2>
+<div class="code">
+  <h3>Branches</h3><% if branches.empty? %>
+  <em>No branches yet.</em><% end %>
+  <ul><% branches.each do |ref| %>
+  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li><% end %>
   </ul>
 
-  <h2>Tags</h2>
-
-  <% tags = grit.tags %>
-  <% if tags.empty? %>
-  <em>No tags yet.</em>
-  <% end %>
-
-  <ul>
-  <% tags.each do |ref| %>
-  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li>
-  <% end %>
+  <h3>Tags</h3><% if tags.empty? %>
+  <em>No tags yet.</em><% end %>
+  <ul><% tags.each do |ref| %>
+  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li><% end %>
   </ul>
 </div>
 
-
+<h2>Comments</h2>
+<div class="comments">
+  <h3><a href="/timeline">Timeline</a></h3><% if timeline.empty? %>
+  <em>No comments yet.</em><% end %>
+<%= erb :_timeline, :locals => {:timeline => timeline}, :layout => false %>
+</div>

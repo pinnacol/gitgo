@@ -8,7 +8,7 @@ module Gitgo
     set :static, true
     set :views, "views/server"
     
-    get("/")  { erb :index }
+    get("/")            { index }
     get('/commit')      { show_commit('master') }
     get('/commit/:id')  {|id| show_commit(id) }
     get('/tree')        { show_tree("master") }
@@ -21,6 +21,14 @@ module Gitgo
     get("/:id/commits") {|id| show_history(id) }
     
     use Comments
+    
+    def index
+      erb :index, :locals => {
+        :branches => grit.branches,
+        :tags => grit.tags,
+        :timeline => latest
+      } 
+    end
     
     def show_commit(id)
       commit = self.commit(id) || not_found
@@ -73,7 +81,7 @@ module Gitgo
       erb :timeline, :locals => {
         :page => page,
         :per_page => per_page,
-        :shas => latest(per_page, page * per_page)
+        :timeline => latest(per_page, page * per_page)
       }
     end
     

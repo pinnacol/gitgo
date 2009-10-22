@@ -41,4 +41,10 @@ class UtilsTest < Test::Unit::TestCase
       "dfe0ffed95402aed8420df921852edf6fcba2966"
     ], latest
   end
+  
+  def test_latest_returns_empty_array_if_no_shas_are_dated
+    setup_repo('simple.git')
+    
+    assert_equal [], latest
+  end
 end
