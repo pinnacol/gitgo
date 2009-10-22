@@ -36,9 +36,9 @@ class UtilsTest < Test::Unit::TestCase
     setup_repo('gitgo.git')
     
     assert_equal [
-      "11361c0dbe9a65c223ff07f084cceb9c6cf3a043",
-      "3a2662fad86206d8562adbf551855c01f248d4a2",
-      "dfe0ffed95402aed8420df921852edf6fcba2966"
+      issue_two,
+      issue_one,
+      issue_three
     ], latest
   end
   

@@ -126,12 +126,12 @@ class ServerTest < Test::Unit::TestCase
   def test_get_doc_shows_document_and_comments
     setup_app("gitgo.git")
 
-    get("/doc/c1a80236d015d612d6251fca9611847362698e1c")
+    get("/doc/#{issue_two_comment1}")
     assert last_response.ok?, last_response.body
-    assert last_response.body.include?('c1a80236d015d612d6251fca9611847362698e1c')
+    assert last_response.body.include?(issue_two_comment1)
     assert last_response.body.include?('user.two@email.com')
     assert last_response.body.include?('Issue Two Comment')
-    assert last_response.body.include?('0407a96aebf2108e60927545f054a02f20e981ac')
+    assert last_response.body.include?(issue_two_comment2)
     assert last_response.body.include?('user.one@email.com')
     assert last_response.body.include?('closed')
   end
@@ -143,13 +143,13 @@ class ServerTest < Test::Unit::TestCase
   def test_get_show_shows_object_and_comments
     setup_app("gitgo.git")
 
-    get("/show/11361c0dbe9a65c223ff07f084cceb9c6cf3a043")
+    get("/show/#{issue_two}")
     assert last_response.ok?
-    assert last_response.body.include?('11361c0dbe9a65c223ff07f084cceb9c6cf3a043')
+    assert last_response.body.include?(issue_two)
     assert last_response.body.include?('Issue Two Content')
-    assert last_response.body.include?('c1a80236d015d612d6251fca9611847362698e1c')
+    assert last_response.body.include?(issue_two_comment1)
     assert last_response.body.include?('Issue Two Comment')
-    assert last_response.body.include?('0407a96aebf2108e60927545f054a02f20e981ac')
+    assert last_response.body.include?(issue_two_comment2)
     assert last_response.body.include?('closed')
   end
 end
