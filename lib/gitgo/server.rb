@@ -55,18 +55,18 @@ module Gitgo
     def show_sha(id)
       case repo.type(id)
       when "blob"
-        erb :sha_blob, :locals => {:blob => grit.blob(id), :comments => comments(id)}
+        erb :sha_blob, :locals => {:id => id, :blob => grit.blob(id)}
       when "tree"
-        erb :sha_tree, :locals => {:tree => grit.tree(id), :comments => comments(id)}
+        erb :sha_tree, :locals => {:id => id, :tree => grit.tree(id)}
       when "commit", "tag"
-        erb :diff, :locals => {:commit => grit.commit(id), :comments => comments(id)}
+        erb :diff, :locals => {:id => id, :commit => grit.commit(id)}
       else not_found
       end
     end
     
     def show_doc(id)
       if document = doc(id)
-        erb :document, :locals => {:document => document, :comments => comments(id)}
+        erb :document, :locals => {:document => document}
       else
         not_found
       end
@@ -109,8 +109,11 @@ module Gitgo
       repo.links(id, true) {|sha| doc(sha) }
     end
     
-    def render_comments(comments)
-      return nil if comments.empty?
+    def render_comments(id)
+      comments = repo.links(id) {|sha| repo.doc(sha) }
+      if comments.empty?
+        return erb(:_comment_form, :locals => {:id => id}, :layout => false)
+      end
       
       @nesting_depth ||= 0
       @nesting_depth += 1
@@ -119,7 +122,7 @@ module Gitgo
         :nesting_depth => @nesting_depth
       }, :layout => false
       @nesting_depth -= 1
-      
+    
       result
     end
     

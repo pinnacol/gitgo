@@ -3,4 +3,4 @@
   <ul class="contents"><% tree.contents.each do |obj| %>
     <li class="<%= obj.type %>"><%= show_link(obj) %></li><% end %>
   </ul>
-</div><%= render_comments(comments) %>
+</div><%= render_comments(id) %>

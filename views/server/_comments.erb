@@ -1,7 +1,7 @@
 
 
-<ul class="comments-<%= nesting_depth %>"><% comments.each_pair do |doc, nested_comments| %>
+<ul class="comments-<%= nesting_depth %>"><% comments.each do |doc| %>
 <li>
-<%= erb :document, :locals => {:document => doc, :comments => nested_comments}, :layout => false %>
+<%= erb :document, :locals => {:document => doc}, :layout => false %>
 </li><% end %>
 </ul>

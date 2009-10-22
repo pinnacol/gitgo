@@ -1,4 +1,5 @@
 require 'grit'
+require 'gitgo/document'
 require 'gitgo/patches/grit'
 
 module Gitgo
@@ -280,6 +281,11 @@ module Gitgo
     # Returns the type of the object identified by sha.
     def type(sha)
       repo.git.cat_file({:t => true}, sha)
+    end
+    
+    def doc(sha)
+      blob = repo.blob(sha)
+      blob.data.empty? ? nil : Document.new(blob.data, sha)
     end
     
     # Commits the current tree to branch with the specified message.  The
