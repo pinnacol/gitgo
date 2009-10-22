@@ -228,6 +228,29 @@ Page one}, repo["/pages/one.txt"]
   end
   
   #
+  # create test
+  #
+  
+  def test_create_adds_a_new_document_to_the_repo_and_returns_the_new_doc_id
+    sha = repo.create("new content")
+    doc = repo.doc(sha)
+    
+    assert_equal "new content", doc.content
+    assert_equal repo.user.to_s, doc.author.to_s
+    assert_equal Time.now.strftime("%Y/%m/%d"), doc.timestamp
+  end
+  
+  def test_create_respects_any_atttributes_specified_with_the_document
+    sha = repo.create("new content", "author" => Grit::Actor.new("New User", "new.user@email.com"), "key" => "value")
+    doc = repo.doc(sha)
+    
+    assert_equal "new content", doc.content
+    assert_equal "New User", doc.author.name
+    assert_equal "new.user@email.com", doc.author.email
+    assert_equal "value", doc.attributes["key"]
+  end
+  
+  #
   # commit test
   #
   
@@ -327,7 +350,7 @@ Page one}, repo["/pages/one.txt"]
     repo.link(parent, child).commit("linked a file")
     assert_equal "child content", repo["#{parent[0,2]}/#{parent[2,38]}/#{child}"]
     
-    repo.link(parent, child + ".ext", "100644", child).commit("linked a file with an extension")
+    repo.link(parent, child, :mode => "100644", :as => child + ".ext").commit("linked a file with an extension")
     assert_equal "child content", repo["#{parent[0,2]}/#{parent[2,38]}/#{child}.ext"]
   end
   
@@ -349,18 +372,18 @@ Page one}, repo["/pages/one.txt"]
   end
   
   def test_links_recusively_finds_children
-    assert_equal({}, repo.links(issue_one, true))
+    assert_equal({}, repo.links(issue_one, :recursive => true))
     
     assert_equal({
       issue_two_comment1 => {
         issue_two_comment2 => {}
       }
-    }, repo.links(issue_two, true))
+    }, repo.links(issue_two, :recursive => true))
     
     assert_equal({
       issue_two_comment2 => {},
       issue_three_comment1 => {}
-    }, repo.links(issue_three, true))
+    }, repo.links(issue_three, :recursive => true))
   end
   
   def test_recursive_links_detects_circular_linkage
@@ -375,7 +398,7 @@ Page one}, repo["/pages/one.txt"]
     
     repo.commit("created a circular linkage")
     
-    err = assert_raises(RuntimeError) { repo.links(a, true) }
+    err = assert_raises(RuntimeError) { repo.links(a, :recursive => true) }
     assert_equal %Q{circular link detected:
   #{a}
   #{b}
@@ -402,7 +425,7 @@ Page one}, repo["/pages/one.txt"]
     assert_equal({
       b => {d => {}},
       c => {d => {}}
-    }, repo.links(a, true))
+    }, repo.links(a, :recursive => true))
   end
   
   #
@@ -457,7 +480,7 @@ state: closed
 }, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
 
 
-    repo.unlink(parent, child, true).commit("recursively unlinked a file")
+    repo.unlink(parent, child, :recursive => true).commit("recursively unlinked a file")
 
     assert_equal nil, repo["#{parent[0,2]}/#{parent[2,38]}/#{child}"]
     assert_equal nil, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
@@ -566,7 +589,7 @@ state: closed
 }, repo["#{child[0,2]}/#{child[2,38]}/#{grandchild}"]
 
 
-    repo.unregister("issues", issue, true).commit("recursively removed an issue")
+    repo.unregister("issues", issue, :recursive => true).commit("recursively removed an issue")
     
     assert_equal nil, repo["issues/#{issue[0,2]}/#{issue[2,38]}"]
     assert_equal nil, repo["#{issue[0,2]}/#{issue[2,38]}/#{child}"]

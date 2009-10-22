@@ -90,14 +90,13 @@ module Gitgo
     
     def register(doc, parent=nil)
       id = repo.write("blob", doc.to_s)
-      mode = Repo::DEFAULT_BLOB_MODE
       timestamp = doc.timestamp
       
       if parent
-        repo["#{timestamp}/#{parent}"] = [mode, parent]
+        repo.register(timestamp, parent, :flat => true)
         repo.link(parent, id)
       else
-        repo["#{timestamp}/#{id}"] = [mode, id]
+        repo.register(timestamp, id, :flat => true)
       end
       
       id
@@ -116,11 +115,11 @@ module Gitgo
         others.compact!
         
         unless others.any? {|another| another.timestamp == timestamp }
-          repo["#{timestamp}/#{parent}"] = nil
+          repo.unregister(timestamp, parent, :flat => true)
         end
         
       else
-        repo["#{timestamp}/#{id}"] = nil
+        repo.unregister(timestamp, id, :flat => true)
       end
       
       id

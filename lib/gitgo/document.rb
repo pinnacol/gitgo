@@ -1,6 +1,7 @@
 module Gitgo
   class Document
     class << self
+      
       protected
 
       def attribute_reader(key)

@@ -278,14 +278,22 @@ module Gitgo
       id
     end
     
-    # Returns the type of the object identified by sha.
-    def type(sha)
-      repo.git.cat_file({:t => true}, sha)
-    end
-    
     def doc(sha)
       blob = repo.blob(sha)
       blob.data.empty? ? nil : Document.new(blob.data, sha)
+    end
+    
+    def create(content, attrs={})
+      attrs['content'] = content
+      attrs['author'] ||= user
+      attrs['date'] ||= Time.now
+      
+      write("blob", Document.new(attrs).to_s)
+    end
+    
+    # Returns the type of the object identified by sha.
+    def type(sha)
+      repo.git.cat_file({:t => true}, sha)
     end
     
     # Commits the current tree to branch with the specified message.  The
@@ -373,28 +381,29 @@ module Gitgo
       
       self
     end
-
+    
     # Links the parent and child by adding a reference to the child under the
     # sha-path for the parent.
-    def link(parent, child, mode=DEFAULT_BLOB_MODE, sha=child)
-      add(sha_path(parent, child) => [mode, sha])
+    def link(parent, child, options={})
+      path = options[:as] || child
+      mode = options[:mode] || DEFAULT_BLOB_MODE
+      
+      add(sha_path(parent, path) => [mode, child])
       self
     end
 
     # Returns an array of references under sha-path for the parent.  If
     # recursive is specified, links will recursively seek links for each
     # child.  In that case links returns a nested hash of linked shas.
-    def links(parent, recursive=false, &block)
+    def links(parent, options={}, &block)
       links = self[sha_path(parent)] || []
       
-      unless recursive
+      unless options[:recursive]
         links.collect!(&block) if block_given?
         return links
       end
       
-      # for compactness, links doubles-up the meaning of recursive
-      # to pass the visited array (used to detect circular links)
-      visited = recursive.kind_of?(Array) ? recursive : [parent]
+      visited = options[:visited] ||= [parent]
       
       tree = {}
       links.each do |child|
@@ -406,7 +415,7 @@ module Gitgo
         end
         
         key = block_given? ? yield(child) : child
-        tree[key] = links(child, visited, &block)
+        tree[key] = links(child, options, &block)
         visited.pop
       end
       
@@ -416,27 +425,34 @@ module Gitgo
     # Unlinks the parent and child by removing the reference to the child
     # under the sha-path for the parent.  Unlink will recursively remove all
     # links to the child if specified.
-    def unlink(parent, child, recursive=false)
-      rm(sha_path(parent, child))
+    def unlink(parent, child, options={})
+      rm(sha_path(parent, options[:as] || child))
 
       links(child).each do |grandchild|
-        unlink(child, grandchild, recursive)
-      end if recursive
+        unlink(child, grandchild, options)
+      end if options[:recursive]
 
       self
     end
     
     # Registers the object to the specified type by adding a reference to the
     # sha under the type directory.
-    def register(type, sha, mode=DEFAULT_BLOB_MODE)
-      add(registry_path(type, sha) => [mode, sha])
+    def register(type, sha, options={})
+      mode = options[:mode] || DEFAULT_BLOB_MODE
+      path = options[:flat] ? File.join(type, sha) : registry_path(type, sha)
+      
+      add(path => [mode, sha])
       self
     end
     
     # Returns a list of shas registered to the type.
-    def registry(type)
+    def registry(type, options={})
+      tree = self[type] || []
+      
+      return tree if options[:flat]
+      
       shas = []
-      (self[type] || []).each do |ab|
+      tree.each do |ab|
         self[File.join(type, ab)].each do |xyz|
           shas << ab + xyz
         end
@@ -447,12 +463,13 @@ module Gitgo
     # Unregisters the sha to the type by removing the reference to the sha
     # under the type directory.  Unregister will recursively remove all links
     # to the sha if specified.
-    def unregister(type, sha, recursive=false)
-      rm(registry_path(type, sha))
+    def unregister(type, sha, options={})
+      path = options[:flat] ? File.join(type, sha) : registry_path(type, sha)
+      rm(path)
 
       links(sha).each do |child|
-        unlink(sha, child, recursive)
-      end if recursive
+        unlink(sha, child, options)
+      end if options[:recursive]
 
       self
     end
