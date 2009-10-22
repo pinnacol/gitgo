@@ -52,7 +52,6 @@ module Gitgo
     def create(parent)
       doc = Document.new(request_attributes)
       sha = register(doc, parent)
-      response['Sha'] = sha
       repo.commit("added document #{sha}") if commit?
       
       redirect url(parent)
@@ -99,6 +98,7 @@ module Gitgo
         repo.register(timestamp, id, :flat => true)
       end
       
+      response['Sha'] = id
       id
     end
     

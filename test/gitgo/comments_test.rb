@@ -63,6 +63,31 @@ class CommentsTest < Test::Unit::TestCase
   end
   
   #
+  # update test
+  #
+  
+  def test_update_updates_previous_comment_with_new_comment
+    parent = repo.create("parent")
+    child =  repo.create("original content", "a" => "A")
+    repo.register(timestamp, parent, :flat => true).link(parent, child).commit("added fixture")
+    
+    assert_equal "original content", repo.doc(child).content
+    assert_equal "A", repo.doc(child).attributes["a"]
+    
+    put("/comment/#{parent}/#{child}", "content" => "new content", "attributes" => {"a" => "B"}, "commit" => "true")
+    assert last_response.redirect?, last_response.body
+    
+    new_sha = last_response['Sha']
+    
+    assert !repo.links(parent).include?(child)
+    assert repo.links(parent).include?(new_sha)
+    assert repo[timestamp].include?(parent)
+    
+    assert_equal "new content", repo.doc(new_sha).content
+    assert_equal "B", repo.doc(new_sha).attributes["a"]
+  end
+  
+  #
   # destroy test
   #
 
@@ -79,5 +104,52 @@ class CommentsTest < Test::Unit::TestCase
 
     assert !repo.links(parent).include?(child)
     assert !repo[timestamp].include?(parent)
+  end
+  
+  def test_destroy_does_not_remove_parent_from_timeline_if_other_comments_exist_for_that_parent_and_time
+    parent = repo.create("parent content")
+    a =  repo.create("comment a")
+    b =  repo.create("comment b")
+    
+    repo.register(timestamp, parent, :flat => true)
+    repo.link(parent, a)
+    repo.link(parent, b)
+    repo.commit("added fixture")
+    
+    assert repo[timestamp].include?(parent)
+
+    delete("/comment/#{parent}/#{a}", "commit" => "true")
+    assert last_response.redirect?
+
+    assert !repo.links(parent).include?(a)
+    assert repo[timestamp].include?(parent)
+    
+    delete("/comment/#{parent}/#{b}", "commit" => "true")
+    
+    assert !repo.links(parent).include?(b)
+    assert !repo[timestamp].include?(parent)
+  end
+  
+  def test_destroy_removes_comment_from_timeline_if_no_parent_is_specified
+    comment =  repo.create("comment")
+    repo.register(timestamp, comment, :flat => true).commit("added fixture")
+    
+    assert repo[timestamp].include?(comment)
+
+    delete("/comment/#{comment}", "commit" => "true")
+    assert !repo[timestamp].include?(comment)
+  end
+  
+  def test_destroy_does_not_commit_unless_specified
+    comment =  repo.create("comment")
+    repo.register(timestamp, comment, :flat => true).commit("added fixture")
+    
+    assert repo[timestamp].include?(comment)
+
+    delete("/comment/#{comment}")
+    assert repo[timestamp].include?(comment)
+    
+    repo.commit("ok now committed")
+    assert !repo[timestamp].include?(comment)
   end
 end

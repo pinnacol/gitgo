@@ -74,6 +74,10 @@ module Gitgo
       date.strftime("%Y/%m/%d")
     end
     
+    def merge(attrs)
+      Document.new(attributes.merge(attrs))
+    end
+    
     def to_s
       @str ||= begin
         attrs = @attributes.dup
