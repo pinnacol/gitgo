@@ -1,4 +1,5 @@
 require 'grit'
+require 'gitgo/patches/grit'
 
 module Gitgo
   

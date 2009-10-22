@@ -49,7 +49,8 @@ module Gitgo
     def attributes
       @attributes ||= begin
         attrs, content = @str.split(/\n--- \n/m, 2)
-        attrs = YAML.load(attrs) || {}
+        attrs = YAML.load(attrs) if attrs
+        attrs ||= {}
         attrs['content'] = content
         attrs
       end

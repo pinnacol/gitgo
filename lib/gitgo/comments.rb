@@ -2,9 +2,9 @@ require 'gitgo/controller'
 require 'gitgo/document'
 
 module Gitgo
-  class Documents < Controller
-    set :resource_name, "doc"
-    set :views, "views/documents"
+  class Comments < Controller
+    set :resource_name, "comments"
+    set :views, "views/comments"
 
     # Routing
     get('/:id') {|id| show(id) }
@@ -21,13 +21,5 @@ module Gitgo
     put('/:id')    {|id| update(id) }
     delete('/:id') {|id| destroy(id) }
     
-    def show(id)
-      if blob = grit.blob(id)
-        comment = Document.new(blob.data, id)
-        erb :comment, :locals => {:comment => comment}
-      else
-        not_found
-      end
-    end
   end
 end

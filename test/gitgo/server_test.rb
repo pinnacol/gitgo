@@ -15,6 +15,29 @@ class ServerTest < Test::Unit::TestCase
   end
   
   #
+  # commit test
+  #
+  
+  def test_get_commit_shows_diff
+    setup_app("simple.git")
+    
+    get("/commit/e9b525ed0dfde2833001173e7f185939b46b0274")
+    assert last_response.ok?
+    assert last_response.body.include?('<li class="add">alpha.txt</li>')
+    assert last_response.body.include?('<li class="rm">one.txt</li>')
+    
+    diff = %q{--- a/x.txt
++++ b/x.txt
+@@ -1 +1 @@
+-Contents of file x.
+\ No newline at end of file
++Contents of file X.
+\ No newline at end of file}
+
+    assert last_response.body.include?(diff)
+  end
+  
+  #
   # tree test
   #
   
@@ -94,5 +117,19 @@ class ServerTest < Test::Unit::TestCase
     assert last_response.body.include?('449b5502e8dc49264d862b4fc0c01ba115fc9f82')
     assert last_response.body.include?('removed files a, b, and c')
     assert last_response.body.include?('Contents of file three.')
+  end
+  
+  #
+  # doc test
+  #
+
+  def test_get_doc_shows_document
+    setup_app("gitgo.git")
+
+    get("/doc/c1a80236d015d612d6251fca9611847362698e1c")
+    assert last_response.ok?
+    assert last_response.body.include?('c1a80236d015d612d6251fca9611847362698e1c')
+    assert last_response.body.include?('user.two@email.com')
+    assert last_response.body.include?('Issue Two Comment')
   end
 end
