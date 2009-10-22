@@ -89,9 +89,14 @@ module Gitgo
     
     def register(doc, parent=nil)
       id = repo.write("blob", doc.to_s)
+      timestamp = doc.timestamp
       
-      repo.link(parent, id) if parent
-      repo.register(doc.timestamp, id, :flat => true)
+      if parent
+        repo.register(timestamp, parent, :flat => true)
+        repo.link(parent, id)
+      else
+        repo.register(timestamp, id, :flat => true)
+      end
       
       response['Sha'] = id
       id
@@ -99,9 +104,23 @@ module Gitgo
     
     def unregister(doc, parent=nil)
       id = doc.sha
+      timestamp = doc.timestamp
       
-      repo.unlink(parent, id) if parent
-      repo.unregister(doc.timestamp, id, :flat => true)
+      if parent
+        repo.unlink(parent, id)
+        
+        # unregister parent from the timestamp unless there
+        # is another document created in that timestamp
+        others = repo.links(parent) {|sha| sha == id ? nil : repo.doc(sha) }
+        others.compact!
+        
+        unless others.any? {|another| another.timestamp == timestamp }
+          repo.unregister(timestamp, parent, :flat => true)
+        end
+        
+      else
+        repo.unregister(timestamp, id, :flat => true)
+      end
       
       id
     end

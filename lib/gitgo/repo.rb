@@ -144,6 +144,9 @@ module Gitgo
     DEFAULT_BLOB_MODE = "100644"
     DEFAULT_TREE_MODE = "040000"
     
+    EMPTY_SHA_PATH = "/objects/e6/9de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    EMPTY_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    
     # The internal Grit::Repo
     attr_reader :repo
     
@@ -388,6 +391,13 @@ module Gitgo
       path = options[:as] || child
       mode = options[:mode] || DEFAULT_BLOB_MODE
       
+      if commit_type?(child)
+        unless path == child
+          raise "commits and tags cannot be linked using other paths: #{path} (#{child})"
+        end
+        child = empty_sha
+      end
+      
       add(sha_path(parent, path) => [mode, child])
       self
     end
@@ -440,6 +450,7 @@ module Gitgo
     def register(type, sha, options={})
       mode = options[:mode] || DEFAULT_BLOB_MODE
       path = options[:flat] ? File.join(type, sha) : registry_path(type, sha)
+      sha = empty_sha if commit_type?(sha)
       
       add(path => [mode, sha])
       self
@@ -529,6 +540,16 @@ module Gitgo
     
     def registry_path(type, sha) # :nodoc:
       File.join(type, sha[0,2], sha[2,38])
+    end
+    
+    def commit_type?(sha) # :nodoc:
+      sha_type = type(sha)
+      sha_type == "commit" || sha_type == "tags"
+    end
+    
+    def empty_sha # :nodoc:
+      write("blob", "") unless File.exists?(path(EMPTY_SHA_PATH))
+      EMPTY_SHA
     end
     
     # splits path and yields each path segment to the block.  if specified,
