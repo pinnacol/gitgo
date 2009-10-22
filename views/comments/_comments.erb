@@ -2,6 +2,6 @@
 
 <ul class="comments-<%= nesting_depth %>"><% comments.each do |doc| %>
 <li>
-<%= erb :document, :locals => {:document => doc}, :layout => false %>
+<%= erb :document, :locals => {:document => doc}, :views => "views/server", :layout => false %>
 </li><% end %>
 </ul>

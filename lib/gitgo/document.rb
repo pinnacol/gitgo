@@ -69,6 +69,10 @@ module Gitgo
       end
     end
     
+    def timestamp
+      date.strftime("%Y/%m/%d")
+    end
+    
     def to_s
       @str ||= begin
         attrs = @attributes.dup

@@ -86,18 +86,21 @@ module Gitgo
     def render_comments(id)
       comments = repo.links(id) {|sha| repo.doc(sha) }
       if comments.empty?
-        return erb(:_comment_form, :locals => {:id => id}, :layout => false)
-      end
-      
-      @nesting_depth ||= 0
-      @nesting_depth += 1
-      result = erb :_comments, :locals => {
-        :comments => comments, 
-        :nesting_depth => @nesting_depth
-      }, :layout => false
-      @nesting_depth -= 1
+        erb :_comment_form, :locals => {
+          :id => id
+        }, :views => "views/comments", :layout => false
+        
+      else
+        @nesting_depth ||= 0
+        @nesting_depth += 1
+        result = erb :_comments, :locals => {
+          :comments => comments, 
+          :nesting_depth => @nesting_depth
+        }, :views => "views/comments", :layout => false
+        @nesting_depth -= 1
     
-      result
+        result
+      end
     end
     
     def commit(id)

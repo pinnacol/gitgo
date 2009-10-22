@@ -86,7 +86,7 @@ module Gitgo
     # returns the path.
     def url(path="/")
       return path unless resource_name = options.resource_name
-      path == "/" || path == "" ? "/#{resource_name}" : File.join("/#{resource_name}", path)
+      path == "/" || path.nil? || path == "" ? "/#{resource_name}" : File.join("/#{resource_name}", path)
     end
     
     # Returns a title for pages served from this controller; either the

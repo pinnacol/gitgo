@@ -1,5 +1,5 @@
 require 'gitgo/repo'
-require 'gitgo/documents'
+require 'gitgo/comments'
 
 module Gitgo
   class Server < Controller
@@ -15,10 +15,11 @@ module Gitgo
     get('/tree/:id')    {|id| show_tree(id) }
     get('/tree/:id/*')  {|id, path| show_tree(id, path) }
     get('/blob/:id/*')  {|id, path| show_blob(id, path) }
-    get('/show/:sha')   {|sha| show_sha(sha) }
+    get('/show/:id')    {|id| show_sha(id) }
+    get('/doc/:id')     {|id| show_doc(id) }
     get("/:id/commits") {|id| show_history(id) }
     
-    use Documents
+    use Comments
 
     def index
       erb :index, :locals => {
@@ -59,6 +60,14 @@ module Gitgo
       when "commit", "tag"
         erb :diff, :locals => {:id => id, :commit => grit.commit(id)}
       else not_found
+      end
+    end
+    
+    def show_doc(id)
+      if document = repo.doc(id)
+        erb :document, :locals => {:document => document}
+      else
+        not_found
       end
     end
     
