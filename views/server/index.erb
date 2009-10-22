@@ -17,7 +17,7 @@
 
 <h2>Comments</h2>
 <div class="comments">
-  <h3><a href="/timeline">Timeline</a></h3><% if timeline.empty? %>
+  <h3><a href="/comment">Timeline</a></h3><% if timeline.empty? %>
   <em>No comments yet.</em><% end %>
-<%= erb :_timeline, :locals => {:timeline => timeline}, :layout => false %>
+<%= erb :_timeline, :locals => {:timeline => timeline}, :views => "views/comments", :layout => false %>
 </div>

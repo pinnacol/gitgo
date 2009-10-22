@@ -1,13 +1,14 @@
 
 
-<form class="comment" action="/comments/<%= id %>" method="post">
+<form class="comment" action="/comment/<%= id %>" method="post">
+  <input type="hidden" name="redirect" value="<%= request.env['REQUEST_URI'] %>" />
   <ul class="form">
   <li class="input">
     <textarea id="content" type="text" name="content"></textarea>
   </li>
   <li class="input">
     <label for="commit">Commit</label>
-    <input id="commit" type="checkbox" name="commit" checked="true"/>
+    <input id="commit" type="checkbox" name="commit" value="true" checked="true"/>
     <p>Checking commit will save your comment immediately. If you want to make several comments before committing, uncheck commit and manually save or rollback from the homepage.</p>
   </li>
   <li class="submit">

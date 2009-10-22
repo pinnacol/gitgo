@@ -54,7 +54,7 @@ module Gitgo
       sha = register(doc, parent)
       repo.commit("added document #{sha}") if commit?
       
-      redirect url(parent)
+      redirect(request['redirect'] || url)
     end
     
     def update(parent, child)
@@ -64,7 +64,7 @@ module Gitgo
         id = register(doc, parent)
         repo.commit("updated document #{child} to #{id}") if commit?
         
-        redirect url
+        redirect(request['redirect'] || url)
       else
         raise("unknown document: #{child}")
       end
@@ -76,7 +76,7 @@ module Gitgo
         repo.commit("removed document: #{child}") if commit?
       end
       
-      redirect url
+      redirect(request['redirect'] || url)
     end
     
     #

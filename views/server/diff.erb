@@ -8,4 +8,4 @@
     <pre><%= escape_html(diff.diff) %></pre>
   </li><%                                              end %><% end %>
   </ul>
-</div>
+</div><%= render_comments(commit.id) %>
