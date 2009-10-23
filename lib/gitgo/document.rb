@@ -32,6 +32,8 @@ module Gitgo
     
     attribute :content
     
+    attr_accessor :sha
+    
     def initialize(attributes={}, sha=nil)
       case attributes
       when Hash
@@ -65,16 +67,6 @@ module Gitgo
         attrs['content'] = content
         attrs
       end
-    end
-    
-    def sha
-      @sha ||= begin
-        Digest::SHA1.hexdigest(self.to_s)[0, 40]
-      end
-    end
-    
-    def timestamp
-      date.strftime("%Y/%m/%d")
     end
     
     def merge(attrs)

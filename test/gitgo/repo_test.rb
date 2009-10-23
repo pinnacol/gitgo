@@ -36,7 +36,7 @@ class RepoTest < Test::Unit::TestCase
       "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
       :lib     => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
     }
-    assert_equal expected, repo.index
+    assert_equal expected, repo.tree
   
     repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
     expected = {
@@ -49,7 +49,7 @@ class RepoTest < Test::Unit::TestCase
         }
       }
     }
-    assert_equal expected, repo.index
+    assert_equal expected, repo.tree
   
     repo.rm("README")
     expected = {
@@ -62,7 +62,7 @@ class RepoTest < Test::Unit::TestCase
         }
       }
     }
-    assert_equal expected, repo.index
+    assert_equal expected, repo.tree
   
     expected = {
       "README" => :rm,
@@ -214,33 +214,7 @@ class RepoTest < Test::Unit::TestCase
 
     assert_equal "new content", repo["/a/b.txt"]
   end
-  
-  #
-  # create test
-  #
-  
-  def test_create_adds_a_new_document_to_the_repo_and_returns_the_new_doc_id
-    setup_repo("simple.git") # to setup a default user
     
-    sha = repo.create("new content")
-    doc = repo.doc(sha)
-    
-    assert_equal "new content", doc.content
-    assert_equal "John Doe", doc.author.name
-    assert_equal "john.doe@email.com", doc.author.email
-    assert_equal Time.now.strftime("%Y/%m/%d"), doc.timestamp
-  end
-  
-  def test_create_respects_any_atttributes_specified_with_the_document
-    sha = repo.create("new content", "author" => Grit::Actor.new("New User", "new.user@email.com"), "key" => "value")
-    doc = repo.doc(sha)
-    
-    assert_equal "new content", doc.content
-    assert_equal "New User", doc.author.name
-    assert_equal "new.user@email.com", doc.author.email
-    assert_equal "value", doc.attributes["key"]
-  end
-  
   #
   # link test
   #
@@ -437,7 +411,101 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [a], repo.registry("type")
     assert_equal [], repo.links(b)
   end
+  
+  #
+  # create test
+  #
+  
+  def test_create_adds_a_new_document_to_the_repo_and_returns_the_new_doc_id
+    setup_repo("simple.git") # to setup a default user
     
+    sha = repo.create("new content")
+    doc = repo.doc(sha)
+    
+    assert_equal "new content", doc.content
+    assert_equal "John Doe", doc.author.name
+    assert_equal "john.doe@email.com", doc.author.email
+    assert_equal Time.now.strftime("%Y/%m/%d"), doc.date.strftime("%Y/%m/%d")
+  end
+  
+  def test_create_respects_any_atttributes_specified_with_the_document
+    sha = repo.create("new content", "author" => Grit::Actor.new("New User", "new.user@email.com"), "key" => "value")
+    doc = repo.doc(sha)
+    
+    assert_equal "new content", doc.content
+    assert_equal "New User", doc.author.name
+    assert_equal "new.user@email.com", doc.author.email
+    assert_equal "value", doc.attributes["key"]
+  end
+  
+  def test_create_adds_doc_sha_to_timestamp_and_user_index
+    date = Time.utc(2009, 9, 9)
+    author = Grit::Actor.new('John Doe', 'john.doe@email.com')
+    id = repo.create("content", 'author' => author, 'date' => date)
+    
+    repo.commit("added a new doc")
+    
+    assert_equal [id], repo["idx/2009/0909"]
+    assert_equal "--- \nauthor: John Doe <john.doe@email.com>\ndate: 2009-09-09 00:00:00 Z\n--- \ncontent", repo["idx/john.doe@email.com/#{id[0,2]}/#{id[2,38]}"]
+  end
+  
+  #
+  # delete test
+  #
+  
+  def test_delete_removes_the_document_and_associated_indicies
+    date = Time.utc(2009, 9, 9)
+    author = Grit::Actor.new('John Doe', 'john.doe@email.com')
+    
+    id = repo.create("content", 'author' => author, 'date' => date)
+    repo.commit("added a new doc")
+    
+    repo.delete(id)
+    repo.commit("removed the new doc")
+    
+    assert_equal [], repo["idx/2009/0909"]
+    assert_equal nil, repo["idx/john.doe@email.com/#{id[0,2]}/#{id[2,38]}"]
+  end
+  
+  #
+  # timeline test
+  #
+  
+  def test_timeline_returns_the_most_recently_added_docs
+    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
+    d = repo.create("d", 'date' => Time.utc(2009, 9, 10))
+    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
+    
+    b = repo.create("b", 'date' => Time.utc(2008, 9, 10))
+    e = repo.create("e", 'date' => Time.utc(2008, 9, 9))
+    
+    repo.commit("added docs")
+    
+    assert_equal [a, d, c, b, e], repo.timeline
+    assert_equal [ d, c, b], repo.timeline(:n => 3, :offset => 1)
+  end
+  
+  #
+  # activity test
+  #
+  
+  def test_activity_returns_activity_by_the_user
+    john = Grit::Actor.new('John Doe', 'john.doe@email.com')
+    jane = Grit::Actor.new('Jane Doe', 'jane.doe@email.com')
+    
+    a = repo.create("a", 'author' => john)
+    d = repo.create("d", 'author' => john)
+    c = repo.create("c", 'author' => john)
+    
+    b = repo.create("b", 'author' => jane)
+    e = repo.create("e", 'author' => jane)
+    
+    repo.commit("added docs")
+    
+    assert_equal [a,d,c].sort, repo.activity(john).sort
+    assert_equal [b,e].sort, repo.activity(jane).sort
+  end
+  
   #
   # commit test
   #

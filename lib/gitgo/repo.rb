@@ -26,7 +26,7 @@ module Gitgo
   #
   #   repo.rm("remove_this_file")
   #   repo.commit("removed extra file")
-  #                 
+  #                  
   # Now access the content:
   #
   #   repo["/"]                          # => ["README", "lib"]
@@ -43,11 +43,11 @@ module Gitgo
   #   repo.get("/lib").id                # => "cad0dc0df65848aa8f3fee72ce047142ec707320"
   #   repo.get("/lib/project.rb").id     # => "636e25a2c9fe1abc3f4d3f380956800d5243800e"
   #
-  # === The Index
+  # === The Working Tree
   #
-  # Changes to the repo are tracked by index until being committed. Index is
-  # a hash of (path, [mode, sha]) pairs representing the tree contents.
-  # Symbol paths indicate a subtree that could be expanded.
+  # Changes to the repo are tracked by tree until being committed. Tree is a
+  # hash of (path, [mode, sha]) pairs representing the in-memory working tree
+  # contents. Symbol paths indicate a subtree that could be expanded.
   #
   #   repo = Repo.init("example", :user => "John Doe <jdoe@example.com>")
   #   repo.add(
@@ -55,17 +55,17 @@ module Gitgo
   #     "lib/project.rb" => "module Project\nend"
   #   ).commit("added files")
   #
-  #   repo.index
+  #   repo.tree
   #   # => {
   #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
   #   #   :lib     => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
   #   # }
   #
-  # When the repo adds or removes content, the subtrees are expanded as
-  # needed to show the changes.
+  # When the repo adds or removes content, the subtrees are expanded as needed
+  # to show the changes.
   #
   #   repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
-  #   repo.index
+  #   repo.tree
   #   # => {
   #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
   #   #   "lib"    => {
@@ -79,7 +79,7 @@ module Gitgo
   #   # }
   #
   #   repo.rm("README")
-  #   repo.index
+  #   repo.tree
   #   # => {
   #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1", :rm],
   #   #   "lib"    => {
@@ -93,10 +93,9 @@ module Gitgo
   #   # }
   #
   # As you can see, subtrees also track the mode for the subtree.  Note that
-  # the expanded subtrees have not been written to the repo and so they
-  # don't have id at this point (this echos what happens when you stage
-  # changes with 'git add' but have yet to commit the changes with 'git
-  # commit').
+  # the expanded subtrees have not been written to the repo and so they don't
+  # have id at this point (this echos what happens when you stage changes with
+  # 'git add' but have yet to commit the changes with 'git commit').
   #
   # A summary of the blobs that have changed can be obtained via status:
   #
@@ -109,24 +108,24 @@ module Gitgo
   # == {GitStore}[http://github.com/georgi/git_store] License
   #
   # Copyright (c) 2008 Matthias Georgi <http://www.matthias-georgi.de>
-  #           
+  #            
   # Permission is hereby granted, free of charge, to any person obtaining a
   # copy of this software and associated documentation files (the "Software"),
   # to deal in the Software without restriction, including without limitation
   # the rights to use, copy, modify, merge, publish, distribute, sublicense,
   # and/or sell copies of the Software, and to permit persons to whom the
   # Software is furnished to do so, subject to the following conditions:
-  #           
+  #            
   # The above copyright notice and this permission notice shall be included in
   # all copies or substantial portions of the Software.
-  #           
+  #            
   # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
   # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
   # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
   # THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
   # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
   # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  #           
+  #            
   class Repo
     class << self
       # Initializes a Git adapter for path, creating the repo if necessary.
@@ -145,7 +144,7 @@ module Gitgo
     end
     
     DEFAULT_BRANCH = 'gitgo'
-    WORK_TREE = 'gitgo/objects'
+    WORK_TREE = 'gitgo'
 
     DEFAULT_BLOB_MODE = "100644"
     DEFAULT_TREE_MODE = "040000"
@@ -156,8 +155,8 @@ module Gitgo
     # The active branch/commit name
     attr_reader :branch
 
-    # The internal index tracking any adds and removes.
-    attr_reader :index
+    # The in-memory working tree tracking any adds and removes.
+    attr_reader :tree
 
     # Initializes a new Git for the repo at the specified path.
     # Raises an error if no such repo exists.  Options can specify the
@@ -170,7 +169,7 @@ module Gitgo
     def initialize(path=Dir.pwd, options={})
       @grit = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
       @branch = options[:branch] || DEFAULT_BRANCH
-      @index = get_tree("/") || tree_hash
+      @tree = get_tree("/") || tree_hash
       
       self.user = options[:user]
     end
@@ -208,12 +207,6 @@ module Gitgo
       when String then Grit::Actor.from_string(*input)
       else raise "could not convert to Grit::Actor: #{input.class}"
       end
-    end
-    
-    # Gets the document indicated by sha, or nil if no such document exists.
-    def doc(sha)
-      blob = grit.blob(sha)
-      blob.data.empty? ? nil : Document.new(blob.data, sha)
     end
     
     # Returns the type of the object identified by sha; the output of:
@@ -275,16 +268,6 @@ module Gitgo
       id
     end
     
-    # Creates a new Document using the content and attributes, writes it to
-    # the repo and returns it's sha.
-    def create(content, attrs={})
-      attrs['content'] = content
-      attrs['author'] ||= user
-      attrs['date'] ||= Time.now
-      
-      write("blob", Document.new(attrs).to_s)
-    end
-    
     # Adds content at the specified paths.  Takes a hash of (path, content)
     # pairs where the content can either be:
     #
@@ -296,7 +279,7 @@ module Gitgo
     # [mode, sha] array representing the new blob.
     def add(paths, update=true)
       paths.keys.each do |path|
-        tree = @index
+        tree = @tree
         base = segments(path, true) do |seg|
           tree.delete(seg.to_sym)
           tree = tree[seg]
@@ -321,7 +304,7 @@ module Gitgo
     # Removes the content at each of the specified paths
     def rm(*paths)
       paths.each do |path|
-        tree = @index
+        tree = @tree
         segments(path) do |seg|
           tree.delete(seg.to_sym)
           tree = tree[seg]
@@ -413,18 +396,15 @@ module Gitgo
     # (ex commit, tag) will be seen as corruption by git. 
     def register(type, sha, options={})
       mode = options[:mode] || DEFAULT_BLOB_MODE
-      path = options[:flat] ? File.join(type, sha) : registry_path(type, sha)
       
-      add(path => [mode, sha])
+      add(registry_path(type, sha) => [mode, sha])
       self
     end
 
     # Returns a list of shas registered to the type.
     def registry(type, options={})
       tree = self[type] || []
-
-      return tree if options[:flat]
-
+      
       shas = []
       tree.each do |ab|
         self[File.join(type, ab)].each do |xyz|
@@ -438,15 +418,77 @@ module Gitgo
     # under the type directory.  Unregister will recursively remove all links
     # to the sha if specified.
     def unregister(type, sha, options={})
-      path = options[:flat] ? File.join(type, sha) : registry_path(type, sha)
-      
-      rm(path)
+      rm(registry_path(type, sha))
 
       links(sha).each do |child|
         unlink(sha, child, options)
       end if options[:recursive]
 
       self
+    end
+    
+    # Creates a new Document using the content and attributes, writes it to
+    # the repo and returns it's sha.
+    def create(content, attrs={}, options={})
+      mode = options[:mode] || DEFAULT_BLOB_MODE
+      
+      attrs['content'] = content
+      attrs['author'] ||= user
+      attrs['date'] ||= Time.now
+      
+      doc = Document.new(attrs)
+      id = write("blob", doc.to_s)
+      
+      add(timestamp(doc.date, id) => [mode, id])
+      register(index_path(doc.author.email), id, options)
+      
+      id
+    end
+    
+    # Gets the document indicated by id, or nil if no such document exists.
+    def doc(id)
+      blob = grit.blob(id)
+      blob.data.empty? ? nil : Document.new(blob.data, id)
+    end
+    
+    def delete(id)
+      return nil unless doc = self.doc(id)
+      
+      rm(timestamp(doc.date, id))
+      unregister(index_path(doc.author.email), id)
+      doc
+    end
+    
+    def timeline(options={})
+      options = {:n => 10, :offset => 0}.merge(options)
+      offset = options[:offset]
+      n = options[:n]
+      
+      shas = []
+      return shas if n <= 0
+      
+      years.reverse_each do |year|
+        days(year).reverse_each do |day|
+          
+          # y,md need to be iterated in reverse to correctly sort by
+          # date; this is not the case with the unordered shas
+          self[index_path(year, day)].each do |sha|
+            if offset > 0
+              offset -= 1
+            else
+              shas << sha
+              return shas if n && shas.length == n
+            end
+          end
+        end
+      end
+      
+      shas
+    end
+    
+    def activity(user, options={})
+      options = {:n => 10, :offest => 0}.merge!(options)
+      registry(index_path(user.email), options)
     end
     
     # Commits the current tree to branch with the specified message.  The
@@ -484,7 +526,7 @@ module Gitgo
 
       id = write('commit', lines.join("\n"))
       File.open(path("refs/heads/#{branch}"), "w") {|io| io << id }
-      @index = get_tree("/")
+      @tree = get_tree("/")
       id
     end
     
@@ -499,7 +541,7 @@ module Gitgo
     def checkout(branch, path=nil)
       if branch && branch != @branch
         @branch = branch
-        @index = get_tree("/") || tree_hash
+        @tree = get_tree("/") || tree_hash
       end
       
       if path
@@ -560,6 +602,14 @@ module Gitgo
       File.join(type, sha[0,2], sha[2,38])
     end
     
+    def index_path(*paths) # :nodoc:
+      File.join("/idx", *paths)
+    end
+    
+    def timestamp(date, id) # :nodoc:
+      index_path(date.strftime('%Y/%m%d'), id)
+    end
+    
     # splits path and yields each path segment to the block.  if specified,
     # the basename will be returned instead of being yielded to the block.
     def segments(path, return_basename=false) # :nodoc:
@@ -573,7 +623,16 @@ module Gitgo
 
       last
     end
-
+    
+    def years # :nodoc:
+      return [] unless idx = self[index_path]
+      idx.select {|dir| dir =~ /\A\d{4,}\z/ }.sort
+    end
+    
+    def days(year) # :nodoc:
+      (self[index_path(year)] || []).sort
+    end
+    
     def get_tree(path) # :nodoc:
       obj = get(path)
 
@@ -597,7 +656,7 @@ module Gitgo
       end
     end
 
-    def write_tree(tree=@index) # :nodoc:
+    def write_tree(tree=@tree) # :nodoc:
 
       # tree format:
       #---------------------------------------------------
@@ -619,7 +678,7 @@ module Gitgo
       [tree[0] || DEFAULT_TREE_MODE, write("tree", lines.join)]
     end
 
-    def diff_tree(tree=@index, target={}, path=nil) # :nodoc:
+    def diff_tree(tree=@tree, target={}, path=nil) # :nodoc:
       keys(tree).each do |key|
         value = tree[key]
         key = File.join(path, key.to_s) if path
