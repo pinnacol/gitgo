@@ -27,24 +27,4 @@ class UtilsTest < Test::Unit::TestCase
       "<a href=\"/tree/id\">id</a>"
     ], path_links("id", "")
   end
-  
-  #
-  # latest test
-  #
-  
-  def test_latest_returns_the_latest_shas
-    setup_repo('gitgo.git')
-    
-    assert_equal [
-      issue_two,
-      issue_one,
-      issue_three
-    ], latest
-  end
-  
-  def test_latest_returns_empty_array_if_no_shas_are_dated
-    setup_repo('simple.git')
-    
-    assert_equal [], latest
-  end
 end

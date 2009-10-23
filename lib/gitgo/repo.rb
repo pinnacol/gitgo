@@ -428,20 +428,36 @@ module Gitgo
     end
     
     # Creates a new Document using the content and attributes, writes it to
-    # the repo and returns it's sha.
-    def create(content, attrs={}, options={})
-      mode = options[:mode] || DEFAULT_BLOB_MODE
-      
+    # the repo and returns it's sha.  The document is stored by timestamp
+    # under the index directory, and is additionally logged to the author of
+    # the document.
+    def create(content, attrs={})
       attrs['content'] = content
       attrs['author'] ||= user
       attrs['date'] ||= Time.now
       
-      doc = Document.new(attrs)
+      store Document.new(attrs)
+    end
+    
+    def store(doc)
       id = write("blob", doc.to_s)
       
-      add(timestamp(doc.date, id) => [mode, id])
-      register(index_path(doc.author.email), id, options)
+      add(
+        timestamp(doc.date, id) => [DEFAULT_BLOB_MODE, id], 
+        logfile(doc) => id
+      )
       
+      id
+    end
+    
+    def update(id, attrs={})
+      return nil unless old_doc = delete(id)
+      old_links = links(id)
+      
+      new_doc = old_doc.merge(attrs)
+      id = store(new_doc)
+      
+      old_links.each {|link| link(id, link) }
       id
     end
     
@@ -451,14 +467,17 @@ module Gitgo
       blob.data.empty? ? nil : Document.new(blob.data, id)
     end
     
+    # Removes the document from the repo by deleting it from the timeline.
+    # Delete also removes the logfile associating this document with the
+    # document author.
     def delete(id)
       return nil unless doc = self.doc(id)
       
-      rm(timestamp(doc.date, id))
-      unregister(index_path(doc.author.email), id)
+      rm timestamp(doc.date, id), logfile(doc)
       doc
     end
     
+    # Returns an array of shas representing recent documents added.
     def timeline(options={})
       options = {:n => 10, :offset => 0}.merge(options)
       offset = options[:offset]
@@ -486,9 +505,25 @@ module Gitgo
       shas
     end
     
+    # Returns an array of shas representing activity by the user.
     def activity(user, options={})
-      options = {:n => 10, :offest => 0}.merge!(options)
-      registry(index_path(user.email), options)
+      options = {:n => 10, :offset => 0}.merge(options)
+      offset = options[:offset]
+      n = options[:n]
+      
+      shas = []
+      return shas if n <= 0
+      
+      user_path = index_path(user.email)
+      (self[user_path] || []).sort.reverse_each do |entry|
+        if offset > 0
+          offset -= 1
+        else
+          shas << self[File.join(user_path, entry)]
+          return shas if n && shas.length == n
+        end
+      end
+      shas
     end
     
     # Commits the current tree to branch with the specified message.  The
@@ -608,6 +643,11 @@ module Gitgo
     
     def timestamp(date, id) # :nodoc:
       index_path(date.strftime('%Y/%m%d'), id)
+    end
+    
+    def logfile(doc) # :nodoc:
+      date = doc.date
+      index_path(doc.author.email, "#{date.to_i}#{date.usec.to_s[0,2]}")
     end
     
     # splits path and yields each path segment to the block.  if specified,

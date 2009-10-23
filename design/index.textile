@@ -14,3 +14,30 @@ Also the solution could be as easy as:
     issueone
     
 Every time you add a comment you update the current state(s), adding and removing as necessary.  You will just have to test how this model works under stressful merge conditions.
+
+h2. Version 2
+
+  00
+    /5ffb20addfcb819d843331a950c666ed52bf5a
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+    /00017c049867f68cdc6776b122a4b1defc9cb3
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+  idx
+    /user.email@email.com
+      /2009090900000
+      /2009090900001
+    /2009
+      /0909
+        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+  iss/
+    /00
+      /5ffb20addfcb819d843331a950c666ed52bf5a
+  wiki/
+    one.txt
+    one/two.txt

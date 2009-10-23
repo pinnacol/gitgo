@@ -25,7 +25,7 @@ module Gitgo
       erb :index, :locals => {
         :branches => grit.branches,
         :tags => grit.tags,
-        :timeline => latest
+        :timeline => repo.timeline
       } 
     end
     

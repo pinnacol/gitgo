@@ -30,6 +30,8 @@ module Gitgo
     
     attribute :date
     
+    attribute :type
+    
     attribute :content
     
     attr_accessor :sha

@@ -41,7 +41,7 @@ module Gitgo
       erb :timeline, :locals => {
         :page => page,
         :per_page => per_page,
-        :timeline => latest(per_page, page * per_page)
+        :timeline => repo.timeline(:n => per_page, :offset => page * per_page)
       }
     end
     
@@ -50,7 +50,7 @@ module Gitgo
     end
     
     def create(parent)
-      id = repo.write("blob", Document.new(request_attributes).to_s)
+      id = repo.create(request['content'], request_attributes)
       repo.link(parent, id) if parent
       
       repo.commit("added document #{id}") if commit?
@@ -60,17 +60,12 @@ module Gitgo
     end
     
     def update(parent, child)
-      if doc = repo.doc(child)
-        links = repo.links(child)
+      if new_id = repo.update(child, request_attributes(true))
         repo.unlink(parent, child, :recursive => true) if parent
+        repo.link(parent, new_id) if parent
         
-        id = repo.write("blob", doc.merge(request_attributes).to_s)
-        
-        repo.link(parent, id) if parent
-        links.each {|link| repo.link(id, link) }
-        
-        repo.commit("updated document #{child} to #{id}") if commit?
-        response["Sha"] = id
+        repo.commit("updated document #{child} to #{new_id}") if commit?
+        response["Sha"] = new_id
         
         redirect(request['redirect'] || url)
       else
@@ -79,7 +74,7 @@ module Gitgo
     end
     
     def destroy(parent, child)
-      if doc = repo.doc(child)
+      if doc = repo.delete(child)
         repo.unlink(parent, child, :recursive => recursive?) if parent
         repo.commit("removed document: #{child}") if commit?
       end
@@ -99,13 +94,13 @@ module Gitgo
       request['recursive'] =~ /\Atrue\z/i
     end
     
-    def request_attributes
+    def request_attributes(content=false)
       attributes = request['attributes'] || {}
       attributes.merge!(
         'author' => user,
-        'date' => Time.now,
-        'content' => request['content']
+        'date' => Time.now
       )
+      attributes['content'] = request['content'] if content
       attributes
     end
     
