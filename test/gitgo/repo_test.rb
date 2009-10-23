@@ -498,7 +498,7 @@ class RepoTest < Test::Unit::TestCase
     
     repo.commit("added files")
     
-    # now after the commit check everything is updated
+    # now after the commit check everything is pulld
     blob = repo.get("/a.txt")
     assert_equal "file a content", blob.data
     
@@ -581,31 +581,31 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "b content", b.get("b").data
   end
   
-  def test_clone_updates_from_origin
+  def test_clone_pulls_from_origin
     a = Repo.init(method_root.path(:tmp, "a"))
     a.add("a" => "a content").commit("added a file")
     
     b = a.clone(method_root.path(:tmp, "b"))
     assert_equal "a content", b.get("a").data
     
-    a.add("a" => "A content").commit("updated file")
+    a.add("a" => "A content").commit("pulld file")
     assert_equal "a content", b.get("a").data
 
-    b.update
+    b.pull
     assert_equal "A content", b.get("a").data
   end
   
-  def test_bare_clone_updates_from_origin
+  def test_bare_clone_pulls_from_origin
     a = Repo.init(method_root.path(:tmp, "a.git"))
     a.add("a" => "a content").commit("added a file")
     
     b = a.clone(method_root.path(:tmp, "b.git"), :bare => true)
     assert_equal "a content", b.get("a").data
     
-    a.add("a" => "A content").commit("updated file")
+    a.add("a" => "A content").commit("pulld file")
     assert_equal "a content", b.get("a").data
     
-    b.update
+    b.pull
     assert_equal "A content", b.get("a").data
   end
 end

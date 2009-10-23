@@ -509,7 +509,7 @@ module Gitgo
     end
 
     # Pulls from the remote into the work tree.
-    def update(remote="origin", rebase=true)
+    def pull(remote="origin", rebase=true)
       git(:pull, remote, :rebase => rebase)
     end
 
