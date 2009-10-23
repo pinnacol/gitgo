@@ -1,4 +1,4 @@
-require 'gitgo/repo'
+require 'gitgo/controller'
 require 'gitgo/comments'
 
 module Gitgo

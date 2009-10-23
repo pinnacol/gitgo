@@ -2,6 +2,7 @@ require 'erb'
 require 'redcloth'
 require 'sinatra/base'
 require 'gitgo/utils'
+require 'gitgo/repo'
 
 module Gitgo
   class Controller < Sinatra::Base
@@ -18,16 +19,13 @@ module Gitgo
       
       def repo=(input)
         @prototype = nil
-        @@repo = input.kind_of?(String) ? Gitgo::Repo.init(input) : input
+        @@repo = input.kind_of?(String) ? Repo.init(input) : input
       end
       
       # The default user. User is stored as a class variable to make it
       # available in all subclasses.
       def user
-        @@user ||= begin
-          config = repo.repo.config
-          Grit::Actor.new(config['user.name'], config['user.email'])
-        end
+        @@user ||= repo.user
       end
       
       def user=(input)

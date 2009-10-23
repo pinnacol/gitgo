@@ -59,6 +59,9 @@ module Gitgo
         attrs, content = @str.split(/\n--- \n/m, 2)
         attrs = YAML.load(attrs) if attrs
         attrs ||= {}
+        if author = attrs['author']
+          attrs['author'] = Grit::Actor.from_string(author)
+        end
         attrs['content'] = content
         attrs
       end
@@ -81,8 +84,10 @@ module Gitgo
     def to_s
       @str ||= begin
         attrs = @attributes.dup
-        attrs.extend(SortedToYaml)
+        attrs['author'] = "#{author.name} <#{author.email}>"
         content = attrs.delete('content')
+        
+        attrs.extend(SortedToYaml)
         "#{attrs.to_yaml}--- \n#{content}"
       end
     end

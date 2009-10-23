@@ -3,3 +3,6 @@
 	filemode = true
 	bare = true
 	ignorecase = true
+[user]
+	name = John Doe
+	email = john.doe@email.com

@@ -43,24 +43,29 @@ module Gitgo
   #   repo.get("/lib").id                # => "cad0dc0df65848aa8f3fee72ce047142ec707320"
   #   repo.get("/lib/project.rb").id     # => "636e25a2c9fe1abc3f4d3f380956800d5243800e"
   #
-  # ==== The Working Tree
+  # === The Index
   #
-  # Changes to the repo are tracked by tree until being committed. Tree is a
-  # hash of (path, [mode, sha]) pairs representing the tree contents.  Symbol
-  # paths indicate a subtree that could be expanded.
+  # Changes to the repo are tracked by index until being committed. Index is
+  # a hash of (path, [mode, sha]) pairs representing the tree contents.
+  # Symbol paths indicate a subtree that could be expanded.
   #
-  #   repo.branch = "gitgo"
-  #   repo.tree
+  #   repo = Repo.init("example", :user => "John Doe <jdoe@example.com>")
+  #   repo.add(
+  #     "README" => "New Project",
+  #     "lib/project.rb" => "module Project\nend"
+  #   ).commit("added files")
+  #
+  #   repo.index
   #   # => {
   #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
   #   #   :lib     => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
   #   # }
   #
-  # When the repo adds or removes content, the subtrees are expanded as needed
-  # to show the changes.
+  # When the repo adds or removes content, the subtrees are expanded as
+  # needed to show the changes.
   #
   #   repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
-  #   repo.tree
+  #   repo.index
   #   # => {
   #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
   #   #   "lib"    => {
@@ -74,7 +79,7 @@ module Gitgo
   #   # }
   #
   #   repo.rm("README")
-  #   repo.tree
+  #   repo.index
   #   # => {
   #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1", :rm],
   #   #   "lib"    => {
@@ -87,10 +92,11 @@ module Gitgo
   #   #   }
   #   # }
   #
-  # As you can see, subtrees also track the mode for the subtree.  Note that the expanded
-  # subtrees have not been written to the repo and so they don't have id at this point
-  # (this echos what happens when you stage changes with 'git add' but have yet to commit
-  # the changes with 'git commit').
+  # As you can see, subtrees also track the mode for the subtree.  Note that
+  # the expanded subtrees have not been written to the repo and so they
+  # don't have id at this point (this echos what happens when you stage
+  # changes with 'git add' but have yet to commit the changes with 'git
+  # commit').
   #
   # A summary of the blobs that have changed can be obtained via status:
   #
@@ -99,7 +105,7 @@ module Gitgo
   #   #   "README" => :rm
   #   #   "lib/project/utils.rb" => :add
   #   # }
-  #     
+  #
   # == {GitStore}[http://github.com/georgi/git_store] License
   #
   # Copyright (c) 2008 Matthias Georgi <http://www.matthias-georgi.de>
@@ -123,88 +129,62 @@ module Gitgo
   #           
   class Repo
     class << self
-      # Initializes a Repo for path, creating the repo if necessary.
+      # Initializes a Git adapter for path, creating the repo if necessary.
       def init(path=Dir.pwd, options={})
         unless File.exists?(path)
           unless options[:is_bare] || path =~ /\.git$/
             path = File.join(path, ".git")
           end
-          
+
           git = Grit::Git.new(path)
           git.init({})
         end
-        
+
         new(path, options)
       end
     end
     
     DEFAULT_BRANCH = 'gitgo'
-    WORK_TREE = 'gitgo'
+    WORK_TREE = 'gitgo/objects'
 
     DEFAULT_BLOB_MODE = "100644"
     DEFAULT_TREE_MODE = "040000"
     
-    EMPTY_SHA_PATH = "/objects/e6/9de29bb2d1d6434b8b29ae775ad8c2e48c5391"
-    EMPTY_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
-    
     # The internal Grit::Repo
-    attr_reader :repo
-    
+    attr_reader :grit
+
     # The active branch/commit name
     attr_reader :branch
-    
-    # The internal tree tracking any adds and removes.
-    attr_reader :tree
-    
-    # Flag to rebase on pull (default true).  It is technically safer to set
-    # rebase to false on pulls rather than rebase, but it results in a
-    # nonlinear history and for, as far as I know, no real benefit given the
-    # Gitgo data model.
-    attr_reader :rebase
-    
-    # Initializes a new repo at the specified path.  Raises an error if no
-    # such repo exists.  Options can specify the following:
+
+    # The internal index tracking any adds and removes.
+    attr_reader :index
+
+    # Initializes a new Git for the repo at the specified path.
+    # Raises an error if no such repo exists.  Options can specify the
+    # following:
     #
     #   :branch     the branch for self
     #   :user       the user for self
-    #   :rebas      flags rebase on pull
     #   + any Grit::Repo options
     #
     def initialize(path=Dir.pwd, options={})
-      options = {
-        :branch => DEFAULT_BRANCH,
-        :user => nil,
-        :rebase => true
-      }.merge(options)
+      @grit = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
+      @branch = options[:branch] || DEFAULT_BRANCH
+      @index = get_tree("/") || tree_hash
       
-      @repo = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
-      self.branch = options[:branch]
       self.user = options[:user]
-      @rebase = options[:rebase]
-    end
-    
-    # Returns the specified path relative to the git repo (ie the .git
-    # directory as indicated by repo.path).  With no arguments path returns
-    # the git repo path.
-    def path(*paths)
-      File.join(repo.path, *paths)
-    end
-    
-    # Returns a path relative to the gitgo work tree (.git/gitgo).  With no
-    # arguments work_path returns the path to the work tree.
-    def work_path(*paths)
-      File.join(repo.path, WORK_TREE, *paths)
     end
     
     # Returns the current commit for branch.
     def current
-      repo.commits(branch, 1).first
+      grit.commits(branch, 1).first
     end
     
-    # Sets the current branch and updates tree.
-    def branch=(branch)
-      @branch = branch
-      @tree = get_tree("/") || tree_hash
+    # Returns the specified path relative to the git repo (ie the .git
+    # directory as indicated by grit.path).  With no arguments path returns
+    # the git repo path.
+    def path(*paths)
+      File.join(grit.path, *paths)
     end
     
     # Returns the configured user (which should be a Grit::Actor, or similar).
@@ -212,12 +192,12 @@ module Gitgo
     # the repo configurations.
     def user
       @user ||= begin
-        name =  repo.config['user.name']
-        email = repo.config['user.email']
+        name =  grit.config['user.name']
+        email = grit.config['user.email']
         Grit::Actor.new(name, email)
       end
     end
-    
+
     # Sets the user.  The input may be a Grit::Actor, an array like [user,
     # email], a git-formatted user string (ex 'John Doe <jdoe@example.com>'),
     # or nil.
@@ -230,7 +210,21 @@ module Gitgo
       end
     end
     
-    # Gets the object at the specified path
+    # Gets the document indicated by sha, or nil if no such document exists.
+    def doc(sha)
+      blob = grit.blob(sha)
+      blob.data.empty? ? nil : Document.new(blob.data, sha)
+    end
+    
+    # Returns the type of the object identified by sha; the output of:
+    #
+    #    % git cat-file -t sha
+    #
+    def type(sha)
+      grit.git.cat_file({:t => true}, sha)
+    end
+    
+    # Gets the tree or blob at the specified path.
     def get(path)
       return nil unless current = self.current
       current = current.tree
@@ -239,22 +233,22 @@ module Gitgo
         return nil unless current.respond_to?(:/)
         current = current / seg
       end
-      
+
       current
     end
     
-    # Gets the content for path.  Returns nil if path doesn't exist (or maps
-    # to a tree).
+    # Gets the content for path; either the blob data or an array of content
+    # names for a tree.  Returns nil if path doesn't exist.
     def [](path)
       obj = get(path)
-      
+
       case obj
       when Grit::Blob then obj.data
       when Grit::Tree then obj.contents.collect {|content| content.name }
       else nil
       end
     end
-    
+
     # Sets content for path.
     def []=(path, content=nil)
       if content.nil?
@@ -264,9 +258,9 @@ module Gitgo
       end
     end
     
-    # Write a raw object to the repository and returns the object id.  This
+    # Write a raw object to the gritsitory and returns the object id.  This
     # method is patterned after GitStore#write
-    def write(type, content)
+    def write(type, content) # :nodoc:
       data = "#{type} #{content.length}\0#{content}"
       id = Digest::SHA1.hexdigest(data)[0, 40]
       path = self.path("/objects/#{id[0...2]}/#{id[2..39]}")
@@ -281,11 +275,8 @@ module Gitgo
       id
     end
     
-    def doc(sha)
-      blob = repo.blob(sha)
-      blob.data.empty? ? nil : Document.new(blob.data, sha)
-    end
-    
+    # Creates a new Document using the content and attributes, writes it to
+    # the repo and returns it's sha.
     def create(content, attrs={})
       attrs['content'] = content
       attrs['author'] ||= user
@@ -294,17 +285,174 @@ module Gitgo
       write("blob", Document.new(attrs).to_s)
     end
     
-    # Returns the type of the object identified by sha.
-    def type(sha)
-      repo.git.cat_file({:t => true}, sha)
+    # Adds content at the specified paths.  Takes a hash of (path, content)
+    # pairs where the content can either be:
+    #
+    # * a string of content
+    # * an array like [mode, sha] (for blobs)
+    # * a hash of (path, [mode, sha]) pairs (for trees)
+    #
+    # If update is true, then string contents will be updated with a
+    # [mode, sha] array representing the new blob.
+    def add(paths, update=true)
+      paths.keys.each do |path|
+        tree = @index
+        base = segments(path, true) do |seg|
+          tree.delete(seg.to_sym)
+          tree = tree[seg]
+        end
+        
+        content = paths[path]
+        entry = case content
+        when Array, Hash
+          content
+        else 
+          [DEFAULT_BLOB_MODE, write("blob", content)]
+        end 
+
+        entry[2] = :add
+        tree[base] = entry
+        paths[path] = entry if update
+      end
+
+      self
+    end
+    
+    # Removes the content at each of the specified paths
+    def rm(*paths)
+      paths.each do |path|
+        tree = @index
+        segments(path) do |seg|
+          tree.delete(seg.to_sym)
+          tree = tree[seg]
+        end
+
+        tree[2] = :rm
+
+        if tree.kind_of?(Hash)
+          recursive_paths = keys(tree).collect! {|key| File.join(path, key.to_s) }
+          rm(*recursive_paths)
+        end
+      end
+
+      self
+    end
+    
+    # Links the parent and child by adding a reference to the child under the
+    # sha path for the parent.
+    #
+    # Note that only blobs and trees should be linked as children; other
+    # object types (ex commit, tag) will be seen as corruption by git. 
+    # Parents can refer to any object.
+    def link(parent, child, options={})
+      path = options[:as] || child
+      mode = options[:mode] || DEFAULT_BLOB_MODE
+
+      add(sha_path(parent, path) => [mode, child])
+      self
+    end
+
+    # Returns an array of references under sha path for the parent.  If
+    # recursive is specified, links will recursively seek links for each
+    # child.  In that case links returns a nested hash of linked shas.
+    def links(parent, options={}, &block)
+      links = self[sha_path(parent)] || []
+
+      unless options[:recursive]
+        links.collect!(&block) if block_given?
+        return links
+      end
+
+      visited = options[:visited] ||= [parent]
+
+      tree = {}
+      links.each do |child|
+        circular = visited.include?(child)
+        visited.push child
+
+        if circular
+          raise "circular link detected:\n  #{visited.join("\n  ")}\n"
+        end
+
+        key = block_given? ? yield(child) : child
+        tree[key] = links(child, options, &block)
+
+        visited.pop
+      end
+
+      tree
+    end
+
+    # Unlinks the parent and child by removing the reference to the child
+    # under the sha-path for the parent.  Unlink will recursively remove all
+    # links to the child if specified.
+    def unlink(parent, child, options={})
+      rm(sha_path(parent, options[:as] || child))
+      
+      if options[:recursive]
+        visited = options[:visited] ||= []
+        
+        # the child should only need to be visited once
+        # as one visit will unlink any grandchildren
+        unless visited.include?(child)
+          visited.push child
+          
+          links(child).each do |grandchild|
+            unlink(child, grandchild, options)
+          end
+        end
+      end
+
+      self
+    end
+    
+    # Registers the object to the specified type by adding a reference to the
+    # sha under the type directory.
+    #
+    # Note that only blobs and trees should be registered; other object types
+    # (ex commit, tag) will be seen as corruption by git. 
+    def register(type, sha, options={})
+      mode = options[:mode] || DEFAULT_BLOB_MODE
+      path = options[:flat] ? File.join(type, sha) : registry_path(type, sha)
+      
+      add(path => [mode, sha])
+      self
+    end
+
+    # Returns a list of shas registered to the type.
+    def registry(type, options={})
+      tree = self[type] || []
+
+      return tree if options[:flat]
+
+      shas = []
+      tree.each do |ab|
+        self[File.join(type, ab)].each do |xyz|
+          shas << ab + xyz
+        end
+      end
+      shas
+    end
+
+    # Unregisters the sha to the type by removing the reference to the sha
+    # under the type directory.  Unregister will recursively remove all links
+    # to the sha if specified.
+    def unregister(type, sha, options={})
+      path = options[:flat] ? File.join(type, sha) : registry_path(type, sha)
+      
+      rm(path)
+
+      links(sha).each do |child|
+        unlink(sha, child, options)
+      end if options[:recursive]
+
+      self
     end
     
     # Commits the current tree to branch with the specified message.  The
     # branch is created if it doesn't already exist.
     def commit(message, options={})
       raise "no changes to commit" if status.empty?
-      
-      repo_path = path("refs/heads/#{branch}")
       
       mode, tree_id = write_tree
       parent = self.current
@@ -333,223 +481,83 @@ module Gitgo
       lines << ""
       lines << message
       lines << ""
-      
+
       id = write('commit', lines.join("\n"))
-      File.open(repo_path, "w") {|io| io << id }
-      @tree = get_tree("/")
+      File.open(path("refs/heads/#{branch}"), "w") {|io| io << id }
+      @index = get_tree("/")
       id
     end
     
+    # Returns a hash of (path, state) pairs indicating paths that have been
+    # added or removed.  State must be :add or :rm.
     def status
       diff_tree
     end
     
-    def add(files)
-      files.each_pair do |path, content|
-        tree = @tree
-        base = segments(path, true) do |seg|
-          tree.delete(seg.to_sym)
-          tree = tree[seg]
-        end
-        
-        entry = case content
-        when Array, Hash
-          content
-        else 
-          [DEFAULT_BLOB_MODE, write("blob", content)]
-        end 
-        
-        entry[2] = :add
-        tree[base] = entry
+    # Sets the current branch and updates index.  Checkout will also
+    # checkout self into the directory specified by path, if specified.
+    def checkout(branch, path=nil)
+      if branch && branch != @branch
+        @branch = branch
+        @index = get_tree("/") || tree_hash
       end
       
-      self
-    end
-    
-    def rm(*paths)
-      paths.each do |path|
-        tree = @tree
-        segments(path) do |seg|
-          tree.delete(seg.to_sym)
-          tree = tree[seg]
-        end
-        
-        tree[2] = :rm
-        
-        if tree.kind_of?(Hash)
-          recursive_paths = keys(tree).collect! {|key| File.join(path, key) }
-          rm(*recursive_paths)
-        end
+      if path
+        FileUtils.mkdir_p(path) unless File.exists?(path)
+        grit.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', {}, @branch)
       end
-      
-      self
-    end
-    
-    # Links the parent and child by adding a reference to the child under the
-    # sha-path for the parent.
-    def link(parent, child, options={})
-      path = options[:as] || child
-      mode = options[:mode] || DEFAULT_BLOB_MODE
-      
-      if commit_type?(child)
-        unless path == child
-          raise "commits and tags cannot be linked using other paths: #{path} (#{child})"
-        end
-        child = empty_sha
-      end
-      
-      add(sha_path(parent, path) => [mode, child])
-      self
     end
 
-    # Returns an array of references under sha-path for the parent.  If
-    # recursive is specified, links will recursively seek links for each
-    # child.  In that case links returns a nested hash of linked shas.
-    def links(parent, options={}, &block)
-      links = self[sha_path(parent)] || []
-      
-      unless options[:recursive]
-        links.collect!(&block) if block_given?
-        return links
-      end
-      
-      visited = options[:visited] ||= [parent]
-      
-      tree = {}
-      links.each do |child|
-        circular = visited.include?(child)
-        visited.push child
-        
-        if circular
-          raise "circular link detected:\n  #{visited.join("\n  ")}\n"
-        end
-        
-        key = block_given? ? yield(child) : child
-        tree[key] = links(child, options, &block)
-        visited.pop
-      end
-      
-      tree
-    end
-
-    # Unlinks the parent and child by removing the reference to the child
-    # under the sha-path for the parent.  Unlink will recursively remove all
-    # links to the child if specified.
-    def unlink(parent, child, options={})
-      rm(sha_path(parent, options[:as] || child))
-
-      links(child).each do |grandchild|
-        unlink(child, grandchild, options)
-      end if options[:recursive]
-
-      self
-    end
-    
-    # Registers the object to the specified type by adding a reference to the
-    # sha under the type directory.
-    def register(type, sha, options={})
-      mode = options[:mode] || DEFAULT_BLOB_MODE
-      path = options[:flat] ? File.join(type, sha) : registry_path(type, sha)
-      sha = empty_sha if commit_type?(sha)
-      
-      add(path => [mode, sha])
-      self
-    end
-    
-    # Returns a list of shas registered to the type.
-    def registry(type, options={})
-      tree = self[type] || []
-      
-      return tree if options[:flat]
-      
-      shas = []
-      tree.each do |ab|
-        self[File.join(type, ab)].each do |xyz|
-          shas << ab + xyz
-        end
-      end
-      shas
-    end
-    
-    # Unregisters the sha to the type by removing the reference to the sha
-    # under the type directory.  Unregister will recursively remove all links
-    # to the sha if specified.
-    def unregister(type, sha, options={})
-      path = options[:flat] ? File.join(type, sha) : registry_path(type, sha)
-      rm(path)
-
-      links(sha).each do |child|
-        unlink(sha, child, options)
-      end if options[:recursive]
-
-      self
-    end
-    
-    # Checks out self into the directory specified by path.
-    def checkout(path=work_path)
-      FileUtils.mkdir_p(path) unless File.exists?(path)
-      repo.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', {}, branch)
-    end
-    
     # Pulls from the remote into the work tree.
-    def pull(remote="origin", rebase=self.rebase)
+    def update(remote="origin", rebase=true)
       git(:pull, remote, :rebase => rebase)
     end
-    
+
     # Clones self into the specified path and sets up tracking of branch in
-    # the new repo.  Clone was primarily implemented for testing; normally
+    # the new grit.  Clone was primarily implemented for testing; normally
     # clones are managed by the user.
     def clone(path, options={})
-      repo.git.clone(options, repo.path, path)
+      grit.git.clone(options, grit.path, path)
       clone = Grit::Repo.new(path)
-      
+
       if options[:bare]
         # bare origins directly copy branch heads without mapping them to
         # 'refs/remotes/origin/' (see git-clone docs). this maps the branch
-        # head so the bare repo can checkout branch
-        clone.git.remote({}, "add", "origin", repo.path)
+        # head so the bare grit can checkout branch
+        clone.git.remote({}, "add", "origin", grit.path)
         clone.git.fetch({}, "origin")
         clone.git.branch({}, "-D", branch)
       end
-      
+
       # sets up branch to track the origin to enable pulls
       clone.git.branch({:track => true}, branch, "origin/#{branch}")
-      Repo.new(clone, :branch => branch, :user => user)
+      self.class.new(clone, :branch => branch, :user => user)
     end
-    
+
     protected
-    
+
     # executes the git command in the working tree
     def git(cmd, *args) # :nodoc:
-      checkout unless File.exists?(work_path)
-      
+      work_path = path(WORK_TREE)
+      checkout(nil, work_path) unless File.exists?(work_path)
+
       # chdir + setting the work tree may seem redundant, but it's not in the
-      # case of a bare repository because:
+      # case of a bare gritsitory because:
       # * some operations need to be done in the work tree
-      # * git will guess the parent dir of the repo if no work tree is set
+      # * git will guess the parent dir of the grit if no work tree is set
       #
       Dir.chdir(work_path) do
         options = args.last.kind_of?(Hash) ? args.pop : {}
-        repo.git.run("GIT_WORK_TREE='#{work_path}' ", cmd, '', options, args)
+        grit.git.run("GIT_WORK_TREE='#{work_path}' ", cmd, '', options, args)
       end
     end
     
     def sha_path(sha, *paths) # :nodoc:
       File.join(sha[0,2], sha[2,38], *paths)
     end
-    
+
     def registry_path(type, sha) # :nodoc:
       File.join(type, sha[0,2], sha[2,38])
-    end
-    
-    def commit_type?(sha) # :nodoc:
-      sha_type = type(sha)
-      sha_type == "commit" || sha_type == "tags"
-    end
-    
-    def empty_sha # :nodoc:
-      write("blob", "") unless File.exists?(path(EMPTY_SHA_PATH))
-      EMPTY_SHA
     end
     
     # splits path and yields each path segment to the block.  if specified,
@@ -557,41 +565,40 @@ module Gitgo
     def segments(path, return_basename=false) # :nodoc:
       paths = path.kind_of?(String) ? path.split("/") : path.dup
       last = return_basename ? paths.pop : nil
-      
+
       while seg = paths.shift
         next if seg.empty?
         yield(seg)
       end
-      
+
       last
     end
-    
+
     def get_tree(path) # :nodoc:
       obj = get(path)
-      
+
       case obj
       when Grit::Tree
         tree = tree_hash(path)
         tree[0] = obj.mode if obj.mode
-        # tree[1] = obj.id
-        
+
         obj.contents.each do |object|
           key = object.name
           key = key.to_sym if object.kind_of?(Grit::Tree)
           tree[key] = [object.mode, object.id]
         end
-        
+
         tree
-        
+
       when Grit::Blob
         [obj.mode, obj.id]
-      
+
       else obj
       end
     end
-    
-    def write_tree(tree=@tree) # :nodoc:
-      
+
+    def write_tree(tree=@index) # :nodoc:
+
       # tree format:
       #---------------------------------------------------
       #   mode name\0[packedsha]mode name\0[packedsha]...
@@ -602,21 +609,21 @@ module Gitgo
       end.collect! do |key|
         value = tree[key]
         value = write_tree(value) if value.kind_of?(Hash)
-        
+
         mode, id, flag = value
         next if flag == :rm
-        
+
         "#{mode} #{key}\0#{[id].pack("H*")}"
       end
-      
+
       [tree[0] || DEFAULT_TREE_MODE, write("tree", lines.join)]
     end
-    
-    def diff_tree(tree=@tree, target={}, path=nil) # :nodoc:
+
+    def diff_tree(tree=@index, target={}, path=nil) # :nodoc:
       keys(tree).each do |key|
         value = tree[key]
         key = File.join(path, key.to_s) if path
-        
+
         case
         when value.kind_of?(Hash)
           diff_tree(value, target, key)
@@ -624,24 +631,23 @@ module Gitgo
           target[key] = state
         end
       end
-      
+
       target
     end
-    
+
     def tree_hash(path=nil) # :nodoc:
       Hash.new do |hash, key|
         next if key.kind_of?(Integer)
-        
+
         tree = path ? get_tree(File.join(path, key)) : nil
         hash[key] = tree || tree_hash
       end
     end
-    
+
     def keys(tree) # :nodoc:
       tree.keys.delete_if do |key|
         key.kind_of?(Integer)
       end
     end
-    
   end
 end

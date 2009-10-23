@@ -50,19 +50,27 @@ module Gitgo
     end
     
     def create(parent)
-      doc = Document.new(request_attributes)
-      sha = register(doc, parent)
-      repo.commit("added document #{sha}") if commit?
+      id = repo.write("blob", Document.new(request_attributes).to_s)
+      repo.link(parent, id) if parent
+      
+      repo.commit("added document #{id}") if commit?
+      response["Sha"] = id
       
       redirect(request['redirect'] || url)
     end
     
     def update(parent, child)
       if doc = repo.doc(child)
-        unregister(doc, parent)
-        doc = doc.merge(request_attributes)
-        id = register(doc, parent)
+        links = repo.links(child)
+        repo.unlink(parent, child, :recursive => true) if parent
+        
+        id = repo.write("blob", doc.merge(request_attributes).to_s)
+        
+        repo.link(parent, id) if parent
+        links.each {|link| repo.link(id, link) }
+        
         repo.commit("updated document #{child} to #{id}") if commit?
+        response["Sha"] = id
         
         redirect(request['redirect'] || url)
       else
@@ -72,7 +80,7 @@ module Gitgo
     
     def destroy(parent, child)
       if doc = repo.doc(child)
-        unregister(doc, parent)
+        repo.unlink(parent, child, :recursive => recursive?) if parent
         repo.commit("removed document: #{child}") if commit?
       end
       
@@ -87,52 +95,19 @@ module Gitgo
       request['commit'] =~ /\Atrue\z/i
     end
     
-    def register(doc, parent=nil)
-      id = repo.write("blob", doc.to_s)
-      timestamp = doc.timestamp
-      
-      if parent
-        repo.register(timestamp, parent, :flat => true)
-        repo.link(parent, id)
-      else
-        repo.register(timestamp, id, :flat => true)
-      end
-      
-      response['Sha'] = id
-      id
-    end
-    
-    def unregister(doc, parent=nil)
-      id = doc.sha
-      timestamp = doc.timestamp
-      
-      if parent
-        repo.unlink(parent, id)
-        
-        # unregister parent from the timestamp unless there
-        # is another document created in that timestamp
-        others = repo.links(parent) {|sha| sha == id ? nil : repo.doc(sha) }
-        others.compact!
-        
-        unless others.any? {|another| another.timestamp == timestamp }
-          repo.unregister(timestamp, parent, :flat => true)
-        end
-        
-      else
-        repo.unregister(timestamp, id, :flat => true)
-      end
-      
-      id
+    def recursive?
+      request['recursive'] =~ /\Atrue\z/i
     end
     
     def request_attributes
       attributes = request['attributes'] || {}
       attributes.merge!(
-        'user' => user,
+        'author' => user,
         'date' => Time.now,
         'content' => request['content']
       )
       attributes
     end
+    
   end
 end

@@ -2,7 +2,7 @@ module Gitgo
   module Utils
     
     def grit
-      repo.repo
+      repo.grit
     end
     
     def commit_link(id)

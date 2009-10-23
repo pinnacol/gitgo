@@ -18,138 +18,122 @@ class CommentsTest < Test::Unit::TestCase
     Gitgo::Comments
   end
   
-  def timestamp
-    Time.now.strftime("%Y/%m/%d")
-  end
-  
   #
   # post test
   #
 
-  def test_post_creates_document_and_updates_parent_in_timeline
-    parent = repo.write("blob", "parent content")
+  def test_post_creates_document
+    a = repo.write("blob", "a")
     
-    post("/comment/#{parent}", "content" => "new content", "commit" => "true")
+    post("/comment/#{a}", "content" => "new content", "commit" => "true")
     assert last_response.redirect?, last_response.body
     
-    new_sha = last_response['Sha']
+    b = last_response['Sha']
     
-    assert_equal "new content", repo.doc(new_sha).content
-    assert repo.links(parent).include?(new_sha)
-    assert repo[timestamp].include?(parent)
-    assert !repo[timestamp].include?(new_sha)
+    assert_equal "new content", repo.doc(b).content
+    assert_equal [b], repo.links(a)
   end
 
-  def test_post_without_parent_creates_document_and_updates_doc_in_timeline
-    post("/comment", "content" => "new content", "commit" => "true")
-    assert last_response.redirect?, last_response.body
-    
-    new_sha = last_response['Sha']
-    
-    assert_equal "new content", repo.doc(new_sha).content
-    assert repo[timestamp].include?(new_sha)
-  end
+  # def test_post_without_parent_creates_document
+  #   post("/comment", "content" => "new content", "commit" => "true")
+  #   assert last_response.redirect?, last_response.body
+  #   
+  #   new_sha = last_response['Sha']
+  #   
+  #   assert_equal "new content", repo.doc(new_sha).content
+  #   assert repo[timestamp].include?(new_sha)
+  # end
   
-  def test_post_adds_blob_but_does_not_commit_new_content_unless_commit_is_true
-    post("/comment", "content" => "new content")
+  def test_post_adds_blob_but_does_not_commit_links_unless_commit_is_true
+    a = repo.write("blob", "a")
+    
+    post("/comment/#{a}", "content" => "new content")
     assert last_response.redirect?, last_response.body
     
-    new_sha = last_response['Sha']
-    assert_equal "new content", repo.doc(new_sha).content
-    assert_equal nil, repo[timestamp]
+    b = last_response['Sha']
     
-    repo.commit("commit changes")
-    assert repo[timestamp].include?(new_sha)
+    assert_equal "new content", repo.doc(b).content
+    assert_equal [], repo.links(a)
+    
+    repo.commit("ok now committed")
+    assert_equal [b], repo.links(a)
   end
   
   #
   # update test
   #
   
-  def test_update_updates_previous_comment_with_new_comment
-    parent = repo.create("parent")
-    child =  repo.create("original content", "a" => "A")
-    repo.register(timestamp, parent, :flat => true).link(parent, child).commit("added fixture")
+  def test_update_updates_and_replaces_previous_comment_with_new_comment
+    a = repo.create("a")
+    b = repo.create("b", "key" => "value")
+    c = repo.create("c")
+    repo.link(a, b).link(b, c).commit("added fixture")
     
-    assert_equal "original content", repo.doc(child).content
-    assert_equal "A", repo.doc(child).attributes["a"]
+    assert_equal [b], repo.links(a)
+    assert_equal [c], repo.links(b)
     
-    put("/comment/#{parent}/#{child}", "content" => "new content", "attributes" => {"a" => "B"}, "commit" => "true")
+    assert_equal "b", repo.doc(b).content
+    assert_equal "value", repo.doc(b).attributes["key"]
+    
+    put("/comment/#{a}/#{b}", "content" => "B", "attributes" => {"key" => "VALUE"}, "commit" => "true")
     assert last_response.redirect?, last_response.body
     
-    new_sha = last_response['Sha']
+    new_b = last_response['Sha']
     
-    assert !repo.links(parent).include?(child)
-    assert repo.links(parent).include?(new_sha)
-    assert repo[timestamp].include?(parent)
+    assert_equal [new_b], repo.links(a)
+    assert_equal [], repo.links(b)
+    assert_equal [c], repo.links(new_b)
     
-    assert_equal "new content", repo.doc(new_sha).content
-    assert_equal "B", repo.doc(new_sha).attributes["a"]
+    assert_equal "B", repo.doc(new_b).content
+    assert_equal "VALUE", repo.doc(new_b).attributes["key"]
   end
   
   #
   # destroy test
   #
-
-  def test_destroy_removes_comment_from_parent_and_parent_from_timeline
-    parent = repo.create("parent content")
-    child =  repo.create("child comment")
-    repo.register(timestamp, parent, :flat => true).link(parent, child).commit("added fixture")
+  
+  def test_destroy_removes_comment_from_parent
+    a = repo.create("a")
+    b = repo.create("b")
+    c = repo.create("c")
+    repo.link(a, b).link(b, c).commit("added fixture")
     
-    assert repo.links(parent).include?(child)
-    assert repo[timestamp].include?(parent)
-
-    delete("/comment/#{parent}/#{child}", "commit" => "true")
+    assert_equal [b], repo.links(a)
+    assert_equal [c], repo.links(b)
+  
+    delete("/comment/#{a}/#{b}", "commit" => "true")
     assert last_response.redirect?, last_response.body
-
-    assert !repo.links(parent).include?(child)
-    assert !repo[timestamp].include?(parent)
+  
+    assert_equal [], repo.links(a)
+    assert_equal [c], repo.links(b)
   end
   
-  def test_destroy_does_not_remove_parent_from_timeline_if_other_comments_exist_for_that_parent_and_time
-    parent = repo.create("parent content")
-    a =  repo.create("comment a")
-    b =  repo.create("comment b")
+  def test_destroy_removes_comment_from_parent_recursively_if_specified
+    a = repo.create("a")
+    b = repo.create("b")
+    c = repo.create("c")
+    repo.link(a, b).link(b, c).commit("added fixture")
     
-    repo.register(timestamp, parent, :flat => true)
-    repo.link(parent, a)
-    repo.link(parent, b)
-    repo.commit("added fixture")
-    
-    assert repo[timestamp].include?(parent)
-
-    delete("/comment/#{parent}/#{a}", "commit" => "true")
-    assert last_response.redirect?
-
-    assert !repo.links(parent).include?(a)
-    assert repo[timestamp].include?(parent)
-    
-    delete("/comment/#{parent}/#{b}", "commit" => "true")
-    
-    assert !repo.links(parent).include?(b)
-    assert !repo[timestamp].include?(parent)
-  end
+    assert_equal [b], repo.links(a)
+    assert_equal [c], repo.links(b)
   
-  def test_destroy_removes_comment_from_timeline_if_no_parent_is_specified
-    comment =  repo.create("comment")
-    repo.register(timestamp, comment, :flat => true).commit("added fixture")
-    
-    assert repo[timestamp].include?(comment)
-
-    delete("/comment/#{comment}", "commit" => "true")
-    assert !repo[timestamp].include?(comment)
+    delete("/comment/#{a}/#{b}", "commit" => "true", "recursive" => true)
+    assert last_response.redirect?, last_response.body
+  
+    assert_equal [], repo.links(a)
+    assert_equal [], repo.links(b)
   end
   
   def test_destroy_does_not_commit_unless_specified
-    comment =  repo.create("comment")
-    repo.register(timestamp, comment, :flat => true).commit("added fixture")
-    
-    assert repo[timestamp].include?(comment)
-
-    delete("/comment/#{comment}")
-    assert repo[timestamp].include?(comment)
+    a = repo.create("a")
+    b = repo.create("b")
+    repo.link(a, b).commit("added fixture")
+    assert_equal [b], repo.links(a)
+  
+    delete("/comment/#{a}/#{b}")
+    assert_equal [b], repo.links(a)
     
     repo.commit("ok now committed")
-    assert !repo[timestamp].include?(comment)
+    assert_equal [], repo.links(a)
   end
 end

@@ -22,7 +22,7 @@ class ServerTest < Test::Unit::TestCase
     setup_app("simple.git")
     
     get("/commit/e9b525ed0dfde2833001173e7f185939b46b0274")
-    assert last_response.ok?
+    assert last_response.ok?, last_response.body
     assert last_response.body.include?('<li class="add">alpha.txt</li>')
     assert last_response.body.include?('<li class="rm">one.txt</li>')
     
@@ -45,11 +45,11 @@ class ServerTest < Test::Unit::TestCase
     setup_app("simple.git")
     
     get("/tree/master")
-    assert last_response.ok?
+    assert last_response.ok?, last_response.body
     master_response = last_response
   
     get("/tree")
-    assert last_response.ok?
+    assert last_response.ok?, last_response.body
     assert_equal master_response.body, last_response.body
   end
   
@@ -144,7 +144,7 @@ class ServerTest < Test::Unit::TestCase
     setup_app("gitgo.git")
 
     get("/show/#{issue_two}")
-    assert last_response.ok?
+    assert last_response.ok?, last_response.body
     assert last_response.body.include?(issue_two)
     assert last_response.body.include?('Issue Two Content')
     assert last_response.body.include?(issue_two_comment1)
