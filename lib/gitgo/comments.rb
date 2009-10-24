@@ -74,7 +74,7 @@ module Gitgo
     end
     
     def destroy(parent, child)
-      if doc = repo.delete(child)
+      if doc = repo.destroy(child)
         repo.unlink(parent, child, :recursive => recursive?) if parent
         repo.commit("removed document: #{child}") if commit?
       end

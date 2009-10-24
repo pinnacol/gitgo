@@ -20,7 +20,6 @@ class RepoTest < Test::Unit::TestCase
     @repo = Repo.new(super(repo), :branch => "master")
   end
   
-  
   #
   # documentation test
   #
@@ -219,15 +218,20 @@ class RepoTest < Test::Unit::TestCase
   # link test
   #
   
-  def test_link_links_the_parent_sha_to_the_child_sha
-    parent = repo.write("blob", "parent content")
-    child = repo.write("blob", "child content")
+  def test_link_links_the_parent_sha_to_the_empty_sha_by_child
+    a = repo.write("blob", "a")
+    b = repo.write("blob", "b")
   
-    repo.link(parent, child).commit("linked a file")
-    assert_equal "child content", repo["#{parent[0,2]}/#{parent[2,38]}/#{child}"]
+    repo.link(a, b).commit("linked a file")
+    assert_equal "", repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
+  end
   
-    repo.link(parent, child, :mode => "100644", :as => child + ".ext").commit("linked a file with an extension")
-    assert_equal "child content", repo["#{parent[0,2]}/#{parent[2,38]}/#{child}.ext"]
+  def test_link_nests_link_under_dir_if_specified
+    a = repo.write("blob", "a")
+    b = repo.write("blob", "b")
+  
+    repo.link(a, b, :dir => "path/to/dir").commit("linked a file")
+    assert_equal "", repo["path/to/dir/#{a[0,2]}/#{a[2,38]}/#{b}"]
   end
 
   #
@@ -243,6 +247,17 @@ class RepoTest < Test::Unit::TestCase
     
     assert_equal [b, c].sort, repo.links(a).sort
     assert_equal [], repo.links(b)
+  end
+  
+  def test_links_returns_array_of_linked_children_under_dir_if_specified
+    a = repo.write("blob", "A")
+    b = repo.write("blob", "B")
+    c = repo.write("blob", "C")
+    
+    repo.link(a, b, :dir => "one").link(a, c, :dir => "two").commit("created links")
+    
+    assert_equal [b], repo.links(a, :dir => "one")
+    assert_equal [c], repo.links(a, :dir => "two")
   end
 
   def test_links_returns_a_nested_hash_of_children_if_recursive_is_specified
@@ -328,6 +343,31 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [], repo.links(b)
   end
   
+  def test_unlink_removes_children_under_dir_if_specified
+    a = repo.write("blob", "A")
+    b = repo.write("blob", "B")
+    c = repo.write("blob", "C")
+    d = repo.write("blob", "C")
+    e = repo.write("blob", "C")
+    
+    repo.link(a, b, :dir => "one").link(b, c, :dir => "one")
+    repo.link(a, d, :dir => "two").link(d, e, :dir => "two")
+    
+    repo.commit("created recursive links under dir")
+    
+    assert_equal [b], repo.links(a, :dir => "one")
+    assert_equal [c], repo.links(b, :dir => "one")
+    assert_equal [d], repo.links(a, :dir => "two")
+    assert_equal [e], repo.links(d, :dir => "two")
+    
+    repo.unlink(a, d, :dir => "two", :recursive => true).commit("recursively unlinked a under dir")
+
+    assert_equal [b], repo.links(a, :dir => "one")
+    assert_equal [c], repo.links(b, :dir => "one")
+    assert_equal [], repo.links(a, :dir => "two")
+    assert_equal [], repo.links(d, :dir => "two")
+  end
+  
   def test_recursive_unlink_removes_circular_linkages
     a = repo.write("blob", "A")
     b = repo.write("blob", "B")
@@ -344,75 +384,6 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # register test
-  #
-
-  def test_register_adds_the_sha_to_the_type_directory
-    issue = repo.write("blob", "new issue")
-
-    repo.register("issues", issue).commit("added an issue")
-    assert_equal "new issue", repo["issues/#{issue[0,2]}/#{issue[2,38]}"]
-  end
-
-  def test_register_can_register_new_types
-    thing = repo.write("blob", "new thing")
-
-    repo.register("things", thing).commit("added a thing")
-    assert_equal "new thing", repo["things/#{thing[0,2]}/#{thing[2,38]}"]
-  end
-
-  #
-  # registry test
-  #
-
-  def test_registry_returns_array_of_registered_shas
-    assert_equal [], repo.registry("type")
-
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    
-    repo.register("type", a).register("type", b).commit("registered shas")
-    
-    assert_equal [a, b].sort, repo.registry("type").sort
-  end
-
-  #
-  # unregister test
-  #
-
-  def test_unregister_removes_registered_shas
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
-    
-    repo.register("type", a).register("type", b).link(b, c).commit("registered shas")
-    
-    assert_equal [a, b].sort, repo.registry("type").sort
-    assert_equal [c], repo.links(b)
-    
-    repo.unregister("type", b).commit("unregistered b")
-  
-    assert_equal [a], repo.registry("type")
-    assert_equal [c], repo.links(b)
-  end
-  
-  def test_unregister_reursively_removes_linked_children_if_specified
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
-    
-    repo.register("type", a).register("type", b).link(b, c).commit("registered shas")
-    
-    assert_equal [a, b].sort, repo.registry("type").sort
-    assert_equal [c], repo.links(b)
-    
-    repo.unregister("type", b, :recursive => true).commit("unregistered b")
-  
-    assert_equal [a], repo.registry("type")
-    assert_equal [], repo.links(b)
-  end
-  
-  #
   # create test
   #
   
@@ -420,7 +391,7 @@ class RepoTest < Test::Unit::TestCase
     setup_repo("simple.git") # to setup a default user
     
     sha = repo.create("new content")
-    doc = repo.doc(sha)
+    doc = repo.read(sha)
     
     assert_equal "new content", doc.content
     assert_equal "John Doe", doc.author.name
@@ -430,7 +401,7 @@ class RepoTest < Test::Unit::TestCase
   
   def test_create_respects_any_atttributes_specified_with_the_document
     sha = repo.create("new content", "author" => Grit::Actor.new("New User", "new.user@email.com"), "key" => "value")
-    doc = repo.doc(sha)
+    doc = repo.read(sha)
     
     assert_equal "new content", doc.content
     assert_equal "New User", doc.author.name
@@ -450,17 +421,17 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # delete test
+  # destroy test
   #
   
-  def test_delete_removes_the_document_and_associated_indicies
+  def test_destroy_removes_the_document_and_associated_indicies
     date = Time.utc(2009, 9, 9)
     author = Grit::Actor.new('John Doe', 'john.doe@email.com')
     
     id = repo.create("content", 'author' => author, 'date' => date)
     repo.commit("added a new doc")
     
-    repo.delete(id)
+    repo.destroy(id)
     repo.commit("removed the new doc")
     
     assert_equal [], repo["idx/2009/0909"]

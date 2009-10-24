@@ -30,7 +30,7 @@ class CommentsTest < Test::Unit::TestCase
     
     b = last_response['Sha']
     
-    assert_equal "new content", repo.doc(b).content
+    assert_equal "new content", repo.read(b).content
     assert_equal [b], repo.links(a)
   end
 
@@ -40,7 +40,7 @@ class CommentsTest < Test::Unit::TestCase
   #   
   #   new_sha = last_response['Sha']
   #   
-  #   assert_equal "new content", repo.doc(new_sha).content
+  #   assert_equal "new content", repo.read(new_sha).content
   #   assert repo[timestamp].include?(new_sha)
   # end
   
@@ -52,7 +52,7 @@ class CommentsTest < Test::Unit::TestCase
     
     b = last_response['Sha']
     
-    assert_equal "new content", repo.doc(b).content
+    assert_equal "new content", repo.read(b).content
     assert_equal [], repo.links(a)
     
     repo.commit("ok now committed")
@@ -72,8 +72,8 @@ class CommentsTest < Test::Unit::TestCase
     assert_equal [b], repo.links(a)
     assert_equal [c], repo.links(b)
     
-    assert_equal "b", repo.doc(b).content
-    assert_equal "value", repo.doc(b).attributes["key"]
+    assert_equal "b", repo.read(b).content
+    assert_equal "value", repo.read(b).attributes["key"]
     
     put("/comment/#{a}/#{b}", "content" => "B", "attributes" => {"key" => "VALUE"}, "commit" => "true")
     assert last_response.redirect?, last_response.body
@@ -84,8 +84,8 @@ class CommentsTest < Test::Unit::TestCase
     assert_equal [], repo.links(b)
     assert_equal [c], repo.links(new_b)
     
-    assert_equal "B", repo.doc(new_b).content
-    assert_equal "VALUE", repo.doc(new_b).attributes["key"]
+    assert_equal "B", repo.read(new_b).content
+    assert_equal "VALUE", repo.read(new_b).attributes["key"]
   end
   
   #

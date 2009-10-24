@@ -64,7 +64,7 @@ module Gitgo
     end
     
     def show_doc(id)
-      if document = repo.doc(id)
+      if document = repo.read(id)
         erb :document, :locals => {:document => document}
       else
         not_found

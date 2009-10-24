@@ -148,7 +148,7 @@ module Gitgo
 
     DEFAULT_BLOB_MODE = "100644"
     DEFAULT_TREE_MODE = "040000"
-    
+
     # The internal Grit::Repo
     attr_reader :grit
 
@@ -328,10 +328,7 @@ module Gitgo
     # object types (ex commit, tag) will be seen as corruption by git. 
     # Parents can refer to any object.
     def link(parent, child, options={})
-      path = options[:as] || child
-      mode = options[:mode] || DEFAULT_BLOB_MODE
-
-      add(sha_path(parent, path) => [mode, child])
+      add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, empty_sha])
       self
     end
 
@@ -339,7 +336,7 @@ module Gitgo
     # recursive is specified, links will recursively seek links for each
     # child.  In that case links returns a nested hash of linked shas.
     def links(parent, options={}, &block)
-      links = self[sha_path(parent)] || []
+      links = self[sha_path(options, parent)] || []
 
       unless options[:recursive]
         links.collect!(&block) if block_given?
@@ -370,7 +367,7 @@ module Gitgo
     # under the sha-path for the parent.  Unlink will recursively remove all
     # links to the child if specified.
     def unlink(parent, child, options={})
-      rm(sha_path(parent, options[:as] || child))
+      rm(sha_path(options, parent, child))
       
       if options[:recursive]
         visited = options[:visited] ||= []
@@ -380,7 +377,10 @@ module Gitgo
         unless visited.include?(child)
           visited.push child
           
-          links(child).each do |grandchild|
+          # note options cannot be passed to links here,
+          # because recursion is NOT desired and visited
+          # will overlap/conflict
+          links(child, :dir => options[:dir]).each do |grandchild|
             unlink(child, grandchild, options)
           end
         end
@@ -389,69 +389,37 @@ module Gitgo
       self
     end
     
-    # Registers the object to the specified type by adding a reference to the
-    # sha under the type directory.
-    #
-    # Note that only blobs and trees should be registered; other object types
-    # (ex commit, tag) will be seen as corruption by git. 
-    def register(type, sha, options={})
-      mode = options[:mode] || DEFAULT_BLOB_MODE
-      
-      add(registry_path(type, sha) => [mode, sha])
-      self
-    end
-
-    # Returns a list of shas registered to the type.
-    def registry(type, options={})
-      tree = self[type] || []
-      
-      shas = []
-      tree.each do |ab|
-        self[File.join(type, ab)].each do |xyz|
-          shas << ab + xyz
-        end
-      end
-      shas
-    end
-
-    # Unregisters the sha to the type by removing the reference to the sha
-    # under the type directory.  Unregister will recursively remove all links
-    # to the sha if specified.
-    def unregister(type, sha, options={})
-      rm(registry_path(type, sha))
-
-      links(sha).each do |child|
-        unlink(sha, child, options)
-      end if options[:recursive]
-
-      self
-    end
-    
     # Creates a new Document using the content and attributes, writes it to
-    # the repo and returns it's sha.  The document is stored by timestamp
-    # under the index directory, and is additionally logged to the author of
-    # the document.
-    def create(content, attrs={})
+    # the repo and returns it's sha.  
+    def create(content, attrs={}, options={})
       attrs['content'] = content
       attrs['author'] ||= user
       attrs['date'] ||= Time.now
       
-      store Document.new(attrs)
+      store(Document.new(attrs), options)
     end
     
-    def store(doc)
+    # Stores the document by timestamp and logs the document to the author.
+    def store(doc, options={})
+      mode = options[:mode] || DEFAULT_BLOB_MODE
       id = write("blob", doc.to_s)
       
       add(
-        timestamp(doc.date, id) => [DEFAULT_BLOB_MODE, id], 
-        logfile(doc) => id
+        timestamp(doc.date, id) => [mode, id], 
+        logfile(doc.author, doc.date) => id
       )
       
       id
     end
     
+    # Gets the document indicated by id, or nil if no such document exists.
+    def read(id)
+      blob = grit.blob(id)
+      blob.data.empty? ? nil : Document.new(blob.data, id)
+    end
+    
     def update(id, attrs={})
-      return nil unless old_doc = delete(id)
+      return nil unless old_doc = destroy(id)
       old_links = links(id)
       
       new_doc = old_doc.merge(attrs)
@@ -461,19 +429,12 @@ module Gitgo
       id
     end
     
-    # Gets the document indicated by id, or nil if no such document exists.
-    def doc(id)
-      blob = grit.blob(id)
-      blob.data.empty? ? nil : Document.new(blob.data, id)
-    end
-    
     # Removes the document from the repo by deleting it from the timeline.
     # Delete also removes the logfile associating this document with the
     # document author.
-    def delete(id)
-      return nil unless doc = self.doc(id)
-      
-      rm timestamp(doc.date, id), logfile(doc)
+    def destroy(id)
+      return nil unless doc = self.read(id)
+      rm(timestamp(doc.date, id), logfile(doc.author, doc.date))
       doc
     end
     
@@ -486,8 +447,14 @@ module Gitgo
       shas = []
       return shas if n <= 0
       
+      years = (self[index_path] || []).select do |dir|
+        dir =~ /\A\d{4,}\z/
+      end.sort
+      
       years.reverse_each do |year|
-        days(year).reverse_each do |day|
+        
+        days = (self[index_path(year)] || []).sort
+        days.reverse_each do |day|
           
           # y,md need to be iterated in reverse to correctly sort by
           # date; this is not the case with the unordered shas
@@ -629,12 +596,28 @@ module Gitgo
       end
     end
     
-    def sha_path(sha, *paths) # :nodoc:
-      File.join(sha[0,2], sha[2,38], *paths)
+    # Returns the sha for an empty file.  Note this only needs to be
+    # initialized once for a given repo; even if you change branches the
+    # object will be in the repo.
+    def empty_sha # :nodoc:
+      @empty_sha ||= write("blob", "")
     end
-
-    def registry_path(type, sha) # :nodoc:
-      File.join(type, sha[0,2], sha[2,38])
+    
+    # Creates a nested sha path like:
+    #
+    #   dir/
+    #     ab/
+    #       xyz...
+    #
+    def sha_path(options, sha, *paths) # :nodoc:
+      paths.unshift sha[2,38]
+      paths.unshift sha[0,2]
+      
+      if dir = options[:dir]
+        paths.unshift dir
+      end
+      
+      File.join(*paths)
     end
     
     def index_path(*paths) # :nodoc:
@@ -645,9 +628,9 @@ module Gitgo
       index_path(date.strftime('%Y/%m%d'), id)
     end
     
-    def logfile(doc) # :nodoc:
-      date = doc.date
-      index_path(doc.author.email, "#{date.to_i}#{date.usec.to_s[0,2]}")
+    def logfile(user, date) # :nodoc:
+      date = date.utc
+      index_path(user.email, "#{date.to_i}#{date.usec.to_s[0,2]}")
     end
     
     # splits path and yields each path segment to the block.  if specified,
@@ -663,16 +646,7 @@ module Gitgo
 
       last
     end
-    
-    def years # :nodoc:
-      return [] unless idx = self[index_path]
-      idx.select {|dir| dir =~ /\A\d{4,}\z/ }.sort
-    end
-    
-    def days(year) # :nodoc:
-      (self[index_path(year)] || []).sort
-    end
-    
+
     def get_tree(path) # :nodoc:
       obj = get(path)
 
