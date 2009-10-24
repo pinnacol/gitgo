@@ -22,14 +22,14 @@ module Gitgo
         @@repo = input.kind_of?(String) ? Repo.init(input) : input
       end
       
-      # The default user. User is stored as a class variable to make it
+      # The default author. User is stored as a class variable to make it
       # available in all subclasses.
-      def user
-        @@user ||= repo.user
+      def author
+        @@author ||= repo.author
       end
       
-      def user=(input)
-        @@user = input
+      def author=(input)
+        @@author = input
       end
       
       private
@@ -53,7 +53,7 @@ module Gitgo
     set :dump_errors, true
     set :resource_name, nil
     set :repo, nil
-    set :user, nil
+    set :author, nil
     
     template(:layout) do 
       File.read("views/layout.erb")
@@ -94,14 +94,14 @@ module Gitgo
       name.capitalize
     end
     
-    # Returns the active user as defined by the session user/email, or using
-    # the user set for the class.
-    def user
-      @user ||= begin
-        if session && session['user']
-          Grit::Actor.from_string(session['user'])
+    # Returns the active author as defined by the session author/email, or using
+    # the author set for the class.
+    def author
+      @author ||= begin
+        if session && session['author']
+          Grit::Actor.from_string(session['author'])
         else
-          options.user
+          options.author
         end
       end
     end

@@ -14,7 +14,7 @@ module Gitgo
   #
   # Checkout, add, and commit new content:
   #
-  #   repo = Repo.init("example", :user => "John Doe <jdoe@example.com>")
+  #   repo = Repo.init("example", :author => "John Doe <jdoe@example.com>")
   #   repo.add(
   #     "README" => "New Project",
   #     "lib/project.rb" => "module Project\nend",
@@ -49,7 +49,7 @@ module Gitgo
   # hash of (path, [mode, sha]) pairs representing the in-memory working tree
   # contents. Symbol paths indicate a subtree that could be expanded.
   #
-  #   repo = Repo.init("example", :user => "John Doe <jdoe@example.com>")
+  #   repo = Repo.init("example", :author => "John Doe <jdoe@example.com>")
   #   repo.add(
   #     "README" => "New Project",
   #     "lib/project.rb" => "module Project\nend"
@@ -163,7 +163,7 @@ module Gitgo
     # following:
     #
     #   :branch     the branch for self
-    #   :user       the user for self
+    #   :author       the author for self
     #   + any Grit::Repo options
     #
     def initialize(path=Dir.pwd, options={})
@@ -171,7 +171,7 @@ module Gitgo
       @branch = options[:branch] || DEFAULT_BRANCH
       @tree = get_tree("/") || tree_hash
       
-      self.user = options[:user]
+      self.author = options[:author]
     end
     
     # Returns the current commit for branch.
@@ -186,22 +186,22 @@ module Gitgo
       File.join(grit.path, *paths)
     end
     
-    # Returns the configured user (which should be a Grit::Actor, or similar).
-    # If no user is is currently set, a default user will be determined from
+    # Returns the configured author (which should be a Grit::Actor, or similar).
+    # If no author is is currently set, a default author will be determined from
     # the repo configurations.
-    def user
-      @user ||= begin
+    def author
+      @author ||= begin
         name =  grit.config['user.name']
         email = grit.config['user.email']
         Grit::Actor.new(name, email)
       end
     end
 
-    # Sets the user.  The input may be a Grit::Actor, an array like [user,
-    # email], a git-formatted user string (ex 'John Doe <jdoe@example.com>'),
+    # Sets the author.  The input may be a Grit::Actor, an array like [author,
+    # email], a git-formatted author string (ex 'John Doe <jdoe@example.com>'),
     # or nil.
-    def user=(input)
-      @user = case input
+    def author=(input)
+      @author = case input
       when Grit::Actor, nil then input
       when Array  then Grit::Actor.new(*input)
       when String then Grit::Actor.from_string(*input)
@@ -393,7 +393,7 @@ module Gitgo
     # the repo and returns it's sha.  
     def create(content, attrs={}, options={})
       attrs['content'] = content
-      attrs['author'] ||= user
+      attrs['author'] ||= author
       attrs['date'] ||= Time.now
       
       store(Document.new(attrs), options)
@@ -472,8 +472,8 @@ module Gitgo
       shas
     end
     
-    # Returns an array of shas representing activity by the user.
-    def activity(user, options={})
+    # Returns an array of shas representing activity by the author.
+    def activity(author, options={})
       options = {:n => 10, :offset => 0}.merge(options)
       offset = options[:offset]
       n = options[:n]
@@ -481,12 +481,12 @@ module Gitgo
       shas = []
       return shas if n <= 0
       
-      user_path = index_path(user.email)
-      (self[user_path] || []).sort.reverse_each do |entry|
+      author_path = index_path(author.email)
+      (self[author_path] || []).sort.reverse_each do |entry|
         if offset > 0
           offset -= 1
         else
-          shas << self[File.join(user_path, entry)]
+          shas << self[File.join(author_path, entry)]
           return shas if n && shas.length == n
         end
       end
@@ -500,7 +500,7 @@ module Gitgo
       
       mode, tree_id = write_tree
       parent = self.current
-      author = options[:author] || user
+      author = options[:author] || self.author
       authored_date = options[:authored_date] || Time.now
       committer = options[:committer] || author
       committed_date = options[:committed_date] || Time.now
@@ -575,7 +575,7 @@ module Gitgo
 
       # sets up branch to track the origin to enable pulls
       clone.git.branch({:track => true}, branch, "origin/#{branch}")
-      self.class.new(clone, :branch => branch, :user => user)
+      self.class.new(clone, :branch => branch, :author => author)
     end
 
     protected
@@ -628,9 +628,9 @@ module Gitgo
       index_path(date.strftime('%Y/%m%d'), id)
     end
     
-    def logfile(user, date) # :nodoc:
+    def logfile(author, date) # :nodoc:
       date = date.utc
-      index_path(user.email, "#{date.to_i}#{date.usec.to_s[0,2]}")
+      index_path(author.email, "#{date.to_i}#{date.usec.to_s[0,2]}")
     end
     
     # splits path and yields each path segment to the block.  if specified,

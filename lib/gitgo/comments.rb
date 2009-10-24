@@ -97,7 +97,7 @@ module Gitgo
     def request_attributes(content=false)
       attributes = request['attributes'] || {}
       attributes.merge!(
-        'author' => user,
+        'author' => author,
         'date' => Time.now
       )
       attributes['content'] = request['content'] if content

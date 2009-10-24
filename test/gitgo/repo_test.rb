@@ -25,7 +25,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_repo_documentation
-    repo = Repo.init(method_root.path(:tmp, "example"), :user => "John Doe <jdoe@example.com>")
+    repo = Repo.init(method_root.path(:tmp, "example"), :author => "John Doe <jdoe@example.com>")
     repo.add(
       "README" => "New Project",
       "lib/project.rb" => "module Project\nend"
@@ -107,15 +107,15 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # user test
+  # author test
   #
   
-  def test_user_determines_a_default_user_from_the_repo_config
+  def test_author_determines_a_default_author_from_the_repo_config
     setup_repo("simple.git")
     
-    user = repo.user
-    assert_equal "John Doe", user.name
-    assert_equal "john.doe@email.com", user.email
+    author = repo.author
+    assert_equal "John Doe", author.name
+    assert_equal "john.doe@email.com", author.email
   end
   
   #
@@ -388,7 +388,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_create_adds_a_new_document_to_the_repo_and_returns_the_new_doc_id
-    setup_repo("simple.git") # to setup a default user
+    setup_repo("simple.git") # to setup a default author
     
     sha = repo.create("new content")
     doc = repo.read(sha)
@@ -409,7 +409,7 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "value", doc.attributes["key"]
   end
   
-  def test_create_adds_doc_sha_to_timestamp_and_user_index
+  def test_create_adds_doc_sha_to_timestamp_and_author_index
     date = Time.utc(2009, 9, 9)
     author = Grit::Actor.new('John Doe', 'john.doe@email.com')
     id = repo.create("content", 'author' => author, 'date' => date)
@@ -460,7 +460,7 @@ class RepoTest < Test::Unit::TestCase
   # activity test
   #
   
-  def test_activity_returns_activity_by_the_user_ordered_by_date
+  def test_activity_returns_activity_by_the_author_ordered_by_date
     john = Grit::Actor.new('John Doe', 'john.doe@email.com')
     jane = Grit::Actor.new('Jane Doe', 'jane.doe@email.com')
     

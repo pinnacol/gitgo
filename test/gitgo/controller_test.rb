@@ -54,35 +54,35 @@ class ControllerTest < Test::Unit::TestCase
   end
   
   #
-  # user test
+  # author test
   #
   
-  def test_user_returns_class_user
+  def test_author_returns_class_author
     app.set :repo, Gitgo::Repo.new(setup_repo("gitgo.git"))
-    app.set :user, Grit::Actor.new("John Doe", "john.doe@example.com")
+    app.set :author, Grit::Actor.new("John Doe", "john.doe@example.com")
     
-    assert_equal "John Doe", instance.user.name
-    assert_equal "john.doe@example.com", instance.user.email
+    assert_equal "John Doe", instance.author.name
+    assert_equal "john.doe@example.com", instance.author.email
   end
   
-  def test_user_reads_user_from_git_if_no_user_is_specified
+  def test_author_reads_author_from_git_if_no_author_is_specified
     app.set :repo, Gitgo::Repo.new(setup_repo("gitgo.git"))
-    app.set :user, nil
+    app.set :author, nil
     
-    assert_equal "User One", instance.user.name
-    assert_equal "user.one@email.com", instance.user.email
+    assert_equal "User One", instance.author.name
+    assert_equal "user.one@email.com", instance.author.email
   end
   
-  def test_user_returns_user_in_session_over_class_user
+  def test_author_returns_author_in_session_over_class_author
     app.set :repo, Gitgo::Repo.new(setup_repo("gitgo.git"))
-    app.set :user, Grit::Actor.new("John Doe", "john.doe@example.com")
+    app.set :author, Grit::Actor.new("John Doe", "john.doe@example.com")
     
     env = Rack::MockRequest.env_for
-    env['rack.session'] = {'user' => "Jane Doe <jane.doe@example.com>"}
+    env['rack.session'] = {'author' => "Jane Doe <jane.doe@example.com>"}
     instance.request = Rack::Request.new(env)
     
-    assert_equal "Jane Doe", instance.user.name
-    assert_equal "jane.doe@example.com", instance.user.email
+    assert_equal "Jane Doe", instance.author.name
+    assert_equal "jane.doe@example.com", instance.author.email
   end
 end
   
