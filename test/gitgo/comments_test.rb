@@ -23,7 +23,7 @@ class CommentsTest < Test::Unit::TestCase
   #
 
   def test_post_creates_document
-    a = repo.write("blob", "a")
+    a = repo.set("blob", "a")
     
     post("/comment/#{a}", "content" => "new content", "commit" => "true")
     assert last_response.redirect?, last_response.body
@@ -45,7 +45,7 @@ class CommentsTest < Test::Unit::TestCase
   # end
   
   def test_post_adds_blob_but_does_not_commit_links_unless_commit_is_true
-    a = repo.write("blob", "a")
+    a = repo.set("blob", "a")
     
     post("/comment/#{a}", "content" => "new content")
     assert last_response.redirect?, last_response.body

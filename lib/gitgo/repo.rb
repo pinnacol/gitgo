@@ -169,7 +169,7 @@ module Gitgo
     def initialize(path=Dir.pwd, options={})
       @grit = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
       @branch = options[:branch] || DEFAULT_BRANCH
-      @tree = get_tree("/") || tree_hash
+      @tree = commit_tree
       
       self.author = options[:author]
     end
@@ -217,43 +217,20 @@ module Gitgo
       grit.git.cat_file({:t => true}, sha)
     end
     
-    # Gets the tree or blob at the specified path.
-    def get(path)
-      return nil unless current = self.current
-      current = current.tree
-
-      segments(path) do |seg|
-        return nil unless current.respond_to?(:/)
-        current = current / seg
-      end
-
-      current
-    end
-    
-    # Gets the content for path; either the blob data or an array of content
-    # names for a tree.  Returns nil if path doesn't exist.
-    def [](path)
-      obj = get(path)
-
-      case obj
-      when Grit::Blob then obj.data
-      when Grit::Tree then obj.contents.collect {|content| content.name }
-      else nil
-      end
-    end
-
-    # Sets content for path.
-    def []=(path, content=nil)
-      if content.nil?
-        rm(path)
-      else
-        add(path => content)
+    # Gets the specified object, returning an instance of the appropriate Grit
+    # class.  Raises an error for unknown types.
+    def get(type, id)
+      case type.to_sym
+      when :blob          then grit.blob(id)
+      when :tree          then grit.tree(id)
+      when :commit, :tag  then grit.commit(id)
+      else raise "unknown type: #{type}"
       end
     end
     
-    # Write a raw object to the gritsitory and returns the object id.  This
-    # method is patterned after GitStore#write
-    def write(type, content) # :nodoc:
+    # Sets an object into the git repository and returns the object id.  This
+    # method is patterned after GitStore#write.
+    def set(type, content) # :nodoc:
       data = "#{type} #{content.length}\0#{content}"
       id = Digest::SHA1.hexdigest(data)[0, 40]
       path = self.path("/objects/#{id[0...2]}/#{id[2..39]}")
@@ -268,6 +245,44 @@ module Gitgo
       id
     end
     
+    # Gets the content for path; either the blob data or an array of content
+    # names for a tree.  Returns nil if path doesn't exist.
+    #
+    # (path should be the path to the file without leading or trailing /)
+    def [](path, committed=false)
+      tree = committed ? commit_tree : @tree
+      
+      segments = path_segments(path)
+      unless basename = segments.pop
+        return keys(tree)
+      end
+      
+      unless tree = subtree(tree, segments)
+        return nil 
+      end
+      
+      obj = entry(tree, basename)
+      case obj
+      when Array then get(:blob, obj[1]).data
+      when Hash  then keys(obj)
+      else nil
+      end
+    end
+
+    # Sets content for path. Content may be:
+    #
+    # * a string of content
+    # * an array like [mode, sha] (for blobs)
+    # * a hash of (path, [mode, sha]) pairs (for trees)
+    #
+    def []=(path, content=nil)
+      if content.nil?
+        rm(path)
+      else
+        add(path => content)
+      end
+    end
+    
     # Adds content at the specified paths.  Takes a hash of (path, content)
     # pairs where the content can either be:
     #
@@ -279,23 +294,20 @@ module Gitgo
     # [mode, sha] array representing the new blob.
     def add(paths, update=true)
       paths.keys.each do |path|
-        tree = @tree
-        base = segments(path, true) do |seg|
-          tree.delete(seg.to_sym)
-          tree = tree[seg]
+        segments = path_segments(path)
+        unless basename = segments.pop
+          raise "invalid path: #{path.inspect}"
         end
         
         content = paths[path]
-        entry = case content
-        when Array, Hash
-          content
-        else 
-          [DEFAULT_BLOB_MODE, write("blob", content)]
-        end 
-
-        entry[2] = :add
-        tree[base] = entry
-        paths[path] = entry if update
+        if content.kind_of?(String)
+          content = [DEFAULT_BLOB_MODE, set(:blob, content)]
+        end
+        
+        tree = subtree(@tree, segments, true)
+        tree[basename] = content
+        
+        paths[path] = content if update
       end
 
       self
@@ -304,17 +316,14 @@ module Gitgo
     # Removes the content at each of the specified paths
     def rm(*paths)
       paths.each do |path|
-        tree = @tree
-        segments(path) do |seg|
-          tree.delete(seg.to_sym)
-          tree = tree[seg]
+        segments = path_segments(path)
+        unless basename = segments.pop
+          raise "invalid path: #{path.inspect}"
         end
-
-        tree[2] = :rm
-
-        if tree.kind_of?(Hash)
-          recursive_paths = keys(tree).collect! {|key| File.join(path, key.to_s) }
-          rm(*recursive_paths)
+        
+        if tree = subtree(@tree, segments)
+          tree.delete(basename.to_sym)
+          tree.delete(basename)
         end
       end
 
@@ -331,26 +340,32 @@ module Gitgo
       add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, empty_sha])
       self
     end
-    
+
+
     # Returns an array of parents that link to the child.
     def parents(child, options={})
-      root = get(options[:dir] || "/")
-      return [] unless root && root.respond_to?(:contents)
+      segments = path_segments(options[:dir] || "/")
+      
+      parents = []
+      return parents unless tree = subtree(@tree, segments)
       
       # seek /ab/xyz/sha where sha == child
-      parents = []
-      root.contents.each do |ab|
-        next unless ab.respond_to?(:contents)
-        ab.contents.each do |xyz|
-          next unless xyz.respond_to?(:contents)
-          if xyz.contents.any? {|sha| sha.name == child }
-            parents << "#{ab.name}#{xyz.name}"
+      tree.keys.each do |ab|
+        ab_tree = entry(tree, ab)
+        next unless ab_tree.kind_of?(Hash)
+        
+        ab_tree.keys.each do |xyz|
+          xyz_tree = entry(ab_tree, xyz)
+          next unless xyz_tree.kind_of?(Hash)
+          
+          if xyz_tree.keys.any? {|sha| sha.to_s == child }
+            parents << "#{ab}#{xyz}"
           end
         end
       end
       parents
     end
-    
+
     # Returns an array of children linked to the parent.  If recursive is
     # specified, this method will recursively seek children for each child and
     # the return will be a nested hash of linked shas.
@@ -388,15 +403,15 @@ module Gitgo
     def unlink(parent, child, options={})
       return self unless parent && child
       rm(sha_path(options, parent, child))
-      
+
       if options[:recursive]
         visited = options[:visited] ||= []
-        
+
         # the child should only need to be visited once
         # as one visit will unlink any grandchildren
         unless visited.include?(child)
           visited.push child
-          
+
           # note options cannot be passed to links here,
           # because recursion is NOT desired and visited
           # will overlap/conflict
@@ -408,7 +423,7 @@ module Gitgo
 
       self
     end
-    
+
     # Creates a new Document using the content and attributes, writes it to
     # the repo and returns it's sha.  New documents are stored by timestamp
     # and logged to their author.
@@ -416,55 +431,55 @@ module Gitgo
       attrs['content'] = content
       attrs['author'] ||= author
       attrs['date'] ||= Time.now
-      
+
       store(Document.new(attrs), options)
     end
-    
+
     # Stores the document by timestamp and logs the document to the author.
     def store(doc, options={})
       mode = options[:mode] || DEFAULT_BLOB_MODE
-      id = write("blob", doc.to_s)
-      
+      id = set(:blob, doc.to_s)
+
       add(
         timestamp(doc.date, id) => [mode, id], 
         logfile(doc.author, doc.date) => id
       )
-      
+
       id
     end
-    
+
     # Gets the document indicated by id, or nil if no such document exists.
     def read(id)
       blob = grit.blob(id)
       blob.data.empty? ? nil : Document.new(blob.data, id)
     end
-    
+
     # Updates the content of the specified document and reassigns all links
     # to the document.
     def update(id, attrs={})
       return nil unless old_doc = read(id)
-      
+
       parents = self.parents(id)
       children = self.children(id)
       new_doc = old_doc.merge(attrs)
-      
+
       parents.each {|parent| unlink(parent, id) }
       children.each {|child| unlink(id, child) }
       rm timestamp(old_doc.date, id), logfile(old_doc.author, old_doc.date)
-      
+
       id = store(new_doc)
       parents.each {|parent| link(parent, id) }
       children.each {|child| link(id, child) }
-      
+
       new_doc.sha = id
       new_doc
     end
-    
+
     # Removes the document from the repo by deleting it from the timeline.
     # Delete also removes the logfile associating this document with the
     # document author.
     def destroy(id)
-      
+
       # Destroying a doc with children is a bad idea because there is no one
       # good way of removing the children.  Children with multiple parents
       # should not be unlinked recursively.  Children with no other parents
@@ -476,33 +491,33 @@ module Gitgo
       unless children(id).empty?
         raise "cannot destroy a document with children"
       end
-      
+
       return nil unless doc = read(id)
-      
+
       parents(id).each {|parent| unlink(parent, id) }
       rm timestamp(doc.date, id), logfile(doc.author, doc.date)
-      
+
       doc
     end
-    
+
     # Returns an array of shas representing recent documents added.
     def timeline(options={})
       options = {:n => 10, :offset => 0}.merge(options)
       offset = options[:offset]
       n = options[:n]
-      
+
       shas = []
       return shas if n <= 0
-      
+
       years = (self[index_path] || []).select do |dir|
         dir =~ /\A\d{4,}\z/
       end.sort
-      
+
       years.reverse_each do |year|
-        
+
         days = (self[index_path(year)] || []).sort
         days.reverse_each do |day|
-          
+
           # y,md need to be iterated in reverse to correctly sort by
           # date; this is not the case with the unordered shas
           self[index_path(year, day)].each do |sha|
@@ -515,19 +530,19 @@ module Gitgo
           end
         end
       end
-      
+
       shas
     end
-    
+
     # Returns an array of shas representing activity by the author.
     def activity(author, options={})
       options = {:n => 10, :offset => 0}.merge(options)
       offset = options[:offset]
       n = options[:n]
-      
+
       shas = []
       return shas if n <= 0
-      
+
       author_path = index_path(author.email)
       (self[author_path] || []).sort.reverse_each do |entry|
         if offset > 0
@@ -539,19 +554,19 @@ module Gitgo
       end
       shas
     end
-    
+
     # Commits the current tree to branch with the specified message.  The
     # branch is created if it doesn't already exist.
     def commit(message, options={})
       raise "no changes to commit" if status.empty?
-      
-      mode, tree_id = write_tree
+
+      mode, id = write_tree(tree)
       parent = self.current
       author = options[:author] || self.author
       authored_date = options[:authored_date] || Time.now
       committer = options[:committer] || author
       committed_date = options[:committed_date] || Time.now
-      
+
       # commit format:
       #---------------------------------------------------
       #   tree sha
@@ -565,7 +580,7 @@ module Gitgo
       # Note there is a trailing newline after the message.
       #
       lines = []
-      lines << "tree #{tree_id}"
+      lines << "tree #{id}"
       lines << "parent #{parent.id}" if parent
       lines << "author #{author.name} <#{author.email}> #{authored_date.strftime("%s %z")}"
       lines << "committer #{committer.name} <#{committer.email}> #{committed_date.strftime("%s %z")}"
@@ -573,26 +588,43 @@ module Gitgo
       lines << message
       lines << ""
 
-      id = write('commit', lines.join("\n"))
+      id = set(:commit, lines.join("\n"))
       File.open(path("refs/heads/#{branch}"), "w") {|io| io << id }
-      @tree = get_tree("/")
+      @tree = commit_tree
       id
     end
-    
+
     # Returns a hash of (path, state) pairs indicating paths that have been
     # added or removed.  State must be :add or :rm.
     def status
-      diff_tree
+      a = flatten_tree(commit_tree)
+      b = flatten_tree(tree)
+      
+      diff = {}
+      (a.keys | b.keys).each do |key|
+        in_a = a.has_key?(key)
+        in_b = b.has_key?(key)
+        
+        case
+        when in_a && in_b
+          diff[key] = :mod if a[key] != b[key]
+        when in_a
+          diff[key] = :rm
+        when in_b
+          diff[key] = :add
+        end
+      end
+      diff
     end
-    
+
     # Sets the current branch and updates index.  Checkout will also
     # checkout self into the directory specified by path, if specified.
     def checkout(branch, path=nil)
       if branch && branch != @branch
         @branch = branch
-        @tree = get_tree("/") || tree_hash
+        @tree = commit_tree
       end
-      
+
       if path
         FileUtils.mkdir_p(path) unless File.exists?(path)
         grit.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', {}, @branch)
@@ -602,6 +634,7 @@ module Gitgo
     # Pulls from the remote into the work tree.
     def pull(remote="origin", rebase=true)
       git(:pull, remote, :rebase => rebase)
+      @tree = commit_tree
     end
 
     # Clones self into the specified path and sets up tracking of branch in
@@ -624,7 +657,7 @@ module Gitgo
       clone.git.branch({:track => true}, branch, "origin/#{branch}")
       self.class.new(clone, :branch => branch, :author => author)
     end
-
+    
     protected
 
     # executes the git command in the working tree
@@ -647,7 +680,7 @@ module Gitgo
     # initialized once for a given repo; even if you change branches the
     # object will be in the repo.
     def empty_sha # :nodoc:
-      @empty_sha ||= write("blob", "")
+      @empty_sha ||= set(:blob, "")
     end
     
     # Creates a nested sha path like:
@@ -661,10 +694,10 @@ module Gitgo
       paths.unshift sha[0,2]
       
       if dir = options[:dir]
-        paths.unshift dir
+        paths = File.join(dir, *paths)
       end
       
-      File.join(*paths)
+      paths
     end
     
     def index_path(*paths) # :nodoc:
@@ -680,94 +713,102 @@ module Gitgo
       index_path(author.email, "#{date.to_i}#{date.usec.to_s[0,2]}")
     end
     
-    # splits path and yields each path segment to the block.  if specified,
-    # the basename will be returned instead of being yielded to the block.
-    def segments(path, return_basename=false) # :nodoc:
-      paths = path.kind_of?(String) ? path.split("/") : path.dup
-      last = return_basename ? paths.pop : nil
-
-      while seg = paths.shift
-        next if seg.empty?
-        yield(seg)
-      end
-
-      last
+    def path_segments(path) # :nodoc:
+      segments = path.kind_of?(String) ? path.split("/") : path.dup
+      segments.shift if segments[0] && segments[0].empty?
+      segments.pop   if segments[-1] && segments[-1].empty?
+      segments
     end
-
-    def get_tree(path) # :nodoc:
-      obj = get(path)
-
-      case obj
-      when Grit::Tree
-        tree = tree_hash(path)
-        tree[0] = obj.mode if obj.mode
-
-        obj.contents.each do |object|
-          key = object.name
-          key = key.to_sym if object.kind_of?(Grit::Tree)
-          tree[key] = [object.mode, object.id]
+    
+    def commit_tree # :nodoc:
+      commit = current
+      commit ? get_tree(commit.tree.id) : {}
+    end
+    
+    def get_tree(id) # :nodoc:
+      tree = {}
+      get(:tree, id).contents.each do |object|
+        key = object.name
+        key = key.to_sym if object.kind_of?(Grit::Tree)
+        tree[key] = [object.mode, object.id]
+      end
+      tree
+    end
+    
+    def subtree(tree, segments, force=false) # :nodoc:
+      while dir = segments.shift
+        next_tree = entry(tree, dir)
+        
+        if !next_tree.kind_of?(Hash)
+          return nil unless force
+          
+          next_tree = {}
+          tree[dir.to_s] = next_tree
         end
-
-        tree
-
-      when Grit::Blob
-        [obj.mode, obj.id]
-
-      else obj
+        
+        tree = next_tree
+      end
+      tree
+    end
+    
+    def entry(tree, path) # :nodoc:
+      entry = tree.delete(path.to_sym)
+      
+      if entry.kind_of?(Array)
+        mode, id = entry
+        subtree = get_tree(id)
+        subtree[0] = mode
+        tree[path.to_s] = subtree
+        subtree
+      else
+        tree[path]
       end
     end
-
-    def write_tree(tree=@tree) # :nodoc:
+    
+    def keys(tree) # :nodoc:
+      keys = tree.keys
+      keys.delete(0)
+      keys.collect {|key| key.to_s }.sort
+    end
+    
+    def write_tree(tree) # :nodoc:
 
       # tree format:
       #---------------------------------------------------
       #   mode name\0[packedsha]mode name\0[packedsha]...
       #---------------------------------------------------
       # note there are no newlines separating tree entries.
-      lines = keys(tree).sort_by do |key|
+      lines = tree.keys.sort_by do |key|
         key.to_s
       end.collect! do |key|
+        next if key == 0
+        
         value = tree[key]
         value = write_tree(value) if value.kind_of?(Hash)
 
-        mode, id, flag = value
-        next if flag == :rm
-
+        mode, id = value
         "#{mode} #{key}\0#{[id].pack("H*")}"
       end
 
-      [tree[0] || DEFAULT_TREE_MODE, write("tree", lines.join)]
+      [tree[0] || DEFAULT_TREE_MODE, set(:tree, lines.join)]
     end
-
-    def diff_tree(tree=@tree, target={}, path=nil) # :nodoc:
-      keys(tree).each do |key|
-        value = tree[key]
-        key = File.join(path, key.to_s) if path
-
-        case
-        when value.kind_of?(Hash)
-          diff_tree(value, target, key)
-        when state = value[2]
-          target[key] = state
+    
+    def flatten_tree(tree, prefix=nil, target={}) # :nodoc:
+      tree.keys.each do |key|
+        next if key == 0
+        next unless value = entry(tree, key)
+        
+        key = key.to_s
+        key = File.join(prefix, key) if prefix
+        
+        if value.kind_of?(Hash)
+          flatten_tree(value, key, target)
+        else
+          target[key] = value
         end
       end
-
+      
       target
-    end
-
-    def tree_hash(path=nil) # :nodoc:
-      Hash.new do |hash, key|
-        next if key.kind_of?(Integer)
-
-        tree = path ? get_tree(File.join(path, key)) : nil
-        hash[key] = tree || tree_hash
-      end
-    end
-
-    def keys(tree) # :nodoc:
-      tree.keys.delete_if do |key|
-        key.kind_of?(Integer)
-      end
     end
   end
 end

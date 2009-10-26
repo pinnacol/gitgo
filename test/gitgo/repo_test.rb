@@ -44,7 +44,7 @@ class RepoTest < Test::Unit::TestCase
         0 => "040000",
         "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
         "project" => {
-          "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add],
+          "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
         }
       }
     }
@@ -52,12 +52,11 @@ class RepoTest < Test::Unit::TestCase
   
     repo.rm("README")
     expected = {
-      "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1", :rm],
       "lib"    => {
         0 => "040000",
         "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
         "project" => {
-          "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add],
+          "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
         }
       }
     }
@@ -87,7 +86,7 @@ class RepoTest < Test::Unit::TestCase
     repo.add("path" => "content").commit("initial commit")
     
     assert_equal "initial commit", repo.current.message
-    assert_equal "content", repo.get("path").data
+    assert_equal "content", repo["path"]
   end
   
   def test_init_initializes_bare_repo_if_specified
@@ -103,7 +102,7 @@ class RepoTest < Test::Unit::TestCase
     repo.add("path" => "content").commit("initial commit")
     
     assert_equal "initial commit", repo.current.message
-    assert_equal "content", repo.get("path").data
+    assert_equal "content", repo["path"]
   end
   
   #
@@ -121,97 +120,105 @@ class RepoTest < Test::Unit::TestCase
   #
   # get test
   #
-
-  def contents(tree)
-    tree.contents.collect {|obj| obj.name }.sort
-  end
-
-  def test_get_returns_an_object_corresponding_to_the_path
+  
+  def test_get_returns_the_specified_object
     setup_repo("simple.git")
     
-    tree = repo.get("")
-    assert_equal ["one", "one.txt", "x", "x.txt"], contents(tree)
+    blob = repo.get(:blob, "32f1859c0aaf1394789093c952f2b03ab04a1aad")
+    assert_equal Grit::Blob, blob.class
+    assert_equal "Contents of file ONE.", blob.data
     
-    tree = repo.get("/")
-    assert_equal ["one", "one.txt", "x", "x.txt"], contents(tree)
-
-    tree = repo.get("one")
-    assert_equal ["two", "two.txt"], contents(tree)
-
-    tree = repo.get("/one")
-    assert_equal ["two", "two.txt"], contents(tree)
-    
-    tree = repo.get("/one/")
-    assert_equal ["two", "two.txt"], contents(tree)
-    
-    blob = repo.get("/one/two.txt")
-    assert_equal "two.txt", blob.name
-    assert_equal "Contents of file TWO.", blob.data
-
-    assert_equal nil, repo.get("/non_existant")
-    assert_equal nil, repo.get("/one/non_existant.txt")
-    assert_equal nil, repo.get("/one/two.txt/path_under_a_blob")
+    tree = repo.get(:tree, "09aa1d0c0d69df84464b72623628acf5c63c79f0")
+    assert_equal Grit::Tree, tree.class
+    assert_equal ["two", "two.txt"], tree.contents.collect {|obj| obj.name }.sort
   end
   
-  def test_get_accepts_an_array_path
-    setup_repo("simple.git")
-    
-    tree = repo.get([])
-    assert_equal ["one", "one.txt", "x", "x.txt"], contents(tree)
+  # def test_get_returns_nil_for_invalid_object
+  #   setup_repo("simple.git")
+  #   
+  #   assert_equal nil, repo.get(:blob, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+  #   assert_equal nil, repo.get(:blob, "09aa1d0c0d69df84464b72623628acf5c63c79f0")
+  #   assert_equal nil, repo.get(:tree, "32f1859c0aaf1394789093c952f2b03ab04a1aad")
+  # end
+
+  #
+  # set test
+  #
   
-    tree = repo.get([""])
-    assert_equal ["one", "one.txt", "x", "x.txt"], contents(tree)
-  
-    tree = repo.get(["one"])
-    assert_equal ["two", "two.txt"], contents(tree)
-  
-    tree = repo.get(["", "one", ""])
-    assert_equal ["two", "two.txt"], contents(tree)
-  
-    blob = repo.get(["one", "two.txt"])
-    assert_equal "two.txt", blob.name
-    assert_equal "Contents of file TWO.", blob.data
-  
-    assert_equal nil, repo.get(["non_existant"])
-    assert_equal nil, repo.get(["one", "non_existant.txt"])
-    assert_equal nil, repo.get(["one", "two.txt", "path_under_a_blob"])
-  end
-  
-  def test_get_is_not_destructive_to_array_paths
-    setup_repo("simple.git")
-    
-    array = ["", "one", ""]
-    tree = repo.get(array)
-    
-    assert_equal ["", "one", ""], array
-    assert_equal ["two", "two.txt"], contents(tree)
+  def test_set_writes_an_object_of_the_specified_type_to_repo
+    id = repo.set(:blob, "new content")
+    assert_equal "new content", repo.get(:blob, id).data
   end
   
   #
   # AGET test
   #
 
-  def test_AGET_returns_blob_or_tree_content
+  def test_AGET_returns_the_contents_of_the_object_at_path
     setup_repo("simple.git")
     
-    assert_equal "Contents of file TWO.", repo["/one/two.txt"]
-    assert_equal(["two.txt", "two"], repo["/one"])
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo[""]
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo["/"]
+    assert_equal ["two", "two.txt"], repo["one"]
+    assert_equal ["two", "two.txt"], repo["/one"]
+    assert_equal ["two", "two.txt"], repo["/one/"]
     
-    assert_equal(nil, repo["/non_existant.txt"])
-    assert_equal(nil, repo["/one/two.txt/non_existant.txt"])
+    assert_equal "Contents of file ONE.", repo["one.txt"]
+    assert_equal "Contents of file ONE.", repo["/one.txt"]
+    assert_equal "Contents of file TWO.", repo["/one/two.txt"]
+  
+    assert_equal nil, repo["/non_existant"]
+    assert_equal nil, repo["/one/non_existant.txt"]
+    assert_equal nil, repo["/one/two.txt/path_under_a_blob"]
+  end
+  
+  def test_AGET_accepts_array_paths
+    setup_repo("simple.git")
+
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo[[]]
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo[[""]]
+    assert_equal ["two", "two.txt"], repo[["one"]]
+    assert_equal ["two", "two.txt"], repo[["", "one", ""]]
+    assert_equal "Contents of file ONE.", repo[["", "one.txt"]]
+    assert_equal "Contents of file TWO.", repo[["one", "two.txt"]]
+
+    assert_equal nil, repo[["non_existant"]]
+    assert_equal nil, repo[["one", "non_existant.txt"]]
+    assert_equal nil, repo[["one", "two.txt", "path_under_a_blob"]]
   end
 
+  def test_AGET_is_not_destructive_to_array_paths
+    setup_repo("simple.git")
+
+    array = ["", "one", ""]
+    assert_equal ["two", "two.txt"], repo[array]
+    assert_equal ["", "one", ""], array
+  end
+  
+  def test_AGET_returns_committed_content_if_specified
+    setup_repo("simple.git")
+
+    assert_equal "Contents of file ONE.", repo["one.txt"]
+    repo.tree["one.txt"] = [Repo::DEFAULT_BLOB_MODE, repo.set(:blob, "new content")]
+    
+    assert_equal "new content", repo["one.txt"]
+    assert_equal "Contents of file ONE.", repo["one.txt", true]
+  end
+  
   #
   # ASET test
   #
 
   def test_ASET_adds_blob_content
     assert_equal nil, repo["/a/b.txt"]
-    
     repo["/a/b.txt"] = "new content"
-    repo.commit("added new content")
-
     assert_equal "new content", repo["/a/b.txt"]
+  end
+  
+  def test_new_blob_content_is_not_committed_automatically
+    assert_equal nil, repo["/a/b.txt", true]
+    repo["/a/b.txt"] = "new content"
+    assert_equal nil, repo["/a/b.txt", true]
   end
     
   #
@@ -219,16 +226,16 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_link_links_the_parent_sha_to_the_empty_sha_by_child
-    a = repo.write("blob", "a")
-    b = repo.write("blob", "b")
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
   
     repo.link(a, b).commit("linked a file")
     assert_equal "", repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
   end
   
   def test_link_nests_link_under_dir_if_specified
-    a = repo.write("blob", "a")
-    b = repo.write("blob", "b")
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
   
     repo.link(a, b, :dir => "path/to/dir").commit("linked a file")
     assert_equal "", repo["path/to/dir/#{a[0,2]}/#{a[2,38]}/#{b}"]
@@ -239,9 +246,9 @@ class RepoTest < Test::Unit::TestCase
   #
 
   def test_parents_returns_array_of_parents_linking_to_child
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
     
     repo.link(a, c).link(b, c).commit("created links")
     
@@ -250,9 +257,9 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_parents_returns_array_of_parents_linking_to_child_under_dir_if_specified
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
     
     repo.link(a, c, :dir => "one").link(b, c, :dir => "two").commit("created links")
     
@@ -265,9 +272,9 @@ class RepoTest < Test::Unit::TestCase
   #
 
   def test_children_returns_array_of_linked_children
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
     
     repo.link(a, b).link(a, c).commit("created links")
     
@@ -276,9 +283,9 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_children_returns_array_of_linked_children_under_dir_if_specified
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
     
     repo.link(a, b, :dir => "one").link(a, c, :dir => "two").commit("created links")
     
@@ -287,9 +294,9 @@ class RepoTest < Test::Unit::TestCase
   end
 
   def test_children_returns_a_nested_hash_of_children_if_recursive_is_specified
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
     
     repo.link(a, b).link(b, c).commit("created recursive links")
     
@@ -298,9 +305,9 @@ class RepoTest < Test::Unit::TestCase
   end
 
   def test_recursive_children_detects_circular_linkage
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
 
     repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
 
@@ -314,10 +321,10 @@ class RepoTest < Test::Unit::TestCase
   end
 
   def test_recursive_children_allows_two_threads_to_link_the_same_commit
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
-    d = repo.write("blob", "D")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+    d = repo.set("blob", "D")
 
     repo.link(a, b)
     repo.link(b, d)
@@ -338,9 +345,9 @@ class RepoTest < Test::Unit::TestCase
   #
 
   def test_unlink_removes_the_parent_child_linkage
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
     
     repo.link(a, b).link(b, c).commit("created recursive links")
     
@@ -354,9 +361,9 @@ class RepoTest < Test::Unit::TestCase
   end
 
   def test_unlink_reursively_removes_children_if_specified
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
     
     repo.link(a, b).link(b, c).commit("created recursive links")
     
@@ -370,11 +377,11 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_unlink_removes_children_under_dir_if_specified
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
-    d = repo.write("blob", "C")
-    e = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+    d = repo.set("blob", "C")
+    e = repo.set("blob", "C")
     
     repo.link(a, b, :dir => "one").link(b, c, :dir => "one")
     repo.link(a, d, :dir => "two").link(d, e, :dir => "two")
@@ -395,9 +402,9 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_unlink_quietly_does_nothing_for_unlinked_or_missing_parent_or_child
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
     
     repo.link(a, b).link(a, c).commit("created recursive links")
     
@@ -415,9 +422,9 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_recursive_unlink_removes_circular_linkages
-    a = repo.write("blob", "A")
-    b = repo.write("blob", "B")
-    c = repo.write("blob", "C")
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
 
     repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
 
@@ -558,46 +565,10 @@ class RepoTest < Test::Unit::TestCase
     assert_equal({
       "a.txt" => :add,
       "a/b.txt" => :add,
-      "a/c.txt" => :rm,
       "one.txt" => :rm,
       "one/two.txt" => :rm,
       "one/two/three.txt"=>:rm
     }, repo.status)
-  end
-  
-  #
-  # add test
-  #
-  
-  def test_add_adds_the_specified_contents
-    repo.add(
-      "a.txt" => "file a content",
-      "/a/b.txt" => "file b content",
-      "a/c.txt" => "file c content"
-    )
-    
-    # check the trees and commit have not been made
-    assert_equal nil, repo.get("/")
-    assert_equal nil, repo.get("a")
-    assert_equal nil, repo.get("a.txt")
-    
-    repo.commit("added files")
-    
-    # now after the commit check everything is pulld
-    blob = repo.get("/a.txt")
-    assert_equal "file a content", blob.data
-    
-    blob = repo.get("/a/b.txt")
-    assert_equal "file b content", blob.data
-    
-    blob = repo.get("/a/c.txt")
-    assert_equal "file c content", blob.data
-    
-    tree = repo.get("/")
-    assert_equal ["a", "a.txt"], contents(tree)
-    
-    tree = repo.get("/a")
-    assert_equal ["b.txt", "c.txt"], contents(tree)
   end
   
   #
@@ -608,12 +579,12 @@ class RepoTest < Test::Unit::TestCase
     setup_repo("simple.git")
     
     assert_equal "master", repo.branch
-    assert_equal ["one", "one.txt", "x", "x.txt"], contents(repo.get("/"))
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo["/"]
     
     repo.checkout("diff")
     
     assert_equal "diff", repo.branch
-    assert_equal ["alpha.txt", "one", "x", "x.txt"], contents(repo.get("/"))
+    assert_equal ["alpha.txt", "one", "x", "x.txt"], repo["/"]
   end
   
   def test_checkout_checks_the_repo_out_into_path
@@ -643,10 +614,10 @@ class RepoTest < Test::Unit::TestCase
     assert_equal method_root.path(:tmp, "a/.git"), a.path
     assert_equal method_root.path(:tmp, "b/.git"), b.path
     
-    assert_equal "a content", a.get("a").data
-    assert_equal nil, a.get("b")
-    assert_equal "a content", b.get("a").data
-    assert_equal "b content", b.get("b").data
+    assert_equal "a content", a["a"]
+    assert_equal nil, a["b"]
+    assert_equal "a content", b["a"]
+    assert_equal "b content", b["b"]
   end
   
   def test_clone_clones_a_bare_repository
@@ -655,15 +626,15 @@ class RepoTest < Test::Unit::TestCase
     
     b = a.clone(method_root.path(:tmp, "b.git"), :bare => true)
     b.add("b" => "b content").commit("added a file")
-
+  
     assert_equal a.branch, b.branch
     assert_equal method_root.path(:tmp, "a.git"), a.path
     assert_equal method_root.path(:tmp, "b.git"), b.path
     
-    assert_equal "a content", a.get("a").data
-    assert_equal nil, a.get("b")
-    assert_equal "a content", b.get("a").data
-    assert_equal "b content", b.get("b").data
+    assert_equal "a content", a["a"]
+    assert_equal nil, a["b"]
+    assert_equal "a content", b["a"]
+    assert_equal "b content", b["b"]
   end
   
   def test_clone_pulls_from_origin
@@ -671,13 +642,13 @@ class RepoTest < Test::Unit::TestCase
     a.add("a" => "a content").commit("added a file")
     
     b = a.clone(method_root.path(:tmp, "b"))
-    assert_equal "a content", b.get("a").data
+    assert_equal "a content", b["a"]
     
-    a.add("a" => "A content").commit("pulld file")
-    assert_equal "a content", b.get("a").data
-
+    a.add("a" => "A content").commit("updated file")
+    assert_equal "a content", b["a"]
+  
     b.pull
-    assert_equal "A content", b.get("a").data
+    assert_equal "A content", b["a"]
   end
   
   def test_bare_clone_pulls_from_origin
@@ -685,12 +656,12 @@ class RepoTest < Test::Unit::TestCase
     a.add("a" => "a content").commit("added a file")
     
     b = a.clone(method_root.path(:tmp, "b.git"), :bare => true)
-    assert_equal "a content", b.get("a").data
+    assert_equal "a content", b["a"]
     
-    a.add("a" => "A content").commit("pulld file")
-    assert_equal "a content", b.get("a").data
+    a.add("a" => "A content").commit("updated file")
+    assert_equal "a content", b["a"]
     
     b.pull
-    assert_equal "A content", b.get("a").data
+    assert_equal "A content", b["a"]
   end
 end
