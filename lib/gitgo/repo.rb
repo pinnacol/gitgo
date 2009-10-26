@@ -1,6 +1,7 @@
 require 'grit'
 require 'gitgo/document'
 require 'gitgo/patches/grit'
+require 'gitgo/repo/tree'
 
 module Gitgo
   
@@ -247,40 +248,29 @@ module Gitgo
     
     # Gets the content for path; either the blob data or an array of content
     # names for a tree.  Returns nil if path doesn't exist.
-    #
-    # (path should be the path to the file without leading or trailing /)
     def [](path, committed=false)
       tree = committed ? commit_tree : @tree
       
       segments = path_segments(path)
       unless basename = segments.pop
-        return keys(tree)
+        return tree.keys
       end
       
-      unless tree = subtree(tree, segments)
+      unless tree = tree.subtree(segments)
         return nil 
       end
       
-      obj = entry(tree, basename)
+      obj = tree[basename]
       case obj
       when Array then get(:blob, obj[1]).data
-      when Hash  then keys(obj)
+      when Tree  then obj.keys
       else nil
       end
     end
 
-    # Sets content for path. Content may be:
-    #
-    # * a string of content
-    # * an array like [mode, sha] (for blobs)
-    # * a hash of (path, [mode, sha]) pairs (for trees)
-    #
+    # Sets content for path. 
     def []=(path, content=nil)
-      if content.nil?
-        rm(path)
-      else
-        add(path => content)
-      end
+      add(path => content)
     end
     
     # Adds content at the specified paths.  Takes a hash of (path, content)
@@ -289,10 +279,11 @@ module Gitgo
     # * a string of content
     # * an array like [mode, sha] (for blobs)
     # * a hash of (path, [mode, sha]) pairs (for trees)
+    # * a nil, to remove content
     #
     # If update is true, then string contents will be updated with a
     # [mode, sha] array representing the new blob.
-    def add(paths, update=true)
+    def add(paths, update=false)
       paths.keys.each do |path|
         segments = path_segments(path)
         unless basename = segments.pop
@@ -300,11 +291,9 @@ module Gitgo
         end
         
         content = paths[path]
-        if content.kind_of?(String)
-          content = [DEFAULT_BLOB_MODE, set(:blob, content)]
-        end
+        content = [DEFAULT_BLOB_MODE, set(:blob, content)] if content.kind_of?(String)
         
-        tree = subtree(@tree, segments, true)
+        tree = @tree.subtree(segments, true)
         tree[basename] = content
         
         paths[path] = content if update
@@ -315,48 +304,35 @@ module Gitgo
     
     # Removes the content at each of the specified paths
     def rm(*paths)
-      paths.each do |path|
-        segments = path_segments(path)
-        unless basename = segments.pop
-          raise "invalid path: #{path.inspect}"
-        end
-        
-        if tree = subtree(@tree, segments)
-          tree.delete(basename.to_sym)
-          tree.delete(basename)
-        end
-      end
-
+      nils = {}
+      paths.each {|path| nils[path] = nil }
+      add(nils)
       self
     end
     
     # Links the parent and child by adding a reference to the child under the
     # sha path for the parent.
     #
-    # Note that only blobs and trees should be linked as children; other
-    # object types (ex commit, tag) will be seen as corruption by git. 
-    # Parents can refer to any object.
+    # While parent can refer to any git object, only blobs and trees should be
+    # linked as children; other object types (ex commit, tag) are seen as
+    # corruption by git. 
+    #  
     def link(parent, child, options={})
       add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, empty_sha])
       self
     end
 
-
     # Returns an array of parents that link to the child.
     def parents(child, options={})
       segments = path_segments(options[:dir] || "/")
-      
       parents = []
-      return parents unless tree = subtree(@tree, segments)
       
       # seek /ab/xyz/sha where sha == child
-      tree.keys.each do |ab|
-        ab_tree = entry(tree, ab)
-        next unless ab_tree.kind_of?(Hash)
+      @tree.subtree(segments).each_pair do |ab, ab_tree|
+        next unless ab_tree.kind_of?(Tree)
         
-        ab_tree.keys.each do |xyz|
-          xyz_tree = entry(ab_tree, xyz)
-          next unless xyz_tree.kind_of?(Hash)
+        ab_tree.each_pair do |xyz, xyz_tree|
+          next unless xyz_tree.kind_of?(Tree)
           
           if xyz_tree.keys.any? {|sha| sha.to_s == child }
             parents << "#{ab}#{xyz}"
@@ -597,8 +573,8 @@ module Gitgo
     # Returns a hash of (path, state) pairs indicating paths that have been
     # added or removed.  State must be :add or :rm.
     def status
-      a = flatten_tree(commit_tree)
-      b = flatten_tree(tree)
+      a = commit_tree.flatten
+      b = tree.flatten
       
       diff = {}
       (a.keys | b.keys).each do |key|
@@ -689,6 +665,7 @@ module Gitgo
     #     ab/
     #       xyz...
     #
+    # By default dir is "/" but options can be used to specify an alternative.
     def sha_path(options, sha, *paths) # :nodoc:
       paths.unshift sha[2,38]
       paths.unshift sha[0,2]
@@ -722,93 +699,26 @@ module Gitgo
     
     def commit_tree # :nodoc:
       commit = current
-      commit ? get_tree(commit.tree.id) : {}
+      commit ? Tree.new(commit.tree) : Tree.new
     end
-    
-    def get_tree(id) # :nodoc:
-      tree = {}
-      get(:tree, id).contents.each do |object|
-        key = object.name
-        key = key.to_sym if object.kind_of?(Grit::Tree)
-        tree[key] = [object.mode, object.id]
-      end
-      tree
-    end
-    
-    def subtree(tree, segments, force=false) # :nodoc:
-      while dir = segments.shift
-        next_tree = entry(tree, dir)
-        
-        if !next_tree.kind_of?(Hash)
-          return nil unless force
-          
-          next_tree = {}
-          tree[dir.to_s] = next_tree
-        end
-        
-        tree = next_tree
-      end
-      tree
-    end
-    
-    def entry(tree, path) # :nodoc:
-      entry = tree.delete(path.to_sym)
-      
-      if entry.kind_of?(Array)
-        mode, id = entry
-        subtree = get_tree(id)
-        subtree[0] = mode
-        tree[path.to_s] = subtree
-        subtree
-      else
-        tree[path]
-      end
-    end
-    
-    def keys(tree) # :nodoc:
-      keys = tree.keys
-      keys.delete(0)
-      keys.collect {|key| key.to_s }.sort
-    end
-    
-    def write_tree(tree) # :nodoc:
 
-      # tree format:
-      #---------------------------------------------------
-      #   mode name\0[packedsha]mode name\0[packedsha]...
-      #---------------------------------------------------
-      # note there are no newlines separating tree entries.
-      lines = tree.keys.sort_by do |key|
-        key.to_s
-      end.collect! do |key|
-        next if key == 0
-        
-        value = tree[key]
-        value = write_tree(value) if value.kind_of?(Hash)
+    # tree format:
+    #---------------------------------------------------
+    #   mode name\0[packedsha]mode name\0[packedsha]...
+    #---------------------------------------------------
+    # note there are no newlines separating tree entries.
+    def write_tree(tree)
+      lines = []
+      tree.each_pair do |key, value|
+        if value.kind_of?(Tree)
+          value = write_tree(value)
+        end
 
         mode, id = value
-        "#{mode} #{key}\0#{[id].pack("H*")}"
+        lines << "#{mode} #{key}\0#{[id].pack("H*")}"
       end
 
-      [tree[0] || DEFAULT_TREE_MODE, set(:tree, lines.join)]
-    end
-    
-    def flatten_tree(tree, prefix=nil, target={}) # :nodoc:
-      tree.keys.each do |key|
-        next if key == 0
-        next unless value = entry(tree, key)
-        
-        key = key.to_s
-        key = File.join(prefix, key) if prefix
-        
-        if value.kind_of?(Hash)
-          flatten_tree(value, key, target)
-        else
-          target[key] = value
-        end
-      end
-      
-      target
+      [tree.mode || DEFAULT_TREE_MODE, set(:tree, lines.join)]
     end
   end
 end

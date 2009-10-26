@@ -41,7 +41,6 @@ class RepoTest < Test::Unit::TestCase
     expected = {
       "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
       "lib"    => {
-        0 => "040000",
         "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
         "project" => {
           "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
@@ -53,7 +52,6 @@ class RepoTest < Test::Unit::TestCase
     repo.rm("README")
     expected = {
       "lib"    => {
-        0 => "040000",
         "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
         "project" => {
           "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
@@ -132,14 +130,6 @@ class RepoTest < Test::Unit::TestCase
     assert_equal Grit::Tree, tree.class
     assert_equal ["two", "two.txt"], tree.contents.collect {|obj| obj.name }.sort
   end
-  
-  # def test_get_returns_nil_for_invalid_object
-  #   setup_repo("simple.git")
-  #   
-  #   assert_equal nil, repo.get(:blob, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-  #   assert_equal nil, repo.get(:blob, "09aa1d0c0d69df84464b72623628acf5c63c79f0")
-  #   assert_equal nil, repo.get(:tree, "32f1859c0aaf1394789093c952f2b03ab04a1aad")
-  # end
 
   #
   # set test
@@ -174,22 +164,22 @@ class RepoTest < Test::Unit::TestCase
   
   def test_AGET_accepts_array_paths
     setup_repo("simple.git")
-
+  
     assert_equal ["one", "one.txt", "x", "x.txt"], repo[[]]
     assert_equal ["one", "one.txt", "x", "x.txt"], repo[[""]]
     assert_equal ["two", "two.txt"], repo[["one"]]
     assert_equal ["two", "two.txt"], repo[["", "one", ""]]
     assert_equal "Contents of file ONE.", repo[["", "one.txt"]]
     assert_equal "Contents of file TWO.", repo[["one", "two.txt"]]
-
+  
     assert_equal nil, repo[["non_existant"]]
     assert_equal nil, repo[["one", "non_existant.txt"]]
     assert_equal nil, repo[["one", "two.txt", "path_under_a_blob"]]
   end
-
+  
   def test_AGET_is_not_destructive_to_array_paths
     setup_repo("simple.git")
-
+  
     array = ["", "one", ""]
     assert_equal ["two", "two.txt"], repo[array]
     assert_equal ["", "one", ""], array
@@ -197,7 +187,7 @@ class RepoTest < Test::Unit::TestCase
   
   def test_AGET_returns_committed_content_if_specified
     setup_repo("simple.git")
-
+  
     assert_equal "Contents of file ONE.", repo["one.txt"]
     repo.tree["one.txt"] = [Repo::DEFAULT_BLOB_MODE, repo.set(:blob, "new content")]
     
