@@ -331,22 +331,22 @@ module Gitgo
       add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, empty_sha])
       self
     end
-
-    # Returns an array of references under sha path for the parent.  If
-    # recursive is specified, links will recursively seek links for each
-    # child.  In that case links returns a nested hash of linked shas.
-    def links(parent, options={}, &block)
-      links = self[sha_path(options, parent)] || []
+    
+    # Returns an array of children linked to the parent.  If recursive is
+    # specified, this method will recursively seek children for each child and
+    # the return will be a nested hash of linked shas.
+    def children(parent, options={}, &block)
+      children = self[sha_path(options, parent)] || []
 
       unless options[:recursive]
-        links.collect!(&block) if block_given?
-        return links
+        children.collect!(&block) if block_given?
+        return children
       end
 
       visited = options[:visited] ||= [parent]
 
       tree = {}
-      links.each do |child|
+      children.each do |child|
         circular = visited.include?(child)
         visited.push child
 
@@ -355,7 +355,7 @@ module Gitgo
         end
 
         key = block_given? ? yield(child) : child
-        tree[key] = links(child, options, &block)
+        tree[key] = children(child, options, &block)
 
         visited.pop
       end
@@ -380,7 +380,7 @@ module Gitgo
           # note options cannot be passed to links here,
           # because recursion is NOT desired and visited
           # will overlap/conflict
-          links(child, :dir => options[:dir]).each do |grandchild|
+          children(child, :dir => options[:dir]).each do |grandchild|
             unlink(child, grandchild, options)
           end
         end
@@ -390,7 +390,8 @@ module Gitgo
     end
     
     # Creates a new Document using the content and attributes, writes it to
-    # the repo and returns it's sha.  
+    # the repo and returns it's sha.  New documents are stored by timestamp
+    # and logged to their author.
     def create(content, attrs={}, options={})
       attrs['content'] = content
       attrs['author'] ||= author
@@ -418,14 +419,16 @@ module Gitgo
       blob.data.empty? ? nil : Document.new(blob.data, id)
     end
     
+    # Updates the content of the specified document and reassigns all links
+    # to the document.
     def update(id, attrs={})
       return nil unless old_doc = destroy(id)
-      old_links = links(id)
+      links = children(id)
       
       new_doc = old_doc.merge(attrs)
       id = store(new_doc)
       
-      old_links.each {|link| link(id, link) }
+      links.each {|link| link(id, link) }
       id
     end
     

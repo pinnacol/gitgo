@@ -43,7 +43,7 @@ module Gitgo
     end
     
     def render_comments(id)
-      comments = repo.links(id) {|sha| repo.read(sha) }
+      comments = repo.children(id) {|sha| repo.read(sha) }
       if comments.empty?
         erb :_comment_form, :locals => {
           :id => id

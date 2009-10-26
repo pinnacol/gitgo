@@ -235,50 +235,50 @@ class RepoTest < Test::Unit::TestCase
   end
 
   #
-  # links test
+  # children test
   #
 
-  def test_links_returns_array_of_linked_children
+  def test_children_returns_array_of_linked_children
     a = repo.write("blob", "A")
     b = repo.write("blob", "B")
     c = repo.write("blob", "C")
     
     repo.link(a, b).link(a, c).commit("created links")
     
-    assert_equal [b, c].sort, repo.links(a).sort
-    assert_equal [], repo.links(b)
+    assert_equal [b, c].sort, repo.children(a).sort
+    assert_equal [], repo.children(b)
   end
   
-  def test_links_returns_array_of_linked_children_under_dir_if_specified
+  def test_children_returns_array_of_linked_children_under_dir_if_specified
     a = repo.write("blob", "A")
     b = repo.write("blob", "B")
     c = repo.write("blob", "C")
     
     repo.link(a, b, :dir => "one").link(a, c, :dir => "two").commit("created links")
     
-    assert_equal [b], repo.links(a, :dir => "one")
-    assert_equal [c], repo.links(a, :dir => "two")
+    assert_equal [b], repo.children(a, :dir => "one")
+    assert_equal [c], repo.children(a, :dir => "two")
   end
 
-  def test_links_returns_a_nested_hash_of_children_if_recursive_is_specified
+  def test_children_returns_a_nested_hash_of_children_if_recursive_is_specified
     a = repo.write("blob", "A")
     b = repo.write("blob", "B")
     c = repo.write("blob", "C")
     
     repo.link(a, b).link(b, c).commit("created recursive links")
     
-    assert_equal [b], repo.links(a)
-    assert_equal({b => {c => {}}}, repo.links(a, :recursive => true))
+    assert_equal [b], repo.children(a)
+    assert_equal({b => {c => {}}}, repo.children(a, :recursive => true))
   end
 
-  def test_recursive_links_detects_circular_linkage
+  def test_recursive_children_detects_circular_linkage
     a = repo.write("blob", "A")
     b = repo.write("blob", "B")
     c = repo.write("blob", "C")
 
     repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
 
-    err = assert_raises(RuntimeError) { repo.links(a, :recursive => true) }
+    err = assert_raises(RuntimeError) { repo.children(a, :recursive => true) }
     assert_equal %Q{circular link detected:
   #{a}
   #{b}
@@ -287,7 +287,7 @@ class RepoTest < Test::Unit::TestCase
 }, err.message
   end
 
-  def test_recursive_links_allows_two_threads_to_link_the_same_commit
+  def test_recursive_children_allows_two_threads_to_link_the_same_commit
     a = repo.write("blob", "A")
     b = repo.write("blob", "B")
     c = repo.write("blob", "C")
@@ -304,7 +304,7 @@ class RepoTest < Test::Unit::TestCase
     assert_equal({
       b => {d => {}},
       c => {d => {}}
-    }, repo.links(a, :recursive => true))
+    }, repo.children(a, :recursive => true))
   end
 
   #
@@ -318,13 +318,13 @@ class RepoTest < Test::Unit::TestCase
     
     repo.link(a, b).link(b, c).commit("created recursive links")
     
-    assert_equal [b], repo.links(a)
-    assert_equal [c], repo.links(b)
+    assert_equal [b], repo.children(a)
+    assert_equal [c], repo.children(b)
     
     repo.unlink(a, b).commit("unlinked a, b")
 
-    assert_equal [], repo.links(a)
-    assert_equal [c], repo.links(b)
+    assert_equal [], repo.children(a)
+    assert_equal [c], repo.children(b)
   end
 
   def test_unlink_reursively_removes_children_if_specified
@@ -334,13 +334,13 @@ class RepoTest < Test::Unit::TestCase
     
     repo.link(a, b).link(b, c).commit("created recursive links")
     
-    assert_equal [b], repo.links(a)
-    assert_equal [c], repo.links(b)
+    assert_equal [b], repo.children(a)
+    assert_equal [c], repo.children(b)
     
     repo.unlink(a, b, :recursive => true).commit("recursively unlinked a, b")
 
-    assert_equal [], repo.links(a)
-    assert_equal [], repo.links(b)
+    assert_equal [], repo.children(a)
+    assert_equal [], repo.children(b)
   end
   
   def test_unlink_removes_children_under_dir_if_specified
@@ -355,17 +355,17 @@ class RepoTest < Test::Unit::TestCase
     
     repo.commit("created recursive links under dir")
     
-    assert_equal [b], repo.links(a, :dir => "one")
-    assert_equal [c], repo.links(b, :dir => "one")
-    assert_equal [d], repo.links(a, :dir => "two")
-    assert_equal [e], repo.links(d, :dir => "two")
+    assert_equal [b], repo.children(a, :dir => "one")
+    assert_equal [c], repo.children(b, :dir => "one")
+    assert_equal [d], repo.children(a, :dir => "two")
+    assert_equal [e], repo.children(d, :dir => "two")
     
     repo.unlink(a, d, :dir => "two", :recursive => true).commit("recursively unlinked a under dir")
 
-    assert_equal [b], repo.links(a, :dir => "one")
-    assert_equal [c], repo.links(b, :dir => "one")
-    assert_equal [], repo.links(a, :dir => "two")
-    assert_equal [], repo.links(d, :dir => "two")
+    assert_equal [b], repo.children(a, :dir => "one")
+    assert_equal [c], repo.children(b, :dir => "one")
+    assert_equal [], repo.children(a, :dir => "two")
+    assert_equal [], repo.children(d, :dir => "two")
   end
   
   def test_recursive_unlink_removes_circular_linkages
@@ -375,12 +375,12 @@ class RepoTest < Test::Unit::TestCase
 
     repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
 
-    err = assert_raises(RuntimeError) { repo.links(a, :recursive => true) }
+    err = assert_raises(RuntimeError) { repo.children(a, :recursive => true) }
     repo.unlink(a, b, :recursive => true).commit("unlinked links")
     
-    assert_equal [], repo.links(a)
-    assert_equal [], repo.links(b)
-    assert_equal [], repo.links(c)
+    assert_equal [], repo.children(a)
+    assert_equal [], repo.children(b)
+    assert_equal [], repo.children(c)
   end
   
   #

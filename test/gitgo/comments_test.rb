@@ -31,7 +31,7 @@ class CommentsTest < Test::Unit::TestCase
     b = last_response['Sha']
     
     assert_equal "new content", repo.read(b).content
-    assert_equal [b], repo.links(a)
+    assert_equal [b], repo.children(a)
   end
 
   # def test_post_without_parent_creates_document
@@ -53,10 +53,10 @@ class CommentsTest < Test::Unit::TestCase
     b = last_response['Sha']
     
     assert_equal "new content", repo.read(b).content
-    assert_equal [], repo.links(a)
+    assert_equal [], repo.children(a)
     
     repo.commit("ok now committed")
-    assert_equal [b], repo.links(a)
+    assert_equal [b], repo.children(a)
   end
   
   #
@@ -69,8 +69,8 @@ class CommentsTest < Test::Unit::TestCase
     c = repo.create("c")
     repo.link(a, b).link(b, c).commit("added fixture")
     
-    assert_equal [b], repo.links(a)
-    assert_equal [c], repo.links(b)
+    assert_equal [b], repo.children(a)
+    assert_equal [c], repo.children(b)
     
     assert_equal "b", repo.read(b).content
     assert_equal "value", repo.read(b).attributes["key"]
@@ -80,9 +80,9 @@ class CommentsTest < Test::Unit::TestCase
     
     new_b = last_response['Sha']
     
-    assert_equal [new_b], repo.links(a)
-    assert_equal [], repo.links(b)
-    assert_equal [c], repo.links(new_b)
+    assert_equal [new_b], repo.children(a)
+    assert_equal [], repo.children(b)
+    assert_equal [c], repo.children(new_b)
     
     assert_equal "B", repo.read(new_b).content
     assert_equal "VALUE", repo.read(new_b).attributes["key"]
@@ -98,14 +98,14 @@ class CommentsTest < Test::Unit::TestCase
     c = repo.create("c")
     repo.link(a, b).link(b, c).commit("added fixture")
     
-    assert_equal [b], repo.links(a)
-    assert_equal [c], repo.links(b)
+    assert_equal [b], repo.children(a)
+    assert_equal [c], repo.children(b)
   
     delete("/comment/#{a}/#{b}", "commit" => "true")
     assert last_response.redirect?, last_response.body
   
-    assert_equal [], repo.links(a)
-    assert_equal [c], repo.links(b)
+    assert_equal [], repo.children(a)
+    assert_equal [c], repo.children(b)
   end
   
   def test_destroy_removes_comment_from_parent_recursively_if_specified
@@ -114,26 +114,26 @@ class CommentsTest < Test::Unit::TestCase
     c = repo.create("c")
     repo.link(a, b).link(b, c).commit("added fixture")
     
-    assert_equal [b], repo.links(a)
-    assert_equal [c], repo.links(b)
+    assert_equal [b], repo.children(a)
+    assert_equal [c], repo.children(b)
   
     delete("/comment/#{a}/#{b}", "commit" => "true", "recursive" => true)
     assert last_response.redirect?, last_response.body
   
-    assert_equal [], repo.links(a)
-    assert_equal [], repo.links(b)
+    assert_equal [], repo.children(a)
+    assert_equal [], repo.children(b)
   end
   
   def test_destroy_does_not_commit_unless_specified
     a = repo.create("a")
     b = repo.create("b")
     repo.link(a, b).commit("added fixture")
-    assert_equal [b], repo.links(a)
+    assert_equal [b], repo.children(a)
   
     delete("/comment/#{a}/#{b}")
-    assert_equal [b], repo.links(a)
+    assert_equal [b], repo.children(a)
     
     repo.commit("ok now committed")
-    assert_equal [], repo.links(a)
+    assert_equal [], repo.children(a)
   end
 end
