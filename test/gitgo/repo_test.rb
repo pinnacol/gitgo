@@ -235,6 +235,32 @@ class RepoTest < Test::Unit::TestCase
   end
 
   #
+  # parents test
+  #
+
+  def test_parents_returns_array_of_parents_linking_to_child
+    a = repo.write("blob", "A")
+    b = repo.write("blob", "B")
+    c = repo.write("blob", "C")
+    
+    repo.link(a, c).link(b, c).commit("created links")
+    
+    assert_equal [a, b].sort, repo.parents(c).sort
+    assert_equal [], repo.parents(b)
+  end
+  
+  def test_parents_returns_array_of_parents_linking_to_child_under_dir_if_specified
+    a = repo.write("blob", "A")
+    b = repo.write("blob", "B")
+    c = repo.write("blob", "C")
+    
+    repo.link(a, c, :dir => "one").link(b, c, :dir => "two").commit("created links")
+    
+    assert_equal [a], repo.parents(c, :dir => "one")
+    assert_equal [b], repo.parents(c, :dir => "two")
+  end
+  
+  #
   # children test
   #
 
@@ -366,6 +392,26 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [c], repo.children(b, :dir => "one")
     assert_equal [], repo.children(a, :dir => "two")
     assert_equal [], repo.children(d, :dir => "two")
+  end
+  
+  def test_unlink_quietly_does_nothing_for_unlinked_or_missing_parent_or_child
+    a = repo.write("blob", "A")
+    b = repo.write("blob", "B")
+    c = repo.write("blob", "C")
+    
+    repo.link(a, b).link(a, c).commit("created recursive links")
+    
+    assert_equal [b, c], repo.children(a)
+    assert_equal [], repo.children(b)
+    assert_equal [a], repo.parents(c)
+    
+    repo.unlink(b, c)
+    repo.unlink(nil, c)
+    repo.unlink(b, nil)
+    
+    assert_equal [b, c], repo.children(a)
+    assert_equal [], repo.children(b)
+    assert_equal [a], repo.parents(c)
   end
   
   def test_recursive_unlink_removes_circular_linkages

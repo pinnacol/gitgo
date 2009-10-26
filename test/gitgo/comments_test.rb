@@ -96,16 +96,14 @@ class CommentsTest < Test::Unit::TestCase
     a = repo.create("a")
     b = repo.create("b")
     c = repo.create("c")
-    repo.link(a, b).link(b, c).commit("added fixture")
+    repo.link(a, b).link(a, c).commit("added fixture")
     
-    assert_equal [b], repo.children(a)
-    assert_equal [c], repo.children(b)
+    assert_equal [b, c].sort, repo.children(a).sort
   
     delete("/comment/#{a}/#{b}", "commit" => "true")
     assert last_response.redirect?, last_response.body
   
-    assert_equal [], repo.children(a)
-    assert_equal [c], repo.children(b)
+    assert_equal [c], repo.children(a)
   end
   
   def test_destroy_removes_comment_from_parent_recursively_if_specified
@@ -117,7 +115,7 @@ class CommentsTest < Test::Unit::TestCase
     assert_equal [b], repo.children(a)
     assert_equal [c], repo.children(b)
   
-    delete("/comment/#{a}/#{b}", "commit" => "true", "recursive" => true)
+    delete("/comment/#{a}/#{b}", "commit" => "true", "recursive" => "true")
     assert last_response.redirect?, last_response.body
   
     assert_equal [], repo.children(a)

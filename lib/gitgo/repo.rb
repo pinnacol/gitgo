@@ -332,6 +332,25 @@ module Gitgo
       self
     end
     
+    # Returns an array of parents that link to the child.
+    def parents(child, options={})
+      root = get(options[:dir] || "/")
+      return [] unless root && root.respond_to?(:contents)
+      
+      # seek /ab/xyz/sha where sha == child
+      parents = []
+      root.contents.each do |ab|
+        next unless ab.respond_to?(:contents)
+        ab.contents.each do |xyz|
+          next unless xyz.respond_to?(:contents)
+          if xyz.contents.any? {|sha| sha.name == child }
+            parents << "#{ab.name}#{xyz.name}"
+          end
+        end
+      end
+      parents
+    end
+    
     # Returns an array of children linked to the parent.  If recursive is
     # specified, this method will recursively seek children for each child and
     # the return will be a nested hash of linked shas.
@@ -367,6 +386,7 @@ module Gitgo
     # under the sha-path for the parent.  Unlink will recursively remove all
     # links to the child if specified.
     def unlink(parent, child, options={})
+      return self unless parent && child
       rm(sha_path(options, parent, child))
       
       if options[:recursive]
@@ -422,22 +442,46 @@ module Gitgo
     # Updates the content of the specified document and reassigns all links
     # to the document.
     def update(id, attrs={})
-      return nil unless old_doc = destroy(id)
-      links = children(id)
+      return nil unless old_doc = read(id)
       
+      parents = self.parents(id)
+      children = self.children(id)
       new_doc = old_doc.merge(attrs)
-      id = store(new_doc)
       
-      links.each {|link| link(id, link) }
-      id
+      parents.each {|parent| unlink(parent, id) }
+      children.each {|child| unlink(id, child) }
+      rm timestamp(old_doc.date, id), logfile(old_doc.author, old_doc.date)
+      
+      id = store(new_doc)
+      parents.each {|parent| link(parent, id) }
+      children.each {|child| link(id, child) }
+      
+      new_doc.sha = id
+      new_doc
     end
     
     # Removes the document from the repo by deleting it from the timeline.
     # Delete also removes the logfile associating this document with the
     # document author.
     def destroy(id)
-      return nil unless doc = self.read(id)
-      rm(timestamp(doc.date, id), logfile(doc.author, doc.date))
+      
+      # Destroying a doc with children is a bad idea because there is no one
+      # good way of removing the children.  Children with multiple parents
+      # should not be unlinked recursively.  Children with no other parents
+      # should be unlinked and destroyed (because nothing will reference them
+      # anymore).
+      #
+      # Note the same is not true for parents; a doc can simply remove itself
+      # from the parents, each of which will remain valid afterwards.
+      unless children(id).empty?
+        raise "cannot destroy a document with children"
+      end
+      
+      return nil unless doc = read(id)
+      
+      parents(id).each {|parent| unlink(parent, id) }
+      rm timestamp(doc.date, id), logfile(doc.author, doc.date)
+      
       doc
     end
     

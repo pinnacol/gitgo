@@ -60,12 +60,10 @@ module Gitgo
     end
     
     def update(parent, child)
-      if new_id = repo.update(child, request_attributes(true))
-        repo.unlink(parent, child, :recursive => true) if parent
-        repo.link(parent, new_id) if parent
-        
-        repo.commit("updated document #{child} to #{new_id}") if commit?
-        response["Sha"] = new_id
+      if doc = repo.update(child, request_attributes(true))
+        new_child = doc.sha
+        repo.commit("updated document #{child} to #{new_child}") if commit?
+        response["Sha"] = new_child
         
         redirect(request['redirect'] || url)
       else
@@ -74,8 +72,11 @@ module Gitgo
     end
     
     def destroy(parent, child)
+      if parent
+        repo.unlink(parent, child, :recursive => recursive?)
+      end
+      
       if doc = repo.destroy(child)
-        repo.unlink(parent, child, :recursive => recursive?) if parent
         repo.commit("removed document: #{child}") if commit?
       end
       
@@ -87,11 +88,11 @@ module Gitgo
     #
     
     def commit?
-      request['commit'] =~ /\Atrue\z/i
+      request['commit'] =~ /\Atrue\z/i ? true : false
     end
     
     def recursive?
-      request['recursive'] =~ /\Atrue\z/i
+      request['recursive'] =~ /\Atrue\z/i ? true : false
     end
     
     def request_attributes(content=false)
