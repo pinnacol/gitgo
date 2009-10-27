@@ -1,5 +1,6 @@
 require 'gitgo/controller'
 require 'gitgo/comments'
+require 'gitgo/issues'
 
 module Gitgo
   class Server < Controller
@@ -9,6 +10,7 @@ module Gitgo
     set :views, "views/server"
     
     get("/")            { index }
+    get("/code")        { code_index }
     get('/commit')      { show_commit('master') }
     get('/commit/:id')  {|id| show_commit(id) }
     get('/tree')        { show_tree("master") }
@@ -20,13 +22,17 @@ module Gitgo
     get("/:id/commits") {|id| show_history(id) }
     
     use Comments
-
+    use Issues
+    
     def index
-      erb :index, :locals => {
+      erb :index
+    end
+    
+    def code_index
+      erb :code, :locals => {
         :branches => grit.branches,
-        :tags => grit.tags,
-        :timeline => repo.timeline
-      } 
+        :tags => grit.tags
+      }
     end
     
     def show_commit(id)

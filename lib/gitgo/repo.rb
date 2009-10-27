@@ -398,7 +398,17 @@ module Gitgo
 
       self
     end
+    
+    def mark(path, sha)
+      add(File.join(path, sha) => [DEFAULT_BLOB_MODE, empty_sha])
+      self
+    end
 
+    def unmark(path, sha)
+      rm(path(path, sha))
+      self
+    end
+    
     # Creates a new Document using the content and attributes, writes it to
     # the repo and returns it's sha.  New documents are stored by timestamp
     # and logged to their author.

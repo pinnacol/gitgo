@@ -27,6 +27,12 @@ module Gitgo
       %Q{<a href="/show/#{sha}">#{sha}</a>}
     end
     
+    def issue_link(doc)
+      title = doc['title']
+      title = "(nameless issue)" if title.to_s.empty?
+      %Q{<a href="/issue/#{doc.sha}">#{title}</a>}
+    end
+    
     def path_links(id, path)
       paths = path.split("/")
       base = paths.pop

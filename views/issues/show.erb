@@ -1,0 +1,12 @@
+<h2><%= doc['title'] %></h2>
+<div>
+<%= html_escape doc.content %>
+</div>
+
+<% if opinions.length > 1 %><em>There are multiple opinions describing this issue</em><% end %>
+
+<ul><% opinions.each do |opinion| %>
+<li>
+<%= erb :_opinion, :locals => {:doc => doc}, :layout => false %>
+</li><% end %>
+</ul>

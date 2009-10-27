@@ -1,23 +1,6 @@
-<h1><%= repo.path %></h1>
-
-<h2>Code</h2>
-<div class="code">
-  <h3>Branches</h3><% if branches.empty? %>
-  <em>No branches yet.</em><% end %>
-  <ul><% branches.each do |ref| %>
-  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li><% end %>
-  </ul>
-
-  <h3>Tags</h3><% if tags.empty? %>
-  <em>No tags yet.</em><% end %>
-  <ul><% tags.each do |ref| %>
-  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li><% end %>
-  </ul>
-</div>
-
-<h2>Comments</h2>
-<div class="comments">
-  <h3><a href="/comment">Timeline</a></h3><% if timeline.empty? %>
-  <em>No comments yet.</em><% end %>
-<%= erb :_timeline, :locals => {:timeline => timeline}, :views => "views/comments", :layout => false %>
-</div>
+<h3><%= repo.path %></h3>
+<ul>
+<li><a href="/code">Code</a></li>
+<li><a href="/comment">Comments</a></li>
+<li><a href="/issue">Issues</a></li>
+</ul>

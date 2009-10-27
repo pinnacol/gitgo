@@ -1,0 +1,25 @@
+<h1><%= current_state.capitalize %> Issues</h1>
+<ul class="issuenav"><% states.each do |state| %>
+<li><a href="issues?state=<%= state %>"><%= state %></a></li><% end %>
+</ul>
+
+<% if issues.empty? %><em>None!</em><% end %>
+<div class="issues">
+  <ul class="issues"><% issues.each do |doc| %>
+  <li><%= issue_link(doc) %></li><% end %>
+  </ul>
+</div>
+
+<h2>Create New Issue</h2>
+<form class="issue" action="/issue" method="post">
+  <dl class="form">
+  <dt><label for="title">Title</label></dt>
+  <dd><input id="title" type="text" name="doc[title]" value="" /></dd>
+  <dt><label for="content">Description</label></dt>
+  <dd><textarea id="content" name="content"></textarea></dd>
+  <dt><label for="commit">Commit</label></dt>
+  <dd><input id="commit" type="checkbox" name="commit" value="true" checked="true"/></dd>
+  <dt><input type="submit" value="Create" /></dt>
+  <dd></dd>
+  </dl>
+</form>

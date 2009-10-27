@@ -58,6 +58,10 @@ module Gitgo
       end
     end
     
+    def [](key)
+      attributes[key]
+    end
+    
     def attributes
       @attributes ||= begin
         attrs, content = @str.split(/\n--- \n/m, 2)
