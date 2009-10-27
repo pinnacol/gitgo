@@ -113,7 +113,8 @@ namespace :test do
   
   desc 'Run data model tests'
   task :model => :check_bundle do
-    tests = Dir.glob('test/model/**/*_test.rb')
+    pattern = ENV['PATTERN'] || "**/*_test.rb"
+    tests = Dir.glob("test/model/#{pattern}").select {|path| File.file?(path) }
     cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
     sh(*cmd)
   end
