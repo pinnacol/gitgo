@@ -1,5 +1,4 @@
 require File.dirname(__FILE__) + "/../test_helper"
-require 'gitgo/document'
 
 class RenderTest < Test::Unit::TestCase
 
@@ -52,7 +51,7 @@ class RenderTest < Test::Unit::TestCase
   end
     
   # a-b-c
-  def test_flatten_single_thread
+  def test_render_single_thread
     expected = [:a, [:b, [:c]]]
     assert_output_equal %q{
 a
@@ -63,7 +62,7 @@ c
   
   # a-b
   #  -c
-  def test_flatten_shallow_threads
+  def test_render_shallow_threads
     expected = [:a, [:b], [:c]]
     assert_output_equal %q{
 a
@@ -74,7 +73,7 @@ c
   
   # a-b-c
   #  -d-e
-  def test_flatten_threads
+  def test_render_threads
     expected = [:a, [:b, [:c]], [:d, [:e]]]
     assert_output_equal %q{
 a
@@ -87,7 +86,7 @@ d
   
   # a-b-c-d
   #  -e-f-g
-  def test_flatten_deep_threads
+  def test_render_deep_threads
     expected = [:a, [:b, [:c, [:d]]], [:e, [:f, [:g]]]]
     assert_output_equal %q{
 a
@@ -102,7 +101,7 @@ e
   
   # a-b
   #  -c-d-e
-  def test_flatten_mixed_threads
+  def test_render_mixed_threads
     expected = [:a, [:b], [:c, [:d, [:e]]]]
     assert_output_equal %q{
 a
@@ -350,6 +349,4 @@ g
  e
 }, render(expected).join
   end
-  
-
 end
