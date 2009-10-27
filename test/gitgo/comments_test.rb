@@ -53,10 +53,10 @@ class CommentsTest < Test::Unit::TestCase
     b = last_response['Sha']
     
     assert_equal "new content", repo.read(b).content
-    assert_equal [], repo.children(a)
-    
-    repo.commit("ok now committed")
     assert_equal [b], repo.children(a)
+    
+    repo.reset
+    assert_equal [], repo.children(a)
   end
   
   #
@@ -129,9 +129,9 @@ class CommentsTest < Test::Unit::TestCase
     assert_equal [b], repo.children(a)
   
     delete("/comment/#{a}/#{b}")
-    assert_equal [b], repo.children(a)
-    
-    repo.commit("ok now committed")
     assert_equal [], repo.children(a)
+    
+    repo.reset
+    assert_equal [b], repo.children(a)
   end
 end

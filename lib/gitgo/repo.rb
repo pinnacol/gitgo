@@ -170,9 +170,8 @@ module Gitgo
     def initialize(path=Dir.pwd, options={})
       @grit = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
       @branch = options[:branch] || DEFAULT_BRANCH
-      @tree = commit_tree
-      
       self.author = options[:author]
+      reset
     end
     
     # Returns the current commit for branch.
@@ -566,8 +565,13 @@ module Gitgo
 
       id = set(:commit, lines.join("\n"))
       File.open(path("refs/heads/#{branch}"), "w") {|io| io << id }
-      @tree = commit_tree
+      reset
       id
+    end
+    
+    # Resets the working tree.
+    def reset
+      @tree = commit_tree
     end
 
     # Returns a hash of (path, state) pairs indicating paths that have been
@@ -598,7 +602,7 @@ module Gitgo
     def checkout(branch, path=nil)
       if branch && branch != @branch
         @branch = branch
-        @tree = commit_tree
+        reset
       end
 
       if path
@@ -610,7 +614,7 @@ module Gitgo
     # Pulls from the remote into the work tree.
     def pull(remote="origin", rebase=true)
       git(:pull, remote, :rebase => rebase)
-      @tree = commit_tree
+      reset
     end
 
     # Clones self into the specified path and sets up tracking of branch in
