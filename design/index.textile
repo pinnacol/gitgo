@@ -1,43 +1,92 @@
-h1. Issues Index
-
-Issues are a bit problematic in that they need some sort of index to track the current state, in order to ensure performance in the long run (100s of tickets).  This may not be a real issue under normal circumstances.
-
-Also the solution could be as easy as:
-
-  comments/
-    issueone/
-      commentone
-  index/
-    issueone/
-      currentstate   # issueone.merge(commentone)
-  issues/
-    issueone
-    
-Every time you add a comment you update the current state(s), adding and removing as necessary.  You will just have to test how this model works under stressful merge conditions.
-
-h2. Version 2
+h1. Index
 
   00
-    /5ffb20addfcb819d843331a950c666ed52bf5a
-      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
-      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
-      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+    /5ffb20addfcb819d843331a950c666ed52bf5a     (object)
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (comment - empty)
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (issue - issue)
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (comment - issue)
     /00017c049867f68cdc6776b122a4b1defc9cb3
       /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
       /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
   idx
     /user.email@email.com
-      /2009090900000
+      /2009090900000                              (sha)
       /2009090900001
     /2009
       /0909
+        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (doc)
         /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
         /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
         /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
-        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
-  iss/
-    /00
-      /5ffb20addfcb819d843331a950c666ed52bf5a
   wiki/
     one.txt
     one/two.txt
+
+Gitgo collects its data as a series of documents and links.
+
+h2. Documents
+
+Documents are stored under the timeline and take the general form:
+
+  [doc]
+  --- 
+  author:
+  date:
+  type: (ex: comment, issue)
+  obj: (sha)
+  --- 
+  content
+
+The obj attributes refers to the object that is being commented on (a commit, blob, tree, or tag).  Comments on existing comments inherit obj from their parent, so that comments, regardless of how deep in a thread, always knows what object they refer to.
+
+The attributes are used in building a timeline to identify what a document does; for example:
+
+  [comment]
+  ...
+  type: comment            # comment : sha (commit)
+  obj: sha
+  
+  [issue]
+  ...
+  title: title
+  state: open
+  type: issue              # issue   : title (open)
+  obj: sha
+  
+  [comment on issue]
+  ...
+  type: comment            # comment : title (open)
+  obj: issue sha
+  ---
+  comment
+  
+  [comment on issue]
+  ...
+  state: closed
+  type: comment            # comment : title (closed)
+  obj: issue sha
+  
+If a sha refers to a ref, the ref name will be used in the summary instead of the sha (ex HEAD, version-1.0) and similarly references to an issue will use the issue title.
+
+Documents are linked to one another using file references.  Links are a way to add/remove object children in a conflict-free manner.  Since each document will have a unique sha, storing links by the sha ensure adds will always work.  Removes will similarly work because they require a consistent state (ie the link exists) and cannot be reversed because the document can never be added again because the time of creation will always increase.
+
+Links to a commit can be broken by a rebase, and similarly links to blobs and trees can be orphaned if the object is removed from the history entirely.  Gitgo can implement a similar fsck where the links are examined... if the parent is in the directory, great, and otherwise the links need to be reassigned or removed.
+
+h2. Issues
+
+Issues are more like threads than a single object; the state of an issue is determined by following each thread to completion.  This may mean that there are multiple states for a given issue.  Multiple states can be resolved by adding a common node to each of the divergent threads.
+
+Gitgo uses links to create issue threads.  Issues have comments, the comments have comments, and as a result you have an acyclic graph of documents that cumulatively makeup the threads.
+
+Moreover issues are tied to commits; this allows a commit-specific view of project issues.  Each issue or comment on an issue is added to a commit like this:
+
+  /00
+    /5ffb20addfcb819d843331a950c666ed52bf5a     (commit)
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (issue - issue)
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (comment - issue)
+
+First this allows a commit to identify what it does -- open an issue, close an issue, etc.  Second, a given set of commits can select both the issues and the updates that apply to them.  They are aggregated into a hash of (issue, [comments]) pairs that can be used to filter the documents used to calculate the state of an issue.  Normally all comments and all issues are shown; this commit-specific format can be useful, however, on a specific branch.
+
+Nothing is lost or unavailable, however.  The issue can display what the current state is, and present grey links for progress that is not being shown.
+
+Note that is the commit is rebased away, the issues and comments associated with it cannot be seen.  They will have to be reassigned or simply dropped.
