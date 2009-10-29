@@ -229,10 +229,14 @@ module Gitgo
     def set(type, content) # :nodoc:
       data = "#{type} #{content.length}\0#{content}"
       id = Digest::SHA1.hexdigest(data)[0, 40]
-      path = self.path("/objects/#{id[0...2]}/#{id[2..39]}")
+      dir = self.path("/objects/#{id[0...2]}")
+      path = "#{dir}/#{id[2..39]}"
 
       unless File.exists?(path)
-        FileUtils.mkdir_p(File.dirname(path))
+        unless File.exists?(dir)
+          FileUtils.mkdir_p(dir)
+        end
+        
         File.open(path, 'wb') do |io|
           io.write Zlib::Deflate.deflate(data)
         end
@@ -600,15 +604,15 @@ module Gitgo
 
     # Sets the current branch and updates index.  Checkout will also
     # checkout self into the directory specified by path, if specified.
-    def checkout(branch, path=nil)
+    def checkout(branch, path=nil, options={})
+      if path
+        FileUtils.mkdir_p(path) unless File.exists?(path)
+        grit.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', options, @branch)
+      end
+      
       if branch && branch != @branch
         @branch = branch
         reset
-      end
-
-      if path
-        FileUtils.mkdir_p(path) unless File.exists?(path)
-        grit.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', {}, @branch)
       end
     end
 
