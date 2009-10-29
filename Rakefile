@@ -77,6 +77,53 @@ task :checkout_fixtures do
   end
 end
 
+def tick
+  @tick ||= 0
+  @tick += 1
+  if @tick == 100
+    print "."
+    $stdout.flush
+    @tick = 0
+  end
+end
+
+# 1000 commits
+#  800 on master
+#  100 on dev1
+#  100 on dev2
+#
+# pre-gc:  12.4 MB on disk (215,812 bytes)
+# post-gc: 360 KB on disk (284,433 bytes) 
+task :build_fixture => :check_bundle do
+  require 'vendor/gems/environment'
+  require 'gitgo/repo'
+  
+  unless File.exists?("fixtures/large")
+    repo = Gitgo::Repo.init("fixtures/large", :branch => "master")
+    0.upto(799).each do |n|
+      str = "%03d" % n
+      repo.add("at" => str).commit("commit #{str}")
+      tick
+    end
+  
+    repo.checkout("dev1", "fixtures/large", :b => true)
+    800.upto(899) do |n|
+      str = "%03d" % n
+      repo.add("at" => str).commit("commit #{str}")
+      tick
+    end
+  
+    repo.checkout("master", "fixtures/large")
+    repo.checkout("dev2", "fixtures/large", :b => true)
+    900.upto(999) do |n|
+      str = "%03d" % n
+      repo.add("at" => str).commit("commit #{str}")
+      tick
+    end
+    puts
+  end
+end
+
 #
 # Test tasks
 #
@@ -115,6 +162,14 @@ namespace :test do
   task :model => :check_bundle do
     pattern = ENV['PATTERN'] || "**/*_test.rb"
     tests = Dir.glob("test/model/#{pattern}").select {|path| File.file?(path) }
+    cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
+    sh(*cmd)
+  end
+  
+  desc 'Run benchmark tests'
+  task :benchmark => :check_bundle do
+    pattern = ENV['PATTERN'] || "**/*_benchmark.rb"
+    tests = Dir.glob("test/benchmark/#{pattern}").select {|path| File.file?(path) }
     cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
     sh(*cmd)
   end

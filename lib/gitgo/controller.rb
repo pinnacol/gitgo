@@ -54,6 +54,7 @@ module Gitgo
     set :resource_name, nil
     set :repo, nil
     set :author, nil
+    set :secret, nil
     
     template(:layout) do 
       File.read("views/layout.erb")
@@ -77,6 +78,9 @@ module Gitgo
     
     # The standard document attributes parameter
     ATTRIBUTES = 'doc'
+    
+    # The secret parameter
+    SECRET = 'secret'
     
     # Returns the Gitgo::Repo for self
     attr_reader :repo
@@ -130,9 +134,22 @@ module Gitgo
     # Returns a hash of document attributes specified in the request.
     def attrs
       attrs = request[ATTRIBUTES] || {}
-      attrs['author']  = author
-      attrs['date'] = Time.now
+      
+      if admin?
+        attrs['author'] ||= author
+        
+        date = attrs['date']
+        attrs['date'] = date ? Time.at(date.to_i) : Time.now
+      else
+        attrs['author'] = author
+        attrs['date'] = Time.now
+      end
+      
       attrs
+    end
+    
+    def admin?
+      options.secret && request[SECRET] == options.secret
     end
     
     def session
