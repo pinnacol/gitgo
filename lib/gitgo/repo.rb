@@ -313,7 +313,10 @@ module Gitgo
     # corruption by git. 
     #  
     def link(parent, child, options={})
-      add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, empty_sha])
+      as = options[:as]
+      sha = as ? set(:blob, as) : empty_sha
+      
+      add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, sha])
       self
     end
 
@@ -340,17 +343,15 @@ module Gitgo
     # Returns an array of children linked to the parent.  If recursive is
     # specified, this method will recursively seek children for each child and
     # the return will be a nested hash of linked shas.
-    def children(parent, options={}, &block)
+    def children(parent, options={})
       children = self[sha_path(options, parent)] || []
 
-      unless options[:recursive]
-        children.collect!(&block) if block_given?
-        return children
-      end
+      return children unless options[:recursive]
+
+      tree = options[:tree] ||= {}
+      tree[parent] = children
 
       visited = options[:visited] ||= [parent]
-
-      tree = {}
       children.each do |child|
         circular = visited.include?(child)
         visited.push child
@@ -358,10 +359,11 @@ module Gitgo
         if circular
           raise "circular link detected:\n  #{visited.join("\n  ")}\n"
         end
-
-        key = block_given? ? yield(child) : child
-        tree[key] = children(child, options, &block)
-
+        
+        unless tree.has_key?(child)
+          children(child, options)
+        end
+        
         visited.pop
       end
 
@@ -392,16 +394,6 @@ module Gitgo
         end
       end
 
-      self
-    end
-    
-    def mark(path, sha)
-      add(File.join(path, sha) => [DEFAULT_BLOB_MODE, empty_sha])
-      self
-    end
-
-    def unmark(path, sha)
-      rm(path(path, sha))
       self
     end
     

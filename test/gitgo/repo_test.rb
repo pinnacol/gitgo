@@ -223,6 +223,15 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "", repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
   end
   
+  def test_link_links_to_as_if_specified
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
+    c = repo.set("blob", "c")
+    
+    repo.link(a, b, :as => c).commit("linked a file")
+    assert_equal c, repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
+  end
+
   def test_link_nests_link_under_dir_if_specified
     a = repo.set("blob", "a")
     b = repo.set("blob", "b")
@@ -230,7 +239,7 @@ class RepoTest < Test::Unit::TestCase
     repo.link(a, b, :dir => "path/to/dir").commit("linked a file")
     assert_equal "", repo["path/to/dir/#{a[0,2]}/#{a[2,38]}/#{b}"]
   end
-
+  
   #
   # parents test
   #
@@ -283,7 +292,7 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [c], repo.children(a, :dir => "two")
   end
 
-  def test_children_returns_a_nested_hash_of_children_if_recursive_is_specified
+  def test_children_returns_a_hash_of_children_if_recursive_is_specified
     a = repo.set("blob", "A")
     b = repo.set("blob", "B")
     c = repo.set("blob", "C")
@@ -291,7 +300,7 @@ class RepoTest < Test::Unit::TestCase
     repo.link(a, b).link(b, c).commit("created recursive links")
     
     assert_equal [b], repo.children(a)
-    assert_equal({b => {c => {}}}, repo.children(a, :recursive => true))
+    assert_equal({a => [b], b => [c], c => []}, repo.children(a, :recursive => true))
   end
 
   def test_recursive_children_detects_circular_linkage
@@ -324,10 +333,14 @@ class RepoTest < Test::Unit::TestCase
 
     repo.commit("linked to the same commit on two threads")
 
+    result = repo.children(a, :recursive => true)
+    result.each_value {|value| value.sort! }
     assert_equal({
-      b => {d => {}},
-      c => {d => {}}
-    }, repo.children(a, :recursive => true))
+      a => [b, c].sort,
+      b => [d],
+      c => [d],
+      d => []
+    }, result)
   end
 
   #
