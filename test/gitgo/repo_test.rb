@@ -223,12 +223,12 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "", repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
   end
   
-  def test_link_links_to_as_if_specified
+  def test_link_links_to_ref_if_specified
     a = repo.set("blob", "a")
     b = repo.set("blob", "b")
     c = repo.set("blob", "c")
     
-    repo.link(a, b, :as => c).commit("linked a file")
+    repo.link(a, b, :ref => c).commit("linked a file")
     assert_equal c, repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
   end
 
@@ -238,6 +238,34 @@ class RepoTest < Test::Unit::TestCase
   
     repo.link(a, b, :dir => "path/to/dir").commit("linked a file")
     assert_equal "", repo["path/to/dir/#{a[0,2]}/#{a[2,38]}/#{b}"]
+  end
+  
+  #
+  # ref test
+  #
+  
+  def test_ref_returns_the_ref_attribute_in_a_link
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
+    c = repo.set("blob", "c")
+    
+    repo.link(a, b, :ref => c).commit("linked a file")
+    assert_equal c, repo.ref(a, b)
+    
+    repo.link(a, c).commit("linked a file")
+    assert_equal "", repo.ref(a, c)
+  end
+
+  def test_ref_works_with_link_options
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
+    c = repo.set("blob", "c")
+    
+    repo.link(a, b, :ref => c, :dir => "path/to/dir").commit("linked a file")
+    assert_equal c, repo.ref(a, b, :dir => "path/to/dir")
+    
+    repo.link(a, c, :dir => "path/to/dir").commit("linked a file")
+    assert_equal "", repo.ref(a, c, :dir => "path/to/dir")
   end
   
   #

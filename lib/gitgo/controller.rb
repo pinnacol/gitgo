@@ -122,12 +122,6 @@ module Gitgo
       set?('commit')
     end
     
-    # Returns true if the key is specified as a document attribute in the
-    # request.
-    def specified?(key)
-      request[ATTRIBUTES][key] && !request[ATTRIBUTES][key].empty?
-    end
-    
     # Returns the document content specified in the request
     def content
       request[CONTENT]

@@ -65,8 +65,13 @@ module Gitgo
     def attributes
       @attributes ||= begin
         attrs, content = @str.split(/\n--- \n/m, 2)
-        attrs = YAML.load(attrs) if attrs
-        attrs ||= {}
+        
+        if content
+          attrs = YAML.load(attrs) || {}
+        else
+          attrs, content = {}, attrs 
+        end
+        
         if author = attrs['author']
           attrs['author'] = Grit::Actor.from_string(author)
         end

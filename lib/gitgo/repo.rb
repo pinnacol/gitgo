@@ -313,8 +313,8 @@ module Gitgo
     # corruption by git. 
     #  
     def link(parent, child, options={})
-      as = options[:as]
-      sha = as ? set(:blob, as) : empty_sha
+      ref = options[:ref]
+      sha = ref ? set(:blob, ref) : empty_sha
       
       add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, sha])
       self
@@ -368,6 +368,12 @@ module Gitgo
       end
 
       tree
+    end
+    
+    # Returns the sha of the object the linked child refers to, ie the :ref
+    # option used when making a link. 
+    def ref(parent, child, options={})
+      self[sha_path(options, parent, child)]
     end
 
     # Unlinks the parent and child by removing the reference to the child

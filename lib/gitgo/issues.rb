@@ -19,6 +19,9 @@ module Gitgo
     put('/:id')    {|id| update(id) }
     delete('/:id') {|id| destroy(id) }
     
+    COMMIT = "at"
+    REGARDING = "re"
+    INHERIT = %w{state tags}
     STATES = %w{open closed}
     
     def index
@@ -31,23 +34,71 @@ module Gitgo
     end
     
     def create
-      id = repo.create(request['content'], attrs('open' => 'true'))
-      repo.mark("iss/open", id)
-      repo.commit("added issue #{id}") if commit?
-      redirect url(id)
+      issue = repo.create(content, attrs.merge!('state' => 'open'))
+      
+      # if specified, link the issue to an object (should be a commit)
+      if commit = request[COMMIT]
+        repo.link(commit, issue, :ref => issue)
+      end
+      
+      repo.commit("added issue #{issue}") if commit?
+      redirect url(issue)
     end
     
-    def show(id)
+    def show(issue)
       erb :show, :locals => {
-        :doc => repo.read(id),
-        :opinions => opinions(id)
+        :doc => repo.read(issue),
+        :opinions => opinions(issue)
       }
     end
     
-    def update(id)
+    # Update adds a comment to the specified issue.
+    def update(issue)
+      unless doc = repo.read(issue)
+        raise "unknown issue: #{issue.inspect}"
+      end
+      
+      comment = repo.create(content, inherit(doc))
+      
+      # link the comment to each parent
+      if parents = request[REGARDING]
+        parents = [parents] unless parents.kind_of?(Array)
+        parents.each {|parent| repo.link(parent, comment) }
+      else
+        repo.link(issue, comment)
+      end
+      
+      # if specified, link the issue to an object (should be a commit)
+      if commit = request[COMMIT]
+        repo.link(commit, comment, :ref => issue)
+      end
+      
+      repo.commit("updated issue #{issue}") if commit?
+      redirect url(issue)
     end
     
-    def destroy(id)
+    def destroy(issue)
+      # repo.children(issue, :recursive => true)
+      #   repo.unlink(parent, child, :recursive => recursive?)
+      # end
+      # 
+      # if doc = repo.destroy(issue)
+      #   repo.commit("removed document: #{child}") if commit?
+      # end
+      # 
+      # redirect(request['redirect'] || url)
+      # 
+      # doc = repo.read(issue)
+      # comment = repo.create(request[CONTENT], inherit(doc))
+      # 
+      # # if re is specified, link the comment to the object (should be a commit)
+      # # as an update to the issue... ie using a blob that points to the issue.
+      # if commit = request[REGARDING]
+      #   repo.link(commit, comment, :as => issue)
+      # end
+      # 
+      # repo.commit("updated issue #{issue}") if commit?
+      # redirect url(issue)
     end
     
     #
@@ -65,15 +116,12 @@ module Gitgo
       end
     end
     
-    def attrs(overrides={})
-      attrs = request['doc'] || {}
-      attrs['author']  = author
-      attrs.merge!(overrides)
-      attrs
-    end
-    
-    def commit?
-      request['commit'] =~ /\Atrue\z/i ? true : false
-    end
+    # Same as attrs, but ensures each of the INHERIT attributes is inherited
+    # from doc if it is not specified in the request.
+    def inherit(doc)
+      base = attrs
+      INHERIT.each {|key| base[key] ||= doc[key] }
+      base
+    end  
   end
 end
