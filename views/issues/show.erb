@@ -5,8 +5,4 @@
 
 <% if opinions.length > 1 %><em>There are multiple opinions describing this issue</em><% end %>
 
-<ul><% opinions.each do |opinion| %>
-<li>
-<%= erb :_opinion, :locals => {:doc => doc}, :layout => false %>
-</li><% end %>
-</ul>
+<%= render_comments(commit.id) %>

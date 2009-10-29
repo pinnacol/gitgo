@@ -32,6 +32,7 @@ class IssuesTest < Test::Unit::TestCase
     assert_equal "New Issue", issue['title']
     assert_equal "Issue Description", issue.content
     assert_equal app.author.email, issue.author.email
+    assert_equal [id], repo.children(id, :dir => app::INDEX)
     
     assert_equal "/issue/#{id}", last_response['Location']
   end
@@ -53,6 +54,8 @@ class IssuesTest < Test::Unit::TestCase
   
   def test_put_creates_a_comment_on_an_issue
     issue = repo.set(:blob, "New Issue")
+    repo.link(issue, issue, :dir => app::INDEX).commit("created fixture")
+    assert_equal [issue], repo.children(issue, :dir => app::INDEX)
     
     put("/issue/#{issue}", "content" => "Comment on the Issue", "commit" => "true")
     assert last_response.redirect?, last_response.body
@@ -64,12 +67,16 @@ class IssuesTest < Test::Unit::TestCase
     assert_equal "Comment on the Issue", comment.content
     assert_equal app.author.email, comment.author.email
     assert_equal [id], repo.children(issue)
+    assert_equal [id], repo.children(issue, :dir => app::INDEX)
   end
   
   def test_put_links_comment_to_re
     issue = repo.set(:blob, "New Issue")
     a = repo.set(:blob, "Comment A")
-
+    
+    repo.link(issue, a, :dir => app::INDEX).commit("created fixture")
+    assert_equal [a], repo.children(issue, :dir => app::INDEX)
+    
     put("/issue/#{issue}", "content" => "Comment on A", "re" => a, "commit" => "true")
     assert last_response.redirect?, last_response.body
     
@@ -79,12 +86,17 @@ class IssuesTest < Test::Unit::TestCase
     assert_equal "Comment on A", comment.content
     assert_equal [], repo.children(issue)
     assert_equal [id], repo.children(a)
+    assert_equal [id], repo.children(issue, :dir => app::INDEX)
   end
   
   def test_put_links_comment_to_multiple_re
     issue = repo.set(:blob, "New Issue")
     a = repo.set(:blob, "Comment A")
     b = repo.set(:blob, "Comment B")
+    
+    repo.link(issue, a, :dir => app::INDEX)
+    repo.link(issue, b, :dir => app::INDEX).commit("created fixture")
+    assert_equal [a, b].sort, repo.children(issue, :dir => app::INDEX).sort
     
     put("/issue/#{issue}", "content" => "Comment on A and B", "re" => [a, b], "commit" => "true")
     assert last_response.redirect?, last_response.body
@@ -96,6 +108,7 @@ class IssuesTest < Test::Unit::TestCase
     assert_equal [], repo.children(issue)
     assert_equal [id], repo.children(a)
     assert_equal [id], repo.children(b)
+    assert_equal [id], repo.children(issue, :dir => app::INDEX)
   end
   
   def test_put_links_comment_at_commit_referencing_issue

@@ -326,12 +326,8 @@ module Gitgo
       parents = []
       
       # seek /ab/xyz/sha where sha == child
-      @tree.subtree(segments).each_pair do |ab, ab_tree|
-        next unless ab_tree.kind_of?(Tree)
-        
-        ab_tree.each_pair do |xyz, xyz_tree|
-          next unless xyz_tree.kind_of?(Tree)
-          
+      @tree.subtree(segments).each_tree do |ab, ab_tree|
+        ab_tree.each_tree do |xyz, xyz_tree|
           if xyz_tree.keys.any? {|sha| sha.to_s == child }
             parents << "#{ab}#{xyz}"
           end

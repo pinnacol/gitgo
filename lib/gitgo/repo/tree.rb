@@ -41,6 +41,20 @@ module Gitgo
         end
       end
       
+      def each_blob
+        each_pair do |key, value|
+          next if value.kind_of?(Repo::Tree)
+          yield(key, value)
+        end
+      end
+      
+      def each_tree
+        each_pair do |key, value|
+          next unless value.kind_of?(Repo::Tree)
+          yield(key, value)
+        end
+      end
+      
       def subtree(segments, force=false)
         return self if segments.empty?
         

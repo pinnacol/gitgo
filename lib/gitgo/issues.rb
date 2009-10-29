@@ -1,4 +1,5 @@
 require 'gitgo/controller'
+require 'gitgo/index'
 
 module Gitgo
   class Issues < Controller
@@ -21,23 +22,35 @@ module Gitgo
     
     COMMIT = "at"
     REGARDING = "re"
+    INDEX = "iss"
     INHERIT = %w{state tags}
     STATES = %w{open closed}
     
     def index
       state = request['state'] || 'open'
+      issues = idx.query(state) do
+        idx.keys do |doc|
+          doc['state'] == state
+        end.collect do |id|
+          repo.read(id)
+        end
+      end
+      
       erb :index, :locals => {
-        :issues => issues(state),
-        :states => STATES,
-        :current_state => state
+        :issues => issues,
+        :states => states,
+        :current_state => state,
+        :refs => grit.refs
       }
     end
     
     def create
       issue = repo.create(content, attrs.merge!('state' => 'open'))
+      repo.link(issue, issue, :dir => INDEX)
+      idx.update(issue)
       
       # if specified, link the issue to an object (should be a commit)
-      if commit = request[COMMIT]
+      if commit = at_commit
         repo.link(commit, issue, :ref => issue)
       end
       
@@ -48,7 +61,7 @@ module Gitgo
     def show(issue)
       erb :show, :locals => {
         :doc => repo.read(issue),
-        :opinions => opinions(issue)
+        :opinions => idx[issue]
       }
     end
     
@@ -59,17 +72,20 @@ module Gitgo
       end
       
       comment = repo.create(content, inherit(doc))
+      repo.link(issue, comment, :dir => INDEX)
+      idx.update(issue)
       
-      # link the comment to each parent
-      if parents = request[REGARDING]
-        parents = [parents] unless parents.kind_of?(Array)
-        parents.each {|parent| repo.link(parent, comment) }
-      else
-        repo.link(issue, comment)
+      # link the comment to each parent and update the index
+      parents = request[REGARDING] || [issue]
+      parents = [parents] unless parents.kind_of?(Array)
+      
+      parents.each do |parent|
+        repo.unlink(issue, parent, :dir => INDEX)
+        repo.link(parent, comment)
       end
       
       # if specified, link the issue to an object (should be a commit)
-      if commit = request[COMMIT]
+      if commit = at_commit
         repo.link(commit, comment, :ref => issue)
       end
       
@@ -105,15 +121,9 @@ module Gitgo
     # helpers
     #
     
-    def issues(state)
-      issues = repo["iss/#{state}"] || []
-      issues.collect {|sha| repo.read(sha) }
-    end
-    
-    def opinions(id)
-      repo.children(id, :dir => "iss").collect do |child|
-        repo.read(child)
-      end
+    def at_commit
+      commit = request[COMMIT]
+      commit && !commit.empty? ? commit : nil
     end
     
     # Same as attrs, but ensures each of the INHERIT attributes is inherited
@@ -122,6 +132,41 @@ module Gitgo
       base = attrs
       INHERIT.each {|key| base[key] ||= doc[key] }
       base
-    end  
+    end
+    
+    def idx
+      @idx ||= begin
+        idx = Index.new do |issue|
+          repo.children(issue, :dir => INDEX).collect do |id|
+            repo.read(id)
+          end
+        end
+        
+        tree = repo.tree[INDEX]
+        tree.each_tree do |ab, ab_tree|
+          ab_tree.each_tree do |xyz, xyz_tree|
+            idx.update "#{ab}#{xyz}"
+          end
+        end if tree
+        
+        idx
+      end
+    end
+    
+    def issues
+      idx.keys
+    end
+    
+    def states
+      idx.query(:states) do
+        (STATES + idx.collect {|doc| doc['state'] }).uniq.sort
+      end
+    end
+    
+    def tags
+      idx.query(:tags) do
+        idx.collect {|doc| doc['tags'] }.flatten.uniq.sort
+      end
+    end
   end
 end
