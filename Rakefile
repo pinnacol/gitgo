@@ -147,9 +147,12 @@ bundled.  Use these commands and try again:
 end
 
 desc 'Run the tests'
-task :test => ['test:model', 'test:gitgo']
+task :test => ['test:gitgo']
 
 namespace :test do
+  desc 'Run all the tests'
+  task :all => ['test:gitgo', 'test:model', 'test:benchmark']
+  
   desc 'Run gitgo tests'
   task :gitgo => :check_bundle do
     pattern = ENV['PATTERN'] || "**/*_test.rb"

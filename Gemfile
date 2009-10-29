@@ -6,6 +6,7 @@ if ENV['BUNDLE_CC'] == "true"
   directory cc_dir, :glob => "projects/*/work/*.gemspec"
   directory cc_dir, :glob => "gems/gems/*/*.gemspec"
 else
+  source "http://gemcutter.org"
   source "http://gems.github.com"
   directory File.dirname(__FILE__), :glob => "gitgo.gemspec"
   directory File.dirname(__FILE__), :glob => "vendor/*/*.gemspec"
