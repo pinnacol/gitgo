@@ -50,7 +50,7 @@ module Gitgo
     end
     
     def create(parent)
-      id = repo.create(request['content'], request_attributes)
+      id = repo.create(content, attrs)
       repo.link(parent, id) if parent
       
       repo.commit("added document #{id}") if commit?
@@ -60,7 +60,7 @@ module Gitgo
     end
     
     def update(parent, child)
-      if doc = repo.update(child, request_attributes(true))
+      if doc = repo.update(child, content, attrs)
         new_child = doc.sha
         repo.commit("updated document #{child} to #{new_child}") if commit?
         response["Sha"] = new_child
@@ -73,7 +73,7 @@ module Gitgo
     
     def destroy(parent, child)
       if parent
-        repo.unlink(parent, child, :recursive => recursive?)
+        repo.unlink(parent, child, :recursive => set?('recursive'))
       end
       
       if doc = repo.destroy(child)
@@ -82,28 +82,5 @@ module Gitgo
       
       redirect(request['redirect'] || url)
     end
-    
-    #
-    # helpers
-    #
-    
-    def commit?
-      request['commit'] =~ /\Atrue\z/i ? true : false
-    end
-    
-    def recursive?
-      request['recursive'] =~ /\Atrue\z/i ? true : false
-    end
-    
-    def request_attributes(content=false)
-      attributes = request['attributes'] || {}
-      attributes.merge!(
-        'author' => author,
-        'date' => Time.now
-      )
-      attributes['content'] = request['content'] if content
-      attributes
-    end
-    
   end
 end

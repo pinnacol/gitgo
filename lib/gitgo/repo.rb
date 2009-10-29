@@ -401,7 +401,7 @@ module Gitgo
     # the repo and returns it's sha.  New documents are stored by timestamp
     # and logged to their author.
     def create(content, attrs={}, options={})
-      attrs['content'] = content
+      attrs['content'] = content if content
       attrs['author'] ||= author
       attrs['date'] ||= Time.now
 
@@ -429,8 +429,9 @@ module Gitgo
 
     # Updates the content of the specified document and reassigns all links
     # to the document.
-    def update(id, attrs={})
+    def update(id, content, attrs={})
       return nil unless old_doc = read(id)
+      attrs['content'] = content if content
 
       parents = self.parents(id)
       children = self.children(id)

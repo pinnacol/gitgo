@@ -72,6 +72,12 @@ module Gitgo
       erb :error, :views => "views", :locals => {:err => env['sinatra.error']}
     end
     
+    # The standard document content parameter
+    CONTENT = 'content'
+    
+    # The standard document attributes parameter
+    ATTRIBUTES = 'doc'
+    
     # Returns the Gitgo::Repo for self
     attr_reader :repo
     
@@ -104,6 +110,35 @@ module Gitgo
           options.author
         end
       end
+    end
+    
+    # Returns true if the key is like 'true' in the request parameters.
+    def set?(key)
+      request[key].to_s =~ /\Atrue\z/i ? true : false
+    end
+    
+    # Returns true if 'commit' is set in the request parameters.
+    def commit?
+      set?('commit')
+    end
+    
+    # Returns true if the key is specified as a document attribute in the
+    # request.
+    def specified?(key)
+      request[ATTRIBUTES][key] && !request[ATTRIBUTES][key].empty?
+    end
+    
+    # Returns the document content specified in the request
+    def content
+      request[CONTENT]
+    end
+    
+    # Returns a hash of document attributes specified in the request.
+    def attrs
+      attrs = request[ATTRIBUTES] || {}
+      attrs['author']  = author
+      attrs['date'] = Time.now
+      attrs
     end
     
     def session

@@ -75,7 +75,7 @@ class CommentsTest < Test::Unit::TestCase
     assert_equal "b", repo.read(b).content
     assert_equal "value", repo.read(b).attributes["key"]
     
-    put("/comment/#{a}/#{b}", "content" => "B", "attributes" => {"key" => "VALUE"}, "commit" => "true")
+    put("/comment/#{a}/#{b}", "content" => "B", "doc" => {"key" => "VALUE"}, "commit" => "true")
     assert last_response.redirect?, last_response.body
     
     new_b = last_response['Sha']
