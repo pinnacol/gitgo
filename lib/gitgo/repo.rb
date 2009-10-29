@@ -68,13 +68,11 @@ module Gitgo
   #   repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
   #   repo.tree
   #   # => {
-  #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+  #   #   "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
   #   #   "lib"    => {
-  #   #     0 => "040000"
-  #   #     "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
+  #   #     "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
   #   #     "project" => {
-  #   #       0 => "040000",
-  #   #       "utils" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add]
+  #   #       "utils" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add]
   #   #     }
   #   #   }
   #   # }
@@ -82,13 +80,11 @@ module Gitgo
   #   repo.rm("README")
   #   repo.tree
   #   # => {
-  #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1", :rm],
+  #   #   "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1", :rm],
   #   #   "lib"    => {
-  #   #     0 => "040000",
-  #   #     "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
+  #   #     "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
   #   #     "project" => {
-  #   #       0 => "040000",
-  #   #       "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add]
+  #   #       "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add]
   #   #     }
   #   #   }
   #   # }
@@ -147,8 +143,8 @@ module Gitgo
     DEFAULT_BRANCH = 'gitgo'
     WORK_TREE = 'gitgo'
 
-    DEFAULT_BLOB_MODE = "100644"
-    DEFAULT_TREE_MODE = "040000"
+    DEFAULT_BLOB_MODE = :"100644"
+    DEFAULT_TREE_MODE = :"040000"
 
     # The internal Grit::Repo
     attr_reader :grit

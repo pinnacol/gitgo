@@ -32,18 +32,18 @@ class RepoTest < Test::Unit::TestCase
     ).commit("added files")
     
     expected = {
-      "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
-      :lib     => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
+      "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+      :lib     => [:"040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
     }
     assert_equal expected, repo.tree
   
     repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
     expected = {
-      "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+      "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
       "lib"    => {
-        "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
+        "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
         "project" => {
-          "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
+          "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
         }
       }
     }
@@ -52,9 +52,9 @@ class RepoTest < Test::Unit::TestCase
     repo.rm("README")
     expected = {
       "lib"    => {
-        "project.rb" => ["100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
+        "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
         "project" => {
-          "utils.rb" => ["100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
+          "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
         }
       }
     }
@@ -147,11 +147,11 @@ class RepoTest < Test::Unit::TestCase
   def test_AGET_returns_the_contents_of_the_object_at_path
     setup_repo("simple.git")
     
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo[""]
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo["/"]
-    assert_equal ["two", "two.txt"], repo["one"]
-    assert_equal ["two", "two.txt"], repo["/one"]
-    assert_equal ["two", "two.txt"], repo["/one/"]
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo[""].sort
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo["/"].sort
+    assert_equal ["two", "two.txt"], repo["one"].sort
+    assert_equal ["two", "two.txt"], repo["/one"].sort
+    assert_equal ["two", "two.txt"], repo["/one/"].sort
     
     assert_equal "Contents of file ONE.", repo["one.txt"]
     assert_equal "Contents of file ONE.", repo["/one.txt"]
@@ -165,10 +165,10 @@ class RepoTest < Test::Unit::TestCase
   def test_AGET_accepts_array_paths
     setup_repo("simple.git")
   
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo[[]]
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo[[""]]
-    assert_equal ["two", "two.txt"], repo[["one"]]
-    assert_equal ["two", "two.txt"], repo[["", "one", ""]]
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo[[]].sort
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo[[""]].sort
+    assert_equal ["two", "two.txt"], repo[["one"]].sort
+    assert_equal ["two", "two.txt"], repo[["", "one", ""]].sort
     assert_equal "Contents of file ONE.", repo[["", "one.txt"]]
     assert_equal "Contents of file TWO.", repo[["one", "two.txt"]]
   
@@ -181,7 +181,7 @@ class RepoTest < Test::Unit::TestCase
     setup_repo("simple.git")
   
     array = ["", "one", ""]
-    assert_equal ["two", "two.txt"], repo[array]
+    assert_equal ["two", "two.txt"], repo[array].sort
     assert_equal ["", "one", ""], array
   end
   
@@ -398,7 +398,7 @@ class RepoTest < Test::Unit::TestCase
     
     repo.link(a, b).link(a, c).commit("created recursive links")
     
-    assert_equal [b, c], repo.children(a)
+    assert_equal [b, c].sort, repo.children(a).sort
     assert_equal [], repo.children(b)
     assert_equal [a], repo.parents(c)
     
@@ -406,7 +406,7 @@ class RepoTest < Test::Unit::TestCase
     repo.unlink(nil, c)
     repo.unlink(b, nil)
     
-    assert_equal [b, c], repo.children(a)
+    assert_equal [b, c].sort, repo.children(a).sort
     assert_equal [], repo.children(b)
     assert_equal [a], repo.parents(c)
   end
@@ -569,12 +569,12 @@ class RepoTest < Test::Unit::TestCase
     setup_repo("simple.git")
     
     assert_equal "master", repo.branch
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo["/"]
+    assert_equal ["one", "one.txt", "x", "x.txt"], repo["/"].sort
     
     repo.checkout("diff")
     
     assert_equal "diff", repo.branch
-    assert_equal ["alpha.txt", "one", "x", "x.txt"], repo["/"]
+    assert_equal ["alpha.txt", "one", "x", "x.txt"], repo["/"].sort
   end
   
   def test_checkout_checks_the_repo_out_into_path

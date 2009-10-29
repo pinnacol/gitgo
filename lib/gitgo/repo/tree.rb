@@ -1,6 +1,8 @@
 module Gitgo
   class Repo
     class Tree
+      STRING_TABLE = Hash.new {|hash, key| hash[key] = key.freeze }
+      
       attr_reader :mode
       
       def initialize(tree=nil)
@@ -9,7 +11,7 @@ module Gitgo
       end
       
       def keys
-        index.keys.collect {|key| key.to_s }.sort
+        index.keys.collect {|key| key.to_s }
       end
 
       def [](key)
@@ -17,7 +19,7 @@ module Gitgo
         when entry = index[key]
           entry
         when tree = index.delete(key.to_sym)
-          index[key.to_s] = Tree.new(tree)
+          index[STRING_TABLE[key.to_s]] = Tree.new(tree)
         else
           nil
         end
@@ -27,9 +29,9 @@ module Gitgo
         index.delete(key.to_sym)
         
         if content.nil?
-          index.delete(key)
+          index.delete(key.to_s)
         else
-          index[key] = content
+          index[STRING_TABLE[key.to_s]] = content
         end
       end
       
@@ -47,7 +49,7 @@ module Gitgo
 
         if !tree.kind_of?(Tree)
           return nil unless force
-          index[key] = tree = Tree.new
+          self[key] = tree = Tree.new
         end
         
         tree.subtree(segments, force)
@@ -76,7 +78,7 @@ module Gitgo
           hash[key] = case value
           when Tree  then value.to_hash
           when Array then value
-          else [value.mode, value.id]
+          else to_value(value)
           end
         end
         hash
@@ -92,6 +94,19 @@ module Gitgo
       
       protected
       
+      # === Rationale
+      #
+      # Modes never really get used as strings and are highly redundant so
+      # symbolizing them makes sense.  Symbolizing the sha makes much less
+      # sense (in many places the sha must be as string) but it does make
+      # sense to use the same string to cut down on memory usage.  Analagous
+      # to a symbol table, Tree uses STRING_TABLE to map strings to a single
+      # string instance where possible.
+      #
+      def to_value(obj) # :nodoc:
+        [obj.mode.to_sym, STRING_TABLE[obj.id]]
+      end
+      
       def index # :nodoc:
         @index ||= begin
           index = {}
@@ -101,7 +116,7 @@ module Gitgo
             if obj.respond_to?(:contents)
               index[key.to_sym] = obj
             else
-              index[key] = [obj.mode, obj.id]
+              index[STRING_TABLE[key]] = to_value(obj)
             end
           end if @tree
           @tree = nil
