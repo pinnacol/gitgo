@@ -497,18 +497,22 @@ module Gitgo
       end
       shas
     end
-
-    # Commits the current tree to branch with the specified message.  The
-    # branch is created if it doesn't already exist.
+    
     def commit(message, options={})
       raise "no changes to commit" if status.empty?
-
+      commit!(message, options)
+    end
+    
+    # Commits the current tree to branch with the specified message.  The
+    # branch is created if it doesn't already exist.
+    def commit!(message, options={})
       mode, id = write_tree(tree)
+      now = Time.now
       parent = self.current
       author = options[:author] || self.author
-      authored_date = options[:authored_date] || Time.now
+      authored_date = options[:authored_date] || now
       committer = options[:committer] || author
-      committed_date = options[:committed_date] || Time.now
+      committed_date = options[:committed_date] || now
 
       # commit format:
       #---------------------------------------------------
@@ -683,7 +687,7 @@ module Gitgo
       commit = current
       commit ? Tree.new(commit.tree) : Tree.new
     end
-
+    
     # tree format:
     #---------------------------------------------------
     #   mode name\0[packedsha]mode name\0[packedsha]...
@@ -691,12 +695,13 @@ module Gitgo
     # note there are no newlines separating tree entries.
     def write_tree(tree)
       lines = []
-      tree.each_pair do |key, value|
-        if value.kind_of?(Tree)
-          value = write_tree(value)
+      tree.index.each_pair do |key, value|
+        mode, id = case value
+        when Tree  then write_tree(value)
+        when Array then value
+        else [value.mode, value.id]
         end
-
-        mode, id = value
+        
         lines << "#{mode} #{key}\0#{[id].pack("H*")}"
       end
 

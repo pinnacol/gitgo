@@ -184,7 +184,7 @@ class IssuesBenchmark < Test::Unit::TestCase
       end
     end
     
-    profile_test(:action => action, :post => gc)
+    profile_test(:action => action, :post => gc, :n => 10)
   end
   
   # test_parts_of_create(IssuesBenchmark)
@@ -256,7 +256,7 @@ class IssuesBenchmark < Test::Unit::TestCase
     idx = app.prototype.idx
     
     m = 20
-    n = 3
+    n = 5
     benchmark_test do |x|
       totals = {}
       previous = {}
@@ -269,7 +269,8 @@ class IssuesBenchmark < Test::Unit::TestCase
             issue = timer(:create, splits) { repo.create("content #{i}", {'author' => author, 'date' => date}) }
             timer(:link, splits)   { repo.link(issue, issue, :dir => app::INDEX) }
             timer(:update, splits) { idx.update(issue) }
-            timer(:commit, splits) { repo.commit("added issue #{issue}") }
+            timer(:commit, splits) { repo.commit!("added issue #{issue}") }
+            date += 8640
           end
         end
         

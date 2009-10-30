@@ -106,22 +106,7 @@ module Gitgo
         to_hash.inspect
       end
       
-      protected
-      
-      # === Rationale
-      #
-      # Modes never really get used as strings and are highly redundant so
-      # symbolizing them makes sense.  Symbolizing the sha makes much less
-      # sense (in many places the sha must be as string) but it does make
-      # sense to use the same string to cut down on memory usage.  Analagous
-      # to a symbol table, Tree uses STRING_TABLE to map strings to a single
-      # string instance where possible.
-      #
-      def to_value(obj) # :nodoc:
-        [obj.mode.to_sym, STRING_TABLE[obj.id]]
-      end
-      
-      def index # :nodoc:
+      def index
         @index ||= begin
           index = {}
           
@@ -137,6 +122,21 @@ module Gitgo
           
           index
         end
+      end
+      
+      protected
+      
+      # === Rationale
+      #
+      # Modes never really get used as strings and are highly redundant so
+      # symbolizing them makes sense.  Symbolizing the sha makes much less
+      # sense (in many places the sha must be as string) but it does make
+      # sense to use the same string to cut down on memory usage.  Analagous
+      # to a symbol table, Tree uses STRING_TABLE to map strings to a single
+      # string instance where possible.
+      #
+      def to_value(obj) # :nodoc:
+        [obj.mode.to_sym, STRING_TABLE[obj.id]]
       end
     end
   end

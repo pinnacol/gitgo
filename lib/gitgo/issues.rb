@@ -54,7 +54,7 @@ module Gitgo
         repo.link(commit, issue, :ref => issue)
       end
       
-      repo.commit("added issue #{issue}") if commit?
+      repo.commit!("added issue #{issue}") if commit?
       redirect url(issue)
     end
     
@@ -89,7 +89,7 @@ module Gitgo
         repo.link(commit, comment, :ref => issue)
       end
       
-      repo.commit("updated issue #{issue}") if commit?
+      repo.commit!("updated issue #{issue}") if commit?
       redirect url(issue)
     end
     
