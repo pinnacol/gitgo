@@ -370,11 +370,10 @@ module Gitgo
     # the repo and returns it's sha.  New documents are stored by timestamp
     # and logged to their author.
     def create(content, attrs={}, options={})
-      attrs['content'] = content if content
       attrs['author'] ||= author
-      attrs['date'] ||= Time.now
+      attrs['date']   ||= Time.now
 
-      store(Document.new(attrs), options)
+      store(Document.new(attrs, content), options)
     end
 
     # Stores the document by timestamp and logs the document to the author.
@@ -393,18 +392,17 @@ module Gitgo
     # Gets the document indicated by id, or nil if no such document exists.
     def read(id)
       blob = grit.blob(id)
-      blob.data.empty? ? nil : Document.new(blob.data, id)
+      blob.data.empty? ? nil : Document.parse(blob.data, id)
     end
 
     # Updates the content of the specified document and reassigns all links
     # to the document.
     def update(id, content, attrs={})
       return nil unless old_doc = read(id)
-      attrs['content'] = content if content
 
       parents = self.parents(id)
       children = self.children(id)
-      new_doc = old_doc.merge(attrs)
+      new_doc = old_doc.merge(attrs, content)
 
       parents.each {|parent| unlink(parent, id) }
       children.each {|child| unlink(id, child) }
@@ -478,7 +476,7 @@ module Gitgo
     end
 
     # Returns an array of shas representing activity by the author.
-    def activity(author, options={})
+    def activity(author=self.author, options={})
       options = {:n => 10, :offset => 0}.merge(options)
       offset = options[:offset]
       n = options[:n]
@@ -672,8 +670,7 @@ module Gitgo
     end
     
     def logfile(author, date) # :nodoc:
-      date = date.utc
-      index_path(author.email, "#{date.to_i}#{date.usec.to_s[0,2]}")
+      index_path(author.email, date.to_f.to_s)
     end
     
     def path_segments(path) # :nodoc:

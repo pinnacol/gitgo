@@ -137,9 +137,7 @@ module Gitgo
       
       if admin?
         attrs['author'] ||= author
-        
-        date = attrs['date']
-        attrs['date'] = date ? Time.at(date.to_i) : Time.now
+        attrs['date'] ||= Time.now
       else
         attrs['author'] = author
         attrs['date'] = Time.now

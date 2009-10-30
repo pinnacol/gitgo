@@ -59,9 +59,23 @@ module Gitgo
     end
     
     def show(issue)
+      docs = {}
+      children = {}
+      active = idx[issue]
+      
+      repo.children(issue, :recursive => true).each_key do |id|
+        doc = repo.read(id)
+        doc[:active] = active.include?(doc)
+        docs[id] = doc
+      end.each_pair do |parent_id, child_ids|
+        parent_doc = docs[parent_id]
+        child_docs = child_ids.collect {|id| docs[id] }
+        children[parent_doc] = child_docs
+      end
+      
       erb :show, :locals => {
-        :doc => repo.read(issue),
-        :opinions => idx[issue]
+        :doc => docs[issue],
+        :children => children
       }
     end
     
@@ -159,13 +173,14 @@ module Gitgo
     
     def states
       idx.query(:states) do
-        (STATES + idx.collect {|doc| doc['state'] }).uniq.sort
+        doc_states = idx.collect {|doc| doc['state'] }.compact
+        (STATES + doc_states).uniq.sort
       end
     end
     
     def tags
       idx.query(:tags) do
-        idx.collect {|doc| doc['tags'] }.flatten.uniq.sort
+        idx.collect {|doc| doc['tags'] }.compact.flatten.uniq.sort
       end
     end
   end

@@ -1,98 +1,157 @@
+require 'grit/actor'
+
 module Gitgo
+  
+  # Document represents the standard format in which Gitgo serializes
+  # comments, issues, and pages.
+  #
+  # == Format
+  #
+  # Documents consist of an attributes section and a content section, joined
+  # as a YAML document plus a string:
+  #
+  #   [example]
+  #   --- 
+  #   author: John Doe <john.doe@email.com>
+  #   date: 1252508400.123
+  #   --- 
+  #   content...
+  #
+  # The author and date fields are mandatory, and must be formatted as shown
+  # where the author records both the author name and email and the date is in
+  # a numeric format.  The content is read literally as everything following
+  # the break.
+  #
   class Document
     class << self
       
-      protected
-
-      def attribute_reader(key)
-        key = key.to_s
-        define_method(key) do
-          attributes[key]
+      # Parses a Document from the string.
+      def parse(str, sha=nil)
+        attrs, content = str.split(/\n--- \n/m, 2)
+        attrs = attrs.nil? || attrs.empty? ? nil : YAML.load(attrs)
+        attrs ||= {}
+        
+        unless attrs.kind_of?(Hash)
+          raise "no attributes specified"
         end
-      end
 
-      def attribute_writer(key)
-        key = key.to_s
-        define_method("#{key}=") do |input|
-          attributes[key] = input
-        end
-      end
-
-      def attribute(*keys)
-        keys.each do |key|
-          attribute_reader(key)
-          attribute_writer(key)
-        end
+        new(attrs, content, sha)
+      rescue
+        raise if $DEBUG
+        raise "invalid document: (#{$!.message})\n#{str}"
       end
     end
     
-    attribute :author
+    RESERVED_KEYS = %w{author date}
     
-    attribute :date
-    
-    attribute :type
-    
-    attribute :content
-    
+    attr_reader :author
+    attr_reader :date
+    attr_reader :content
     attr_accessor :sha
     
-    def initialize(attributes={}, sha=nil)
-      case attributes
-      when Hash
-        @attributes = attributes
-        @str = nil
-      when String
-        @attributes = nil
-        @str = attributes
-      else
-        raise "invalid content: #{content}"
-      end
-      
+    # Initializes a new Document.  Author and date can be specified as strings
+    # in their serialized formats:
+    #
+    #   doc = Document.new(
+    #     "author" => "John Doe <john.doe@email.com>",
+    #     "date" => "1252508400.123")
+    #
+    #   doc.author.name       # => "John Doe"
+    #   doc.date.to_f         # => 1252508400.123
+    #
+    # Or as as Grit::Actor and Time objects:
+    #
+    #   author = Grit::Actor.new("John Doe", "john.doe@email.com")
+    #   date = Time.now
+    #
+    #   doc = Document.new("author" => author, "date" => date)
+    #   doc.author.name       # => "John Doe"
+    #   doc.date              # => date
+    #
+    def initialize(attrs={}, content=nil, sha=nil)
+      self.author = attrs.delete('author')
+      self.date = attrs.delete('date')
+      @attrs = attrs
+      @content = content
       @sha = sha
     end
     
-    def each_pair
-      attributes.keys.sort!.each do |key|
-        next unless value = attributes[key]
-        yield(key, value)
+    # Sets the author.  Author can be specified as a Grit::Actor or as a
+    # string in the standard author format.  Raises an error if set to nil.
+    def author=(author)
+      @author = case author
+      when String
+        Grit::Actor.from_string(author)
+      when nil
+        raise "author cannot be nil"
+      else
+        author
       end
     end
     
+    # Sets the date.  Date can be specified as a Time, a numeric, or a string
+    # in the standard date format (see new for more details). Raises an error
+    # if set to nil.
+    def date=(date)
+      @date = case date
+      when Numeric
+        Time.at(date)
+      when String
+        sec, usec = date.split(".")
+        Time.at(sec.to_i, usec.to_i)
+      when nil
+        raise "date cannot be nil"
+      else
+        date
+      end
+    end
+    
+    # Gets an attribute.
     def [](key)
-      attributes[key]
-    end
-    
-    def attributes
-      @attributes ||= begin
-        attrs, content = @str.split(/\n--- \n/m, 2)
-        
-        if content
-          attrs = YAML.load(attrs) || {}
-        else
-          attrs, content = {}, attrs 
-        end
-        
-        if author = attrs['author']
-          attrs['author'] = Grit::Actor.from_string(author)
-        end
-        attrs['content'] = content
-        attrs
+      if RESERVED_KEYS.include?(key)
+        send(key)
+      else
+        @attrs[key]
       end
     end
     
-    def merge(attrs)
-      Document.new(attributes.merge(attrs))
+    # Sets an attribute.
+    def []=(key, value)
+      if RESERVED_KEYS.include?(key)
+        send("#{key}=", value)
+      else
+        @attrs[key] = value
+      end
     end
     
+    # Returns the attributes for self.  Attributes cannot be set through this
+    # method; use ASET instead.
+    def attributes(all=true)
+      all ? @attrs.merge('author' => author, 'date' => date) : @attrs.dup
+    end
+    
+    # Yields each attribute to the block, sorted by key.
+    def each_pair
+      attributes = self.attributes
+      attributes.keys.sort!.each do |key|
+        yield(key, attributes[key])
+      end
+    end
+    
+    # Merges the attributes and content with self to produce a new Document.
+    # If content is nil, then the content for self will be used.
+    def merge(attrs, content=nil)
+      Document.new(attributes.merge(attrs), content || self.content)
+    end
+    
+    # Serializes self into a string according to the document format.
     def to_s
-      @str ||= begin
-        attrs = @attributes.dup
-        attrs['author'] = "#{author.name} <#{author.email}>"
-        content = attrs.delete('content')
-        
-        attrs.extend(SortedToYaml)
-        "#{attrs.to_yaml}--- \n#{content}"
-      end
+      attributes = @attrs.merge(
+        "author" => "#{author.name} <#{author.email}>",
+        "date" => date.to_f
+      ).extend(SortedToYaml)
+      
+      "#{attributes.to_yaml}--- \n#{content}"
     end
     
     # From: http://snippets.dzone.com/posts/show/5811

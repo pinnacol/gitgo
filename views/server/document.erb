@@ -3,5 +3,7 @@
   <dl class="document"><% document.each_pair do |key, value| %>
   <dt class="<%= key %>"><%= key %></dt>
   <dd class="<%= key %>"><%= value %></dd><% end %>
+  <dt class="content">content</dt>
+  <dd class="content"><%= document.content %></dd>
   </dl>
 </div><%= render_comments(document.sha) %>

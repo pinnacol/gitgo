@@ -102,7 +102,7 @@ class IssuesTest < Test::Unit::TestCase
   #
   
   def test_put_creates_a_comment_on_an_issue
-    issue = repo.set(:blob, "New Issue")
+    issue = repo.create("New Issue")
     repo.link(issue, issue, :dir => app::INDEX).commit("created fixture")
     assert_equal [issue], repo.children(issue, :dir => app::INDEX)
     
@@ -110,7 +110,7 @@ class IssuesTest < Test::Unit::TestCase
     assert last_response.redirect?, last_response.body
     assert_equal "/issue/#{issue}", last_response['Location']
     
-    id = repo.timeline.last
+    id = repo.activity(app.author).first
     comment = repo.read(id)
     
     assert_equal "Comment on the Issue", comment.content
@@ -120,8 +120,8 @@ class IssuesTest < Test::Unit::TestCase
   end
   
   def test_put_links_comment_to_re
-    issue = repo.set(:blob, "New Issue")
-    a = repo.set(:blob, "Comment A")
+    issue = repo.create("New Issue")
+    a = repo.create("Comment A")
     
     repo.link(issue, a, :dir => app::INDEX).commit("created fixture")
     assert_equal [a], repo.children(issue, :dir => app::INDEX)
@@ -129,7 +129,7 @@ class IssuesTest < Test::Unit::TestCase
     put("/issue/#{issue}", "content" => "Comment on A", "re" => a, "commit" => "true")
     assert last_response.redirect?, last_response.body
     
-    id = repo.timeline.last
+    id = repo.activity(app.author).first
     comment = repo.read(id)
     
     assert_equal "Comment on A", comment.content
@@ -139,9 +139,9 @@ class IssuesTest < Test::Unit::TestCase
   end
   
   def test_put_links_comment_to_multiple_re
-    issue = repo.set(:blob, "New Issue")
-    a = repo.set(:blob, "Comment A")
-    b = repo.set(:blob, "Comment B")
+    issue = repo.create("New Issue")
+    a = repo.create("Comment A")
+    b = repo.create("Comment B")
     
     repo.link(issue, a, :dir => app::INDEX)
     repo.link(issue, b, :dir => app::INDEX).commit("created fixture")
@@ -150,7 +150,7 @@ class IssuesTest < Test::Unit::TestCase
     put("/issue/#{issue}", "content" => "Comment on A and B", "re" => [a, b], "commit" => "true")
     assert last_response.redirect?, last_response.body
     
-    id = repo.timeline.last
+    id = repo.activity(app.author).first
     comment = repo.read(id)
     
     assert_equal "Comment on A and B", comment.content
@@ -161,13 +161,13 @@ class IssuesTest < Test::Unit::TestCase
   end
   
   def test_put_links_comment_at_commit_referencing_issue
-    issue = repo.set(:blob, "New Issue")
-    commit = repo.set(:blob, "")
+    issue = repo.create("New Issue")
+    commit = repo.create("")
     
     put("/issue/#{issue}", "at" => commit, "commit" => "true")
     assert last_response.redirect?, last_response.body
     
-    comment = repo.timeline.last
+    comment = repo.activity(app.author).first
     assert_equal [comment], repo.children(commit)
     assert_equal issue, repo.ref(commit, comment)
   end

@@ -494,14 +494,14 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_create_adds_doc_sha_to_timestamp_and_author_index
-    date = Time.utc(2009, 9, 9)
+    date = Time.local(2009, 9, 9)
     author = Grit::Actor.new('John Doe', 'john.doe@email.com')
     id = repo.create("content", 'author' => author, 'date' => date)
     
     repo.commit("added a new doc")
     
     assert_equal [id], repo["idx/2009/0909"]
-    assert_equal id, repo["idx/john.doe@email.com/#{date.to_i}#{date.usec.to_s[0,2]}"]
+    assert_equal id, repo["idx/john.doe@email.com/#{date.to_f}"]
   end
   
   #
@@ -509,7 +509,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_destroy_removes_the_document_and_associated_indicies
-    date = Time.utc(2009, 9, 9)
+    date = Time.local(2009, 9, 9)
     author = Grit::Actor.new('John Doe', 'john.doe@email.com')
     
     id = repo.create("content", 'author' => author, 'date' => date)
@@ -519,7 +519,7 @@ class RepoTest < Test::Unit::TestCase
     repo.commit("removed the new doc")
     
     assert_equal [], repo["idx/2009/0909"]
-    assert_equal nil, repo["idx/john.doe@email.com/#{date.to_i}#{date.usec.to_s[0,2]}"]
+    assert_equal nil, repo["idx/john.doe@email.com/#{date.to_f}"]
   end
   
   #
