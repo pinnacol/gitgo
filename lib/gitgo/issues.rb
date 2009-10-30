@@ -27,10 +27,10 @@ module Gitgo
     STATES = %w{open closed}
     
     def index
-      state = request['state'] || 'open'
+      state = request['state']
       issues = idx.query(state) do
-        idx.keys do |doc|
-          doc['state'] == state
+        idx.select_keys do |doc|
+          state.nil? || doc['state'] == state
         end.collect do |id|
           repo.read(id)
         end

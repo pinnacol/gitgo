@@ -1,4 +1,4 @@
-<h1><%= current_state.capitalize %> Issues</h1>
+<h1><%= current_state ? current_state.capitalize : '' %> Issues</h1>
 <ul class="issuenav"><% states.each do |state| %>
 <li><a href="issue?state=<%= state %>"><%= state %></a></li><% end %>
 </ul>

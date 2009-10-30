@@ -18,6 +18,55 @@ class IssuesTest < Test::Unit::TestCase
     Gitgo::Issues
   end
   
+  # open an issue using a post, and return the sha of the new issue
+  def open_issue(title)
+    post("/issue", "doc[title]" => title)
+    last_response_location
+  end
+  
+  # close an issue by put
+  def close_issue(id)
+    put("/issue/#{id}", "doc[state]" => "closed")
+  end
+  
+  def last_response_location
+    File.basename(last_response["Location"])
+  end
+  
+  #
+  # get test
+  #
+  
+  def test_get_shows_index_of_tickets_by_state
+    a = open_issue("Issue A")
+    b = open_issue("Issue B")
+    c = open_issue("Issue C")
+    close_issue(c)
+    
+    repo.commit "created fixture"
+    
+    get("/issue")
+    assert last_response.ok?
+    
+    assert last_response.body =~ /Issue A/
+    assert last_response.body =~ /Issue B/
+    assert last_response.body =~ /Issue C/
+    
+    get("/issue?state=open")
+    assert last_response.ok?
+    
+    assert last_response.body =~ /Issue A/
+    assert last_response.body =~ /Issue B/
+    assert last_response.body !~ /Issue C/
+    
+    get("/issue?state=closed")
+    assert last_response.ok?
+    
+    assert last_response.body !~ /Issue A/
+    assert last_response.body !~ /Issue B/
+    assert last_response.body =~ /Issue C/
+  end
+  
   #
   # post test
   #
@@ -26,7 +75,7 @@ class IssuesTest < Test::Unit::TestCase
     post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
     assert last_response.redirect?, last_response.body
     
-    id = repo.timeline.last
+    id = last_response_location
     issue = repo.read(id)
     
     assert_equal "New Issue", issue['title']
@@ -43,7 +92,7 @@ class IssuesTest < Test::Unit::TestCase
     post("/issue", "at" => commit, "commit" => "true")
     assert last_response.redirect?, last_response.body
     
-    issue = repo.timeline.last
+    issue = last_response_location
     assert_equal [issue], repo.children(commit)
     assert_equal issue, repo.ref(commit, issue)
   end

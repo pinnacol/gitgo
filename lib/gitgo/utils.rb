@@ -30,7 +30,7 @@ module Gitgo
     def issue_link(doc)
       title = doc['title']
       title = "(nameless issue)" if title.to_s.empty?
-      %Q{<a href="/issue/#{doc.sha}">#{title}</a>}
+      %Q{<a class="#{doc['state']}" href="/issue/#{doc.sha}">#{title}</a>}
     end
     
     def path_links(id, path)

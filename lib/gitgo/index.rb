@@ -41,7 +41,7 @@ module Gitgo
     #
     #   index.keys {|doc| doc['state'] == 'open' }
     #
-    def keys # :yields: doc
+    def select_keys # :yields: doc
       return store.keys unless block_given?
       
       selected = []
