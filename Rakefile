@@ -171,6 +171,7 @@ namespace :test do
   
   desc 'Run benchmark tests'
   task :benchmark => :check_bundle do
+    ENV['BENCHMARK'] = "true"
     pattern = ENV['PATTERN'] || "**/*_benchmark.rb"
     tests = Dir.glob("test/benchmark/#{pattern}").select {|path| File.file?(path) }
     cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests

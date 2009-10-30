@@ -9,7 +9,7 @@ module Gitgo
   # repository data by path, without checking the repository out.  The api is
   # patterned after commands you'd invoke on the command line.  Several key
   # methods of this class are patterned after
-  # {GitStore}[http://github.com/georgi/git_store] (see license below). 
+  # {GitStore}[http://github.com/georgi/git_store].
   #
   # == Usage
   #
@@ -102,27 +102,6 @@ module Gitgo
   #   #   "lib/project/utils.rb" => :add
   #   # }
   #
-  # == {GitStore}[http://github.com/georgi/git_store] License
-  #
-  # Copyright (c) 2008 Matthias Georgi <http://www.matthias-georgi.de>
-  #            
-  # Permission is hereby granted, free of charge, to any person obtaining a
-  # copy of this software and associated documentation files (the "Software"),
-  # to deal in the Software without restriction, including without limitation
-  # the rights to use, copy, modify, merge, publish, distribute, sublicense,
-  # and/or sell copies of the Software, and to permit persons to whom the
-  # Software is furnished to do so, subject to the following conditions:
-  #            
-  # The above copyright notice and this permission notice shall be included in
-  # all copies or substantial portions of the Software.
-  #            
-  # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-  # THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-  # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-  # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-  #            
   class Repo
     class << self
       # Initializes a Git adapter for path, creating the repo if necessary.
@@ -224,25 +203,9 @@ module Gitgo
       end
     end
     
-    # Sets an object into the git repository and returns the object id.  This
-    # method is patterned after GitStore#write.
-    def set(type, content) # :nodoc:
-      data = "#{type} #{content.length}\0#{content}"
-      id = Digest::SHA1.hexdigest(data)[0, 40]
-      dir = self.path("/objects/#{id[0...2]}")
-      path = "#{dir}/#{id[2..39]}"
-
-      unless File.exists?(path)
-        unless File.exists?(dir)
-          FileUtils.mkdir_p(dir)
-        end
-        
-        File.open(path, 'wb') do |io|
-          io.write Zlib::Deflate.deflate(data)
-        end
-      end
-
-      id
+    # Sets an object into the git repository and returns the object id.
+    def set(type, content)
+      grit.git.put_raw_object(content, type.to_s)
     end
     
     # Gets the content for path; either the blob data or an array of content
@@ -641,6 +604,16 @@ module Gitgo
       # sets up branch to track the origin to enable pulls
       clone.git.branch({:track => true}, branch, "origin/#{branch}")
       self.class.new(clone, :branch => branch, :author => author)
+    end
+    
+    def gc
+      grit.git.gc
+      # this nasty reinitialization is required at this point because grit
+      # apparently caches the packs... once you gc the packs change and
+      # Grit::GitRuby bombs.  Maybe something more succinct could be done with
+      # GitRuby#file_index and GitRuby#ruby_git ?
+      @grit = Grit::Repo.new(path, :is_bare => grit.bare)
+      reset
     end
     
     protected
