@@ -1,8 +1,20 @@
 module Gitgo
+  
+  # Index is a structure for storing parent-child relationships and making
+  # queries across those relationships.  Index is used by Issues to generate
+  # and store state information.
   class Index
     include Enumerable
     
-    attr_reader :store, :block, :cache
+    # The internal storage for parent-child relationships.  Store
+    # is a hash of (parent, children) pairs.
+    attr_reader :store
+    
+    # A block used to update the children for a parent.
+    attr_reader :block
+    
+    # A cache of query results.
+    attr_reader :cache
     
     def initialize(store={}, &block)
       @store = store
@@ -10,29 +22,30 @@ module Gitgo
       @cache = {}
     end
     
-    def [](key)
-      store[key]
+    # Gets the children for the parent.
+    def [](parent)
+      store[parent]
     end
     
-    def []=(key, docs)
-      store[key] = docs
+    # Sets the children for the parent.
+    def []=(parent, children)
+      store[parent] = children
     end
     
-    def query(key)
-      cache[key] ||= yield
+    def query(name, parent=nil)
+      cache["#{name}#{parent}"] ||= yield
     end
     
-    def update(key)
-      store[key] = block.call(key)
+    def update(parent)
+      store[parent] = block.call(parent)
       cache.clear
     end
     
-    # Yields each doc to the block
-    def each
-      store.each_value do |docs|
-        docs.each do |doc|
-          yield(doc)
-        end
+    # Yields each obj to the block
+    def each(key=nil)
+      store.each_pair do |key, keys|
+        yield(key)
+        keys.each {|key| yield(key) }
       end
     end
     
@@ -45,8 +58,8 @@ module Gitgo
       return store.keys unless block_given?
       
       selected = []
-      store.each_pair do |key, docs|
-        if docs.any? {|doc| yield(doc) }
+      store.each_pair do |key, objects|
+        if objects.any? {|obj| yield(obj) }
           selected << key
         end
       end

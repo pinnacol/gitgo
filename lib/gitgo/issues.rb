@@ -29,18 +29,16 @@ module Gitgo
     def index
       state = request['state']
       issues = idx.query(state) do
-        idx.select_keys do |doc|
-          state.nil? || doc['state'] == state
+        idx.select_keys do |id|
+          state.nil? || docs[id]['state'] == state
         end.collect do |id|
-          repo.read(id)
+          docs[id]
         end
       end
       
       erb :index, :locals => {
         :issues => issues,
-        :states => states,
-        :current_state => state,
-        :refs => grit.refs
+        :current_state => state
       }
     end
     
@@ -59,14 +57,13 @@ module Gitgo
     end
     
     def show(issue)
-      docs = {}
       children = {}
       active = idx[issue]
       
+      # get children and resolve to docs
       repo.children(issue, :recursive => true).each_key do |id|
-        doc = repo.read(id)
+        doc = docs[id]
         doc[:active] = active.include?(doc)
-        docs[id] = doc
       end.each_pair do |parent_id, child_ids|
         parent_doc = docs[parent_id]
         child_docs = child_ids.collect {|id| docs[id] }
@@ -74,6 +71,7 @@ module Gitgo
       end
       
       erb :show, :locals => {
+        :id => issue,
         :doc => docs[issue],
         :children => children
       }
@@ -81,7 +79,7 @@ module Gitgo
     
     # Update adds a comment to the specified issue.
     def update(issue)
-      unless doc = repo.read(issue)
+      unless doc = docs[issue]
         raise "unknown issue: #{issue.inspect}"
       end
       
@@ -148,12 +146,19 @@ module Gitgo
       base
     end
     
+    # A self-filling per-request cache of documents that ensures a document will
+    # only be read once within a given request.  Use like:
+    #
+    #   doc = docs[id]
+    #
+    def docs
+      @docs ||= Hash.new {|hash, id| hash[id] = repo.read(id) }
+    end
+    
     def idx
       @idx ||= begin
         idx = Index.new do |issue|
-          repo.children(issue, :dir => INDEX).collect do |id|
-            repo.read(id)
-          end
+          repo.children(issue, :dir => INDEX)
         end
         
         tree = repo.tree[INDEX]
@@ -171,16 +176,20 @@ module Gitgo
       idx.keys
     end
     
+    def refs
+      grit.refs
+    end
+    
     def states
       idx.query(:states) do
-        doc_states = idx.collect {|doc| doc['state'] }.compact
+        doc_states = idx.collect {|id| docs[id]['state'] }.compact
         (STATES + doc_states).uniq.sort
       end
     end
     
     def tags
       idx.query(:tags) do
-        idx.collect {|doc| doc['tags'] }.compact.flatten.uniq.sort
+        idx.collect {|id| docs[id]['tags'] }.compact.flatten.uniq.sort
       end
     end
   end

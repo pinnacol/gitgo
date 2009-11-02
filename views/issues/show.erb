@@ -1,6 +1,51 @@
-<h2><%= doc['title'] %></h2>
-<div>
-<%= html_escape doc.content %>
+<div class="issue">
+  <dl class="description">
+  <dt class="title">Title</dt>
+  <dd class="title"><%= doc['title'] %></dd>
+  <dt class="desc">Description</dt>
+  <dd class="desc"><%= html_escape doc.content %></dd>
+  <dt class="author">Author</dt>
+  <dd class="author"><%= doc.author %></dd>
+  <dt class="date">Date</dt>
+  <dd class="date"><abbr title="<%= doc.date.iso8601 %>"><%= doc.date.strftime('%Y/%m/%d %H:%M %p') %></abbr></dd>
+  <dt class="state">State</dt>
+  <dd class="state"><%= doc['state'] %></dd><% unless tags.empty? %>
+  <dt class="tags">Tags</dt>
+  <dd class="tags">
+    <ul class="tags"><% tags.each do |tag| %>
+    <li class="tag"><%= tag %></li><% end %>
+    </ul>
+  </dd><% end %><%= erb :_comments, :locals => {:comments => children[doc], :children => children}, :layout => false %>
+  <dt class="update">Update Issue</dt>
+  <dd class="update">
+    <form class="update" action="/issue/<%= id %>" method="post">
+      <input type="hidden" name="_method" value="update" />
+      
+      <dl class="form">
+      <dt><label for="content">Comment</label></dt>
+      <dd><textarea id="content" name="content"></textarea></dd>
+      <dt><label for="state">State</label></dt>
+      <dd>
+        <select id="state" name="doc[state]"><% states.each do |state| %>
+        <option value="<%= state %>"><%= state %></option><% end %>
+        </select>
+      </dd>
+      <dt><label for="tags">Tags</label></dt>
+      <dd><input type="text" id="tags" name="doc[tags]" value="<%= tags.join(",") %>" /></dd>
+      <dt><label for="at">At</label></dt>
+      <dd>
+        <select id="at" name="at"><% refs.each do |ref| %>
+        <option value="<%= ref.commit %>"><%= ref.name %></option><% end %>
+        <option value="">(none)</option>
+        </select>
+      </dd>
+      <dt><label for="commit">Commit</label></dt>
+      <dd><input id="commit" type="checkbox" name="commit" value="true" checked="true"/></dd>
+      <dt><input type="submit" value="Update" /></dt>
+      <dd></dd>
+      </dl>
+    </form>
+  </dd>
+  </dl>
 </div>
 
-<% if opinions.length > 1 %><em>There are multiple opinions describing this issue</em><% end %>
