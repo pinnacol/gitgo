@@ -444,9 +444,7 @@ module Gitgo
       shas = []
       return shas if n <= 0
 
-      years = (self[[]] || []).select do |dir|
-        dir =~ /\A\d{4,}\z/
-      end.sort
+      years = (self[[]] || []).select {|dir| dir.length > 2 }.sort
 
       years.reverse_each do |year|
 
@@ -635,7 +633,7 @@ module Gitgo
     end
     
     def timestamp(date, id) # :nodoc:
-      File.join(date.strftime('%Y/%m%d'), id)
+      date.strftime("%Y/%m%d/#{id}")
     end
     
     def path_segments(path) # :nodoc:
