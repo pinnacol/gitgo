@@ -367,8 +367,7 @@ module Gitgo
     end
     
     # Creates a new Document using the content and attributes, writes it to
-    # the repo and returns it's sha.  New documents are stored by timestamp
-    # and logged to their author.
+    # the repo and returns it's sha.  New documents are stored by timestamp.
     def create(content, attrs={}, options={})
       attrs['author'] ||= author
       attrs['date']   ||= Time.now
@@ -376,15 +375,12 @@ module Gitgo
       store(Document.new(attrs, content), options)
     end
 
-    # Stores the document by timestamp and logs the document to the author.
+    # Stores the document by timestamp.
     def store(doc, options={})
       mode = options[:mode] || DEFAULT_BLOB_MODE
       id = set(:blob, doc.to_s)
 
-      add(
-        timestamp(doc.date, id) => [mode, id], 
-        logfile(doc.author, doc.date) => id
-      )
+      add(timestamp(doc.date, id) => [mode, id])
 
       id
     end
@@ -406,7 +402,7 @@ module Gitgo
 
       parents.each {|parent| unlink(parent, id) }
       children.each {|child| unlink(id, child) }
-      rm timestamp(old_doc.date, id), logfile(old_doc.author, old_doc.date)
+      rm timestamp(old_doc.date, id)
 
       id = store(new_doc)
       parents.each {|parent| link(parent, id) }
@@ -417,8 +413,6 @@ module Gitgo
     end
 
     # Removes the document from the repo by deleting it from the timeline.
-    # Delete also removes the logfile associating this document with the
-    # document author.
     def destroy(id)
 
       # Destroying a doc with children is a bad idea because there is no one
@@ -436,7 +430,7 @@ module Gitgo
       return nil unless doc = read(id)
 
       parents(id).each {|parent| unlink(parent, id) }
-      rm timestamp(doc.date, id), logfile(doc.author, doc.date)
+      rm timestamp(doc.date, id)
 
       doc
     end
@@ -450,18 +444,18 @@ module Gitgo
       shas = []
       return shas if n <= 0
 
-      years = (self[index_path] || []).select do |dir|
+      years = (self[[]] || []).select do |dir|
         dir =~ /\A\d{4,}\z/
       end.sort
 
       years.reverse_each do |year|
 
-        days = (self[index_path(year)] || []).sort
+        days = (self[[year]] || []).sort
         days.reverse_each do |day|
 
           # y,md need to be iterated in reverse to correctly sort by
           # date; this is not the case with the unordered shas
-          self[index_path(year, day)].each do |sha|
+          self[[year, day]].each do |sha|
             if offset > 0
               offset -= 1
             else
@@ -472,27 +466,6 @@ module Gitgo
         end
       end
 
-      shas
-    end
-
-    # Returns an array of shas representing activity by the author.
-    def activity(author=self.author, options={})
-      options = {:n => 10, :offset => 0}.merge(options)
-      offset = options[:offset]
-      n = options[:n]
-
-      shas = []
-      return shas if n <= 0
-
-      author_path = index_path(author.email)
-      (self[author_path] || []).sort.reverse_each do |entry|
-        if offset > 0
-          offset -= 1
-        else
-          shas << self[File.join(author_path, entry)]
-          return shas if n && shas.length == n
-        end
-      end
       shas
     end
     
@@ -661,16 +634,8 @@ module Gitgo
       paths
     end
     
-    def index_path(*paths) # :nodoc:
-      File.join("/idx", *paths)
-    end
-    
     def timestamp(date, id) # :nodoc:
-      index_path(date.strftime('%Y/%m%d'), id)
-    end
-    
-    def logfile(author, date) # :nodoc:
-      index_path(author.email, date.to_f.to_s)
+      File.join(date.strftime('%Y/%m%d'), id)
     end
     
     def path_segments(path) # :nodoc:

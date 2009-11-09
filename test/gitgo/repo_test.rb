@@ -493,33 +493,28 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "value", doc.attributes["key"]
   end
   
-  def test_create_adds_doc_sha_to_timestamp_and_author_index
+  def test_create_adds_doc_by_timestamp
     date = Time.local(2009, 9, 9)
-    author = Grit::Actor.new('John Doe', 'john.doe@email.com')
-    id = repo.create("content", 'author' => author, 'date' => date)
+    id = repo.create("content", 'date' => date)
     
     repo.commit("added a new doc")
     
-    assert_equal [id], repo["idx/2009/0909"]
-    assert_equal id, repo["idx/john.doe@email.com/#{date.to_f}"]
+    assert_equal [id], repo["2009/0909"]
   end
   
   #
   # destroy test
   #
   
-  def test_destroy_removes_the_document_and_associated_indicies
+  def test_destroy_removes_the_document
     date = Time.local(2009, 9, 9)
-    author = Grit::Actor.new('John Doe', 'john.doe@email.com')
-    
-    id = repo.create("content", 'author' => author, 'date' => date)
+    id = repo.create("content", 'date' => date)
     repo.commit("added a new doc")
     
     repo.destroy(id)
     repo.commit("removed the new doc")
     
-    assert_equal [], repo["idx/2009/0909"]
-    assert_equal nil, repo["idx/john.doe@email.com/#{date.to_f}"]
+    assert_equal [], repo["2009/0909"]
   end
   
   #
@@ -538,27 +533,6 @@ class RepoTest < Test::Unit::TestCase
     
     assert_equal [a, d, c, b, e], repo.timeline
     assert_equal [ d, c, b], repo.timeline(:n => 3, :offset => 1)
-  end
-  
-  #
-  # activity test
-  #
-  
-  def test_activity_returns_activity_by_the_author_ordered_by_date
-    john = Grit::Actor.new('John Doe', 'john.doe@email.com')
-    jane = Grit::Actor.new('Jane Doe', 'jane.doe@email.com')
-    
-    a = repo.create("a", 'author' => john, 'date' => Time.utc(2009, 9, 11))
-    d = repo.create("d", 'author' => jane, 'date' => Time.utc(2009, 9, 10))
-    c = repo.create("c", 'author' => john, 'date' => Time.utc(2009, 9, 9))
-    
-    b = repo.create("b", 'author' => john, 'date' => Time.utc(2008, 9, 10))
-    e = repo.create("e", 'author' => jane, 'date' => Time.utc(2008, 9, 9))
-    
-    repo.commit("added docs")
-    
-    assert_equal [a,c,b], repo.activity(john)
-    assert_equal [d,e], repo.activity(jane)
   end
   
   #

@@ -1,6 +1,6 @@
 h1. Index
 
-  00
+  /00
     /5ffb20addfcb819d843331a950c666ed52bf5a     (object)
       /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (comment - empty)
       /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (issue - issue)
@@ -8,20 +8,12 @@ h1. Index
     /00017c049867f68cdc6776b122a4b1defc9cb3
       /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
       /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
-  idx
-    /user.email@email.com
-      /2009090900000                              (sha)
-      /2009090900001
-    /2009
-      /0909
-        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (doc)
-        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
-        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
-        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
-  iss
-    /00
-      /00017c049867f68cdc6776b122a4b1defc9cb3
-        /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (state - empty)
+  /2009
+    /0909
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (doc)
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77
         
   wiki/
     one.txt
