@@ -1,13 +1,14 @@
 module Gitgo
   class Repo
     class Tree
-      STRING_TABLE = Hash.new {|hash, key| hash[key] = key.freeze }
-      
       attr_reader :mode
+      attr_reader :string_table
       
-      def initialize(tree=nil)
+      def initialize(tree=nil, string_table=nil)
         @tree = tree
         @mode = tree ? tree.mode : nil
+        @index = nil
+        @string_table = string_table || Hash.new {|hash, key| hash[key] = key.freeze }
       end
       
       def keys
@@ -19,7 +20,7 @@ module Gitgo
         when entry = index[key]
           entry
         when tree = index.delete(key.to_sym)
-          index[STRING_TABLE[key.to_s]] = Tree.new(tree)
+          index[string(key)] = Tree.new(tree, string_table)
         else
           nil
         end
@@ -29,9 +30,9 @@ module Gitgo
         index.delete(key.to_sym)
         
         if content.nil?
-          index.delete(key.to_s)
+          index.delete(key)
         else
-          index[STRING_TABLE[key.to_s]] = content
+          index[string(key)] = content
         end
       end
       
@@ -63,7 +64,7 @@ module Gitgo
 
         if !tree.kind_of?(Tree)
           return nil unless force
-          self[key] = tree = Tree.new
+          self[key] = tree = Tree.new(nil, string_table)
         end
         
         tree.subtree(segments, force)
@@ -115,7 +116,7 @@ module Gitgo
             if obj.respond_to?(:contents)
               index[key.to_sym] = obj
             else
-              index[STRING_TABLE[key]] = to_value(obj)
+              index[string(key)] = to_value(obj)
             end
           end if @tree
           @tree = nil
@@ -126,17 +127,22 @@ module Gitgo
       
       protected
       
+      # all keys for index may (and should) be mapped for space saving
+      def string(key) # :nodoc:
+        string_table[key.to_s]
+      end
+      
       # === Rationale
       #
       # Modes never really get used as strings and are highly redundant so
       # symbolizing them makes sense.  Symbolizing the sha makes much less
       # sense (in many places the sha must be as string) but it does make
       # sense to use the same string to cut down on memory usage.  Analagous
-      # to a symbol table, Tree uses STRING_TABLE to map strings to a single
+      # to a symbol table, Tree uses sha_table to map strings to a single
       # string instance where possible.
       #
       def to_value(obj) # :nodoc:
-        [obj.mode.to_sym, STRING_TABLE[obj.id]]
+        [obj.mode.to_sym, string(obj.id)]
       end
     end
   end
