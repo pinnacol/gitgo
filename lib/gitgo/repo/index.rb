@@ -51,15 +51,14 @@ module Gitgo
         entries
       end
       
-      def write(sha)
-        file.pos = file.size
-        file.write [sha].pack(PACK)
+      def write(shas)
+        file.write [shas].pack(PACK)
         self
       end
       
-      def replace(*shas)
-        file.pos = 0
-        file.write [shas.join].pack(PACK)
+      def append(sha)
+        file.pos = file.size
+        file.write [sha].pack(PACK)
         self
       end
     end

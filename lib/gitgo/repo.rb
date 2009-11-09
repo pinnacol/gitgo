@@ -2,6 +2,7 @@ require 'grit'
 require 'gitgo/document'
 require 'gitgo/patches/grit'
 require 'gitgo/repo/tree'
+require 'gitgo/repo/index'
 
 module Gitgo
   
@@ -127,6 +128,7 @@ module Gitgo
         new(path, options)
       end
     end
+    include Enumerable
     
     DEFAULT_BRANCH = 'gitgo'
     WORK_TREE = 'gitgo'
@@ -168,6 +170,14 @@ module Gitgo
     # the git repo path.
     def path(*paths)
       File.join(grit.path, *paths)
+    end
+    
+    def index_path(*paths)
+      File.join(grit.path, WORK_TREE, "idx", *paths)
+    end
+    
+    def work_path(*paths)
+      File.join(grit.path, WORK_TREE, "db", *paths)
     end
     
     # Returns the configured author (which should be a Grit::Actor, or similar).
@@ -399,6 +409,20 @@ module Gitgo
       blob = grit.blob(id)
       blob.data.empty? ? nil : Document.parse(blob.data, id)
     end
+    
+    def index(key, value, n=10, start=0)
+      idx_file = index_path(key, value)
+      
+      case
+      when File.exists?(idx_file)
+        Index.open(idx_file) {|idx| idx.read(n, start) }
+      when File.exists?(index_path)
+        []
+      else
+        reindex!
+        index(key, value, n, start)
+      end
+    end
 
     # Updates the content of the specified document and reassigns all links
     # to the document.
@@ -453,27 +477,36 @@ module Gitgo
       shas = []
       return shas if n <= 0
 
-      years = (self[[]] || []).select {|dir| dir.length > 2 }.sort
-
+      each do |sha|
+        if offset > 0
+          offset -= 1
+        else
+          shas << sha
+          break if n && shas.length == n
+        end
+      end
+      shas
+    end
+    
+    # Yields each document in the repo, ordered by date (with day resolution).
+    def each
+      years = (self[[]] || []).select do |dir|
+        dir.length > 2
+      end
+      
+      years.sort!
       years.reverse_each do |year|
-
-        days = (self[[year]] || []).sort
+        days = (self[[year]] || [])
+        days.sort!
         days.reverse_each do |day|
 
           # y,md need to be iterated in reverse to correctly sort by
           # date; this is not the case with the unordered shas
           self[[year, day]].each do |sha|
-            if offset > 0
-              offset -= 1
-            else
-              shas << sha
-              return shas if n && shas.length == n
-            end
+            yield(sha)
           end
         end
       end
-
-      shas
     end
     
     def commit(message, options={})
@@ -597,11 +630,44 @@ module Gitgo
       reset
     end
     
+    def reindex!
+      indexes = Hash.new {|hash, key| hash[key] = [] }
+      each do |sha|
+        doc = read(sha)
+        doc.attributes(false).each_pair do |key, values|
+          unless values.kind_of?(Array)
+            values = [values]
+          end
+          
+          values.each do |value|
+            indexes[index_path(key, value)] << doc
+          end
+        end
+        
+        email = doc.author.email
+        indexes[index_path('author', email)] << doc
+      end
+      
+      indexes.each_pair do |path, docs|
+        shas = docs.sort_by do |doc|
+          doc.date
+        end.collect do |doc|
+          doc.sha
+        end
+        
+        dir = File.dirname(path)
+        FileUtils.mkdir_p(dir) unless File.exists?(dir)
+        Index.open(path, "w") {|idx| idx.write(shas.join) }
+      end
+      
+      self
+    end
+    
     protected
 
     # executes the git command in the working tree
     def git(cmd, *args) # :nodoc:
-      work_path = path(WORK_TREE)
+      work_path = self.work_path
       checkout(nil, work_path) unless File.exists?(work_path)
 
       # chdir + setting the work tree may seem redundant, but it's not in the

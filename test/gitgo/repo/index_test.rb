@@ -60,30 +60,32 @@ class RepoIndexTest < Test::Unit::TestCase
   # write test
   #
   
-  def test_write_appends_an_entry
-    assert_equal [], idx.read
-    
-    idx.write(SHAS[0])
-    assert_equal SHAS[0,1], idx.read
-
-    idx.write(SHAS[1])
-    assert_equal [SHAS[0], SHAS[1]], idx.read
-    
-    idx.write(SHAS[0])
-    assert_equal [SHAS[0], SHAS[1], SHAS[0]], idx.read
-  end
-  
-  #
-  # replace test
-  #
-  
-  def test_replace_overwrites_all_entries
+  def test_write_writes_entries
     assert_equal [], idx.read
     
     idx.write(SHAS[0]).write(SHAS[1])
     assert_equal [SHAS[0], SHAS[1]], idx.read
     
-    idx.replace(SHAS[1], SHAS[0])
+    idx.file.pos = 0
+    idx.write(SHAS[1] + SHAS[0])
     assert_equal [SHAS[1], SHAS[0]], idx.read
+  end
+  
+  #
+  # append test
+  #
+  
+  def test_append_appends_an_entry
+    assert_equal [], idx.read
+    
+    idx.append(SHAS[0])
+    assert_equal SHAS[0,1], idx.read
+
+    idx.append(SHAS[1])
+    assert_equal [SHAS[0], SHAS[1]], idx.read
+    
+    idx.file.pos = 12
+    idx.append(SHAS[0])
+    assert_equal [SHAS[0], SHAS[1], SHAS[0]], idx.read
   end
 end

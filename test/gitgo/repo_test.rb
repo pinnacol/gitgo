@@ -511,6 +511,25 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # index test
+  #
+  
+  def test_index_can_access_documents_by_all_attributes
+    john = Grit::Actor.new("John Doe", "john.doe@email.com")
+    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
+    
+    a = repo.create("new content", "author" => john, "date" => Time.utc(2009, 9, 9), "key" => "one")
+    b = repo.create("new content", "author" => jane, "date" => Time.utc(2009, 9, 10), "key" => "two")
+    c = repo.create("new content", "author" => jane, "date" => Time.utc(2009, 9, 11), "key" => "one")
+    
+    assert_equal [a,c], repo.index('key', 'one')
+    assert_equal [b],   repo.index('key', 'two')
+    
+    assert_equal [a],   repo.index('author', john.email)
+    assert_equal [b,c], repo.index('author', jane.email)
+  end
+  
+  #
   # destroy test
   #
   
