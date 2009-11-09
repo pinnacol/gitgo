@@ -59,6 +59,15 @@ module Gitgo
   #   repo.tree
   #   # => {
   #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+  #   #   "lib"    => {
+  #   #     "project" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"]
+  #   #   }
+  #   # }
+  #
+  #   repo.reset
+  #   repo.tree
+  #   # => {
+  #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
   #   #   :lib     => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
   #   # }
   #
@@ -506,7 +515,6 @@ module Gitgo
 
       id = set(:commit, lines.join("\n"))
       File.open(path("refs/heads/#{branch}"), "w") {|io| io << id }
-      reset
       id
     end
     
@@ -654,18 +662,23 @@ module Gitgo
     #---------------------------------------------------
     # note there are no newlines separating tree entries.
     def write_tree(tree)
-      lines = []
-      tree.index.each_pair do |key, value|
-        mode, id = case value
-        when Tree  then write_tree(value)
-        when Array then value
-        else [value.mode, value.id]
+      tree_mode = tree.mode ||= DEFAULT_TREE_MODE
+      tree_id   = tree.sha  ||= begin
+        lines = []
+        tree.each_pair(false) do |key, entry|
+          mode, id = case entry
+          when Tree  then write_tree(entry)
+          when Array then entry
+          else [entry.mode, entry.id]
+          end
+
+          lines << "#{mode} #{key}\0#{[id].pack("H*")}"
         end
         
-        lines << "#{mode} #{key}\0#{[id].pack("H*")}"
+        set(:tree, lines.join)
       end
-
-      [tree.mode || DEFAULT_TREE_MODE, set(:tree, lines.join)]
+      
+      [tree_mode, tree_id]
     end
   end
 end

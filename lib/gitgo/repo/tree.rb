@@ -5,10 +5,37 @@ module Gitgo
       attr_reader :string_table
       
       def initialize(tree=nil, string_table=nil)
-        @tree = tree
-        @mode = tree ? tree.mode : nil
-        @index = nil
         @string_table = string_table || Hash.new {|hash, key| hash[key] = key.freeze }
+        @index = nil
+        @mode = nil
+        @sha = nil
+        
+        @tree = tree
+        if tree
+          self.mode = tree.mode
+          self.sha  = tree.id
+        end
+      end
+      
+      def mode=(mode)
+        @mode = mode ? mode.to_sym : nil
+      end
+      
+      def sha=(sha)
+        @sha = sha ? string(sha) : nil
+      end
+      
+      def sha(validate=true)
+        if @sha && validate
+          index.each_value do |value|
+            if value.kind_of?(Tree) && value.sha.nil?
+              @sha = nil
+              break
+            end
+          end
+        end
+      
+        @sha
       end
       
       def keys
@@ -34,11 +61,20 @@ module Gitgo
         else
           index[string(key)] = content
         end
+        
+        # mark modified if any content is added/removed
+        @sha = nil
       end
       
-      def each_pair
-        keys.each do |key|
-          yield(key, self[key])
+      def each_pair(expand=true)
+        if expand
+          keys.each do |key|
+            yield(key, self[key])
+          end
+        else
+          index.each_pair do |key, value|
+            yield(key, value)
+          end
         end
       end
       
@@ -93,7 +129,7 @@ module Gitgo
           hash[key] = case value
           when Tree  then value.to_hash
           when Array then value
-          else to_value(value)
+          else to_entry(value)
           end
         end
         hash
@@ -107,7 +143,9 @@ module Gitgo
         to_hash.inspect
       end
       
-      def index
+      protected
+      
+      def index # :nodoc:
         @index ||= begin
           index = {}
           
@@ -116,7 +154,7 @@ module Gitgo
             if obj.respond_to?(:contents)
               index[key.to_sym] = obj
             else
-              index[string(key)] = to_value(obj)
+              index[string(key)] = to_entry(obj)
             end
           end if @tree
           @tree = nil
@@ -124,8 +162,6 @@ module Gitgo
           index
         end
       end
-      
-      protected
       
       # all keys for index may (and should) be mapped for space saving
       def string(key) # :nodoc:
@@ -141,7 +177,7 @@ module Gitgo
       # to a symbol table, Tree uses sha_table to map strings to a single
       # string instance where possible.
       #
-      def to_value(obj) # :nodoc:
+      def to_entry(obj) # :nodoc:
         [obj.mode.to_sym, string(obj.id)]
       end
     end

@@ -33,10 +33,18 @@ class RepoTest < Test::Unit::TestCase
     
     expected = {
       "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+      "lib"    => {
+        "project" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"]
+      }
+    }
+    
+    repo.reset
+    expected = {
+      "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
       :lib     => [:"040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
     }
     assert_equal expected, repo.tree
-  
+    
     repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
     expected = {
       "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
