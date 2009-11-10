@@ -306,14 +306,19 @@ module Gitgo
       self
     end
 
-    # Returns an array of parents that link to the child.
+    # Returns an array of parents that link to the child.  Note this is a very
+    # expensive operation because it fully expands the in-memory working tree.
     def parents(child, options={})
       segments = path_segments(options[:dir] || "/")
       parents = []
       
       # seek /ab/xyz/sha where sha == child
-      @tree.subtree(segments).each_tree do |ab, ab_tree|
-        ab_tree.each_tree do |xyz, xyz_tree|
+      @tree.subtree(segments).each_tree(true) do |ab, ab_tree|
+        next if ab.length != 2
+        
+        ab_tree.each_tree(true) do |xyz, xyz_tree|
+          next if xyz.length != 38
+          
           if xyz_tree.keys.any? {|sha| sha.to_s == child }
             parents << "#{ab}#{xyz}"
           end

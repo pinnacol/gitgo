@@ -291,6 +291,20 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [], repo.parents(b)
   end
   
+  def test_parents_only_searches_trees_in_the_ab_xyz_format
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+    
+    repo.link(a, c)
+    repo.add("abc/#{b[2,38]}/#{c}" => "not ab")
+    repo.add("#{b[0,2]}/xy/#{c}" => "not xyx")
+    repo.commit("created links and skipped 'links'")
+    
+    assert_equal [a], repo.parents(c)
+    assert_equal [a[0,2], "abc", b[0,2]].sort, repo["/"].sort
+  end
+  
   def test_parents_returns_array_of_parents_linking_to_child_under_dir_if_specified
     a = repo.set("blob", "A")
     b = repo.set("blob", "B")
