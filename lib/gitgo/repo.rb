@@ -136,6 +136,9 @@ module Gitgo
     DEFAULT_BLOB_MODE = :"100644"
     DEFAULT_TREE_MODE = :"040000"
 
+    YEAR = /\A\d{4,}\z/
+    MMDD = /\A\d{4}\z/
+
     # The internal Grit::Repo
     attr_reader :grit
 
@@ -473,6 +476,27 @@ module Gitgo
       doc
     end
 
+    # Yields each document in the repo, ordered by date (with day resolution).
+    def each
+      years = self[[]] || []
+      years.sort!
+      years.reverse_each do |year|
+        next unless year =~ YEAR
+        
+        mmdd = self[[year]] || []
+        mmdd.sort!
+        mmdd.reverse_each do |mmdd|
+          next unless mmdd =~ MMDD
+          
+          # y,md need to be iterated in reverse to correctly sort by
+          # date; this is not the case with the unordered shas
+          self[[year, mmdd]].each do |sha|
+            yield(sha)
+          end
+        end
+      end
+    end
+    
     # Returns an array of shas representing recent documents added.
     def timeline(options={})
       options = {:n => 10, :offset => 0}.merge(options)
@@ -491,27 +515,6 @@ module Gitgo
         end
       end
       shas
-    end
-    
-    # Yields each document in the repo, ordered by date (with day resolution).
-    def each
-      years = (self[[]] || []).select do |dir|
-        dir.length > 2
-      end
-      
-      years.sort!
-      years.reverse_each do |year|
-        days = (self[[year]] || [])
-        days.sort!
-        days.reverse_each do |day|
-
-          # y,md need to be iterated in reverse to correctly sort by
-          # date; this is not the case with the unordered shas
-          self[[year, day]].each do |sha|
-            yield(sha)
-          end
-        end
-      end
     end
     
     def commit(message, options={})

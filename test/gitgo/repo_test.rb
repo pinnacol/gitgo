@@ -559,6 +559,39 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # each test
+  #
+  
+  def test_each_yields_each_doc_to_the_block_reverse_ordered_by_date
+    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
+    b = repo.create("d", 'date' => Time.utc(2009, 9, 10))
+    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
+    
+    repo.commit("added docs")
+    
+    results = []
+    repo.each {|doc| results << doc }
+    assert_equal [a, b, c], results
+  end
+  
+  def test_each_does_not_yield_doc_like_entries_in_repo
+    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
+    b = repo.create("d", 'date' => Time.utc(2009, 9, 10))
+    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
+    
+    repo.add(
+      "year/mmdd" => "skipped",
+      "00/0000" => "skipped",
+      "0000/00" => "skipped"
+    )
+    repo.commit("added docs and other files")
+    
+    results = []
+    repo.each {|doc| results << doc }
+    assert_equal [a, b, c], results
+  end
+  
+  #
   # timeline test
   #
   
