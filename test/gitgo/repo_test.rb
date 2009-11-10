@@ -390,23 +390,25 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [id], repo["2009/0909"]
   end
   
-  #
-  # index test
-  #
-  
-  def test_index_can_access_documents_by_all_attributes
+  def test_create_indexes_new_docs
     john = Grit::Actor.new("John Doe", "john.doe@email.com")
     jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
     
-    a = repo.create("new content", "author" => john, "date" => Time.utc(2009, 9, 9), "key" => "one")
-    b = repo.create("new content", "author" => jane, "date" => Time.utc(2009, 9, 10), "key" => "two")
-    c = repo.create("new content", "author" => jane, "date" => Time.utc(2009, 9, 11), "key" => "one")
+    assert_equal [], repo.index('key', 'one')
+    assert_equal [], repo.index('key', 'two')
     
-    assert_equal [a,c], repo.index('key', 'one')
-    assert_equal [b],   repo.index('key', 'two')
+    assert_equal [], repo.index('author', john.email)
+    assert_equal [], repo.index('author', jane.email)
     
-    assert_equal [a],   repo.index('author', john.email)
-    assert_equal [b,c], repo.index('author', jane.email)
+    a = repo.create("new content", "author" => john, "key" => "one")
+    b = repo.create("new content", "author" => jane, "key" => "two")
+    c = repo.create("new content", "author" => jane, "key" => "one")
+    
+    assert_equal [a,c].sort, repo.index('key', 'one').sort
+    assert_equal [b],        repo.index('key', 'two')
+    
+    assert_equal [a],        repo.index('author', john.email)
+    assert_equal [b,c].sort, repo.index('author', jane.email).sort
   end
   
   #

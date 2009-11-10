@@ -434,8 +434,22 @@ module Gitgo
       id = set(:blob, doc.to_s)
 
       add(timestamp(doc.date, id) => [mode, id])
-
+      
+      each_index([id]) do |path, sha|
+        Index.write(path, sha)
+      end
+      
       id
+    end
+
+    def index(key, value, n=10, start=0)
+      idx_file = index_path(key, value)
+      
+      if File.exists?(idx_file)
+        Index.open(idx_file) {|idx| idx.read(n, start) }
+      else
+        []
+      end
     end
 
     # Gets the document indicated by id, or nil if no such document exists.
@@ -527,53 +541,6 @@ module Gitgo
         end
       end
       shas
-    end
-    
-    def index(key, value, n=10, start=0)
-      idx_file = index_path(key, value)
-      
-      case
-      when File.exists?(idx_file)
-        Index.open(idx_file) {|idx| idx.read(n, start) }
-      when File.exists?(index_path)
-        []
-      else
-        reindex!
-        index(key, value, n, start)
-      end
-    end
-    
-    def reindex!
-      indexes = Hash.new {|hash, key| hash[key] = [] }
-      each do |sha|
-        doc = read(sha)
-        doc.attributes(false).each_pair do |key, values|
-          unless values.kind_of?(Array)
-            values = [values]
-          end
-          
-          values.each do |value|
-            indexes[index_path(key, value)] << doc
-          end
-        end
-        
-        email = doc.author.email
-        indexes[index_path('author', email)] << doc
-      end
-      
-      indexes.each_pair do |path, docs|
-        shas = docs.sort_by do |doc|
-          doc.date
-        end.collect do |doc|
-          doc.sha
-        end
-        
-        dir = File.dirname(path)
-        FileUtils.mkdir_p(dir) unless File.exists?(dir)
-        Index.open(path, "w") {|idx| idx.write(shas.join) }
-      end
-      
-      self
     end
     
     # Links the parent and child by adding a reference to the child under the
@@ -675,6 +642,27 @@ module Gitgo
       self
     end
     
+    def reindex!(full=false)
+      indexes = Hash.new do |hash, path|
+        hash[path] = File.exists?(path) ? Index.read(path) : []
+      end
+      
+      previous = indexes[index_log]
+      current = collect {|sha| sha }
+      
+      previous.clear if full
+      
+      each_index(current - previous) {|path, sha| indexes[path] << sha }
+      each_index(previous - current) {|path, sha| indexes[path].delete(sha) }
+      
+      indexes.each_pair do |path, shas|
+        shas.uniq!
+        Index.write(path, shas.join, "w")
+      end
+      
+      self
+    end
+    
     protected
 
     # executes the git command in the working tree
@@ -757,6 +745,30 @@ module Gitgo
       end
       
       [tree_mode, tree_id]
+    end
+    
+    def index_log # :nodoc:
+      path("index")
+    end
+    
+    def each_index(shas) # :nodoc:
+      log = index_log
+      
+      shas.each do |sha|
+        doc = read(sha)
+        
+        doc.attributes(false).each_pair do |key, values|
+          values = [values] unless values.kind_of?(Array)
+          
+          values.each do |value|
+            yield(index_path(key, value), sha)  if value
+          end
+        end
+        
+        email = doc.author.email
+        yield(index_path('author', email), sha) if email
+        yield(log, sha)
+      end
     end
   end
 end

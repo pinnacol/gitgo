@@ -21,6 +21,18 @@ module Gitgo
             idx.close
           end
         end
+        
+        # Reads the index file and returns an array of shas.  
+        def read(path)
+          open(path) {|idx| idx.read(idx.length) }
+        end
+        
+        # Opens the index file and writes the sha.
+        def write(path, sha, mode="a")
+          dir = File.dirname(path)
+          FileUtils.mkdir_p(dir) unless File.exists?(dir)
+          open(path, mode) {|idx| idx.write(sha) }
+        end
       end
       
       # The pack format, optimized for packing multiple shas
