@@ -435,8 +435,8 @@ module Gitgo
 
       add(timestamp(doc.date, id) => [mode, id])
       
-      each_index([id]) do |path, sha|
-        Index.write(path, sha)
+      each_index(doc) do |path|
+        Index.write(path, id)
       end
       
       id
@@ -652,8 +652,15 @@ module Gitgo
       
       previous.clear if full
       
-      each_index(current - previous) {|path, sha| indexes[path] << sha }
-      each_index(previous - current) {|path, sha| indexes[path].delete(sha) }
+      # adds
+      (current - previous).each do |sha|
+        each_index(read(sha)) {|path| indexes[path] << sha }
+      end
+      
+      # removes
+      (previous - current).each do |sha|
+        each_index(read(sha)) {|path| indexes[path].delete(sha) }
+      end
       
       indexes.each_pair do |path, shas|
         shas.uniq!
@@ -751,24 +758,18 @@ module Gitgo
       path("index")
     end
     
-    def each_index(shas) # :nodoc:
-      log = index_log
-      
-      shas.each do |sha|
-        doc = read(sha)
+    def each_index(doc) # :nodoc:
+      doc.attributes(false).each_pair do |key, values|
+        values = [values] unless values.kind_of?(Array)
         
-        doc.attributes(false).each_pair do |key, values|
-          values = [values] unless values.kind_of?(Array)
-          
-          values.each do |value|
-            yield(index_path(key, value), sha)  if value
-          end
+        values.each do |value|
+          yield(index_path(key, value))  if value
         end
-        
-        email = doc.author.email
-        yield(index_path('author', email), sha) if email
-        yield(log, sha)
       end
+      
+      email = doc.author.email
+      yield(index_path('author', email)) if email
+      yield(index_log)
     end
   end
 end
