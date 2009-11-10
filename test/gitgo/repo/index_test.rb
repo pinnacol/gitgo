@@ -60,7 +60,7 @@ class RepoIndexTest < Test::Unit::TestCase
   # write test
   #
   
-  def test_write_writes_entries
+  def test_write_writes_entries_at_current_location
     assert_equal [], idx.read
     
     idx.write(SHAS[0]).write(SHAS[1])
@@ -69,6 +69,14 @@ class RepoIndexTest < Test::Unit::TestCase
     idx.file.pos = 0
     idx.write(SHAS[1] + SHAS[0])
     assert_equal [SHAS[1], SHAS[0]], idx.read
+  end
+  
+  def test_write_raises_error_for_invalid_sha
+    err = assert_raises(RuntimeError) { idx.write("a") }
+    assert_equal "invalid sha length: 1", err.message
+    
+    err = assert_raises(RuntimeError) { idx.write("a" * 41) }
+    assert_equal "invalid sha length: 41", err.message
   end
   
   #
