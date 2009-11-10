@@ -30,28 +30,29 @@ class RepoTest < Test::Unit::TestCase
       "README" => "New Project",
       "lib/project.rb" => "module Project\nend"
     ).commit("added files")
-    
+  
     expected = {
       "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
       "lib"    => {
-        "project" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"]
+        "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"]
       }
     }
-    
+    assert_equal expected, repo.tree
+  
     repo.reset
     expected = {
       "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
       :lib     => [:"040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
     }
     assert_equal expected, repo.tree
-    
+  
     repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
     expected = {
       "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
       "lib"    => {
         "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
         "project" => {
-          "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
+          "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"]
         }
       }
     }
@@ -62,7 +63,7 @@ class RepoTest < Test::Unit::TestCase
       "lib"    => {
         "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
         "project" => {
-          "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"],
+          "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"]
         }
       }
     }
@@ -218,397 +219,7 @@ class RepoTest < Test::Unit::TestCase
     repo["/a/b.txt"] = "new content"
     assert_equal nil, repo["/a/b.txt", true]
   end
-    
-  #
-  # link test
-  #
-  
-  def test_link_links_the_parent_sha_to_the_empty_sha_by_child
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-  
-    repo.link(a, b).commit("linked a file")
-    assert_equal "", repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
-  end
-  
-  def test_link_links_to_ref_if_specified
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-    c = repo.set("blob", "c")
-    
-    repo.link(a, b, :ref => c).commit("linked a file")
-    assert_equal c, repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
-  end
 
-  def test_link_nests_link_under_dir_if_specified
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-  
-    repo.link(a, b, :dir => "path/to/dir").commit("linked a file")
-    assert_equal "", repo["path/to/dir/#{a[0,2]}/#{a[2,38]}/#{b}"]
-  end
-  
-  #
-  # ref test
-  #
-  
-  def test_ref_returns_the_ref_attribute_in_a_link
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-    c = repo.set("blob", "c")
-    
-    repo.link(a, b, :ref => c).commit("linked a file")
-    assert_equal c, repo.ref(a, b)
-    
-    repo.link(a, c).commit("linked a file")
-    assert_equal "", repo.ref(a, c)
-  end
-
-  def test_ref_works_with_link_options
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-    c = repo.set("blob", "c")
-    
-    repo.link(a, b, :ref => c, :dir => "path/to/dir").commit("linked a file")
-    assert_equal c, repo.ref(a, b, :dir => "path/to/dir")
-    
-    repo.link(a, c, :dir => "path/to/dir").commit("linked a file")
-    assert_equal "", repo.ref(a, c, :dir => "path/to/dir")
-  end
-  
-  #
-  # parents test
-  #
-
-  def test_parents_returns_array_of_parents_linking_to_child
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    
-    repo.link(a, c).link(b, c).commit("created links")
-    
-    assert_equal [a, b].sort, repo.parents(c).sort
-    assert_equal [], repo.parents(b)
-  end
-  
-  def test_parents_only_searches_trees_in_the_ab_xyz_format
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    
-    repo.link(a, c)
-    repo.add("abc/#{b[2,38]}/#{c}" => "not ab")
-    repo.add("#{b[0,2]}/xy/#{c}" => "not xyx")
-    repo.commit("created links and skipped 'links'")
-    
-    assert_equal [a], repo.parents(c)
-    assert_equal [a[0,2], "abc", b[0,2]].sort, repo["/"].sort
-  end
-  
-  def test_parents_returns_array_of_parents_linking_to_child_under_dir_if_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    
-    repo.link(a, c, :dir => "one").link(b, c, :dir => "two").commit("created links")
-    
-    assert_equal [a], repo.parents(c, :dir => "one")
-    assert_equal [b], repo.parents(c, :dir => "two")
-  end
-  
-  #
-  # children test
-  #
-
-  def test_children_returns_array_of_linked_children
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    
-    repo.link(a, b).link(a, c).commit("created links")
-    
-    assert_equal [b, c].sort, repo.children(a).sort
-    assert_equal [], repo.children(b)
-  end
-  
-  def test_children_returns_array_of_linked_children_under_dir_if_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    
-    repo.link(a, b, :dir => "one").link(a, c, :dir => "two").commit("created links")
-    
-    assert_equal [b], repo.children(a, :dir => "one")
-    assert_equal [c], repo.children(a, :dir => "two")
-  end
-
-  def test_children_returns_a_hash_of_children_if_recursive_is_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    
-    repo.link(a, b).link(b, c).commit("created recursive links")
-    
-    assert_equal [b], repo.children(a)
-    assert_equal({a => [b], b => [c], c => []}, repo.children(a, :recursive => true))
-  end
-
-  def test_recursive_children_detects_circular_linkage
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
-
-    err = assert_raises(RuntimeError) { repo.children(a, :recursive => true) }
-    assert_equal %Q{circular link detected:
-  #{a}
-  #{b}
-  #{c}
-  #{a}
-}, err.message
-  end
-
-  def test_recursive_children_allows_two_threads_to_link_the_same_commit
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    d = repo.set("blob", "D")
-
-    repo.link(a, b)
-    repo.link(b, d)
-
-    repo.link(a, c)
-    repo.link(c, d)
-
-    repo.commit("linked to the same commit on two threads")
-
-    result = repo.children(a, :recursive => true)
-    result.each_value {|value| value.sort! }
-    assert_equal({
-      a => [b, c].sort,
-      b => [d],
-      c => [d],
-      d => []
-    }, result)
-  end
-
-  #
-  # unlink test
-  #
-
-  def test_unlink_removes_the_parent_child_linkage
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    
-    repo.link(a, b).link(b, c).commit("created recursive links")
-    
-    assert_equal [b], repo.children(a)
-    assert_equal [c], repo.children(b)
-    
-    repo.unlink(a, b).commit("unlinked a, b")
-
-    assert_equal [], repo.children(a)
-    assert_equal [c], repo.children(b)
-  end
-
-  def test_unlink_reursively_removes_children_if_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    
-    repo.link(a, b).link(b, c).commit("created recursive links")
-    
-    assert_equal [b], repo.children(a)
-    assert_equal [c], repo.children(b)
-    
-    repo.unlink(a, b, :recursive => true).commit("recursively unlinked a, b")
-
-    assert_equal [], repo.children(a)
-    assert_equal [], repo.children(b)
-  end
-  
-  def test_unlink_removes_children_under_dir_if_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    d = repo.set("blob", "C")
-    e = repo.set("blob", "C")
-    
-    repo.link(a, b, :dir => "one").link(b, c, :dir => "one")
-    repo.link(a, d, :dir => "two").link(d, e, :dir => "two")
-    
-    repo.commit("created recursive links under dir")
-    
-    assert_equal [b], repo.children(a, :dir => "one")
-    assert_equal [c], repo.children(b, :dir => "one")
-    assert_equal [d], repo.children(a, :dir => "two")
-    assert_equal [e], repo.children(d, :dir => "two")
-    
-    repo.unlink(a, d, :dir => "two", :recursive => true).commit("recursively unlinked a under dir")
-
-    assert_equal [b], repo.children(a, :dir => "one")
-    assert_equal [c], repo.children(b, :dir => "one")
-    assert_equal [], repo.children(a, :dir => "two")
-    assert_equal [], repo.children(d, :dir => "two")
-  end
-  
-  def test_unlink_quietly_does_nothing_for_unlinked_or_missing_parent_or_child
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    
-    repo.link(a, b).link(a, c).commit("created recursive links")
-    
-    assert_equal [b, c].sort, repo.children(a).sort
-    assert_equal [], repo.children(b)
-    assert_equal [a], repo.parents(c)
-    
-    repo.unlink(b, c)
-    repo.unlink(nil, c)
-    repo.unlink(b, nil)
-    
-    assert_equal [b, c].sort, repo.children(a).sort
-    assert_equal [], repo.children(b)
-    assert_equal [a], repo.parents(c)
-  end
-  
-  def test_recursive_unlink_removes_circular_linkages
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
-
-    err = assert_raises(RuntimeError) { repo.children(a, :recursive => true) }
-    repo.unlink(a, b, :recursive => true).commit("unlinked links")
-    
-    assert_equal [], repo.children(a)
-    assert_equal [], repo.children(b)
-    assert_equal [], repo.children(c)
-  end
-  
-  #
-  # create test
-  #
-  
-  def test_create_adds_a_new_document_to_the_repo_and_returns_the_new_doc_id
-    setup_repo("simple.git") # to setup a default author
-    
-    sha = repo.create("new content")
-    doc = repo.read(sha)
-    
-    assert_equal "new content", doc.content
-    assert_equal "John Doe", doc.author.name
-    assert_equal "john.doe@email.com", doc.author.email
-    assert_equal Time.now.strftime("%Y/%m/%d"), doc.date.strftime("%Y/%m/%d")
-  end
-  
-  def test_create_respects_any_atttributes_specified_with_the_document
-    sha = repo.create("new content", "author" => Grit::Actor.new("New User", "new.user@email.com"), "key" => "value")
-    doc = repo.read(sha)
-    
-    assert_equal "new content", doc.content
-    assert_equal "New User", doc.author.name
-    assert_equal "new.user@email.com", doc.author.email
-    assert_equal "value", doc.attributes["key"]
-  end
-  
-  def test_create_adds_doc_by_timestamp
-    date = Time.local(2009, 9, 9)
-    id = repo.create("content", 'date' => date)
-    
-    repo.commit("added a new doc")
-    
-    assert_equal [id], repo["2009/0909"]
-  end
-  
-  #
-  # index test
-  #
-  
-  def test_index_can_access_documents_by_all_attributes
-    john = Grit::Actor.new("John Doe", "john.doe@email.com")
-    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
-    
-    a = repo.create("new content", "author" => john, "date" => Time.utc(2009, 9, 9), "key" => "one")
-    b = repo.create("new content", "author" => jane, "date" => Time.utc(2009, 9, 10), "key" => "two")
-    c = repo.create("new content", "author" => jane, "date" => Time.utc(2009, 9, 11), "key" => "one")
-    
-    assert_equal [a,c], repo.index('key', 'one')
-    assert_equal [b],   repo.index('key', 'two')
-    
-    assert_equal [a],   repo.index('author', john.email)
-    assert_equal [b,c], repo.index('author', jane.email)
-  end
-  
-  #
-  # destroy test
-  #
-  
-  def test_destroy_removes_the_document
-    date = Time.local(2009, 9, 9)
-    id = repo.create("content", 'date' => date)
-    repo.commit("added a new doc")
-    
-    repo.destroy(id)
-    repo.commit("removed the new doc")
-    
-    assert_equal [], repo["2009/0909"]
-  end
-  
-  #
-  # each test
-  #
-  
-  def test_each_yields_each_doc_to_the_block_reverse_ordered_by_date
-    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
-    b = repo.create("d", 'date' => Time.utc(2009, 9, 10))
-    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
-    
-    repo.commit("added docs")
-    
-    results = []
-    repo.each {|doc| results << doc }
-    assert_equal [a, b, c], results
-  end
-  
-  def test_each_does_not_yield_doc_like_entries_in_repo
-    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
-    b = repo.create("d", 'date' => Time.utc(2009, 9, 10))
-    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
-    
-    repo.add(
-      "year/mmdd" => "skipped",
-      "00/0000" => "skipped",
-      "0000/00" => "skipped"
-    )
-    repo.commit("added docs and other files")
-    
-    results = []
-    repo.each {|doc| results << doc }
-    assert_equal [a, b, c], results
-  end
-  
-  #
-  # timeline test
-  #
-  
-  def test_timeline_returns_the_most_recently_added_docs
-    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
-    d = repo.create("d", 'date' => Time.utc(2009, 9, 10))
-    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
-    
-    b = repo.create("b", 'date' => Time.utc(2008, 9, 10))
-    e = repo.create("e", 'date' => Time.utc(2008, 9, 9))
-    
-    repo.commit("added docs")
-    
-    assert_equal [a, d, c, b, e], repo.timeline
-    assert_equal [ d, c, b], repo.timeline(:n => 3, :offset => 1)
-  end
-  
   #
   # commit test
   #
@@ -742,5 +353,395 @@ class RepoTest < Test::Unit::TestCase
     
     b.pull
     assert_equal "A content", b["a"]
+  end
+  
+  #
+  # create test
+  #
+  
+  def test_create_adds_a_new_document_to_the_repo_and_returns_the_new_doc_id
+    setup_repo("simple.git") # to setup a default author
+    
+    sha = repo.create("new content")
+    doc = repo.read(sha)
+    
+    assert_equal "new content", doc.content
+    assert_equal "John Doe", doc.author.name
+    assert_equal "john.doe@email.com", doc.author.email
+    assert_equal Time.now.strftime("%Y/%m/%d"), doc.date.strftime("%Y/%m/%d")
+  end
+  
+  def test_create_respects_any_atttributes_specified_with_the_document
+    sha = repo.create("new content", "author" => Grit::Actor.new("New User", "new.user@email.com"), "key" => "value")
+    doc = repo.read(sha)
+    
+    assert_equal "new content", doc.content
+    assert_equal "New User", doc.author.name
+    assert_equal "new.user@email.com", doc.author.email
+    assert_equal "value", doc.attributes["key"]
+  end
+  
+  def test_create_adds_doc_by_timestamp
+    date = Time.local(2009, 9, 9)
+    id = repo.create("content", 'date' => date)
+    
+    repo.commit("added a new doc")
+    
+    assert_equal [id], repo["2009/0909"]
+  end
+  
+  #
+  # index test
+  #
+  
+  def test_index_can_access_documents_by_all_attributes
+    john = Grit::Actor.new("John Doe", "john.doe@email.com")
+    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
+    
+    a = repo.create("new content", "author" => john, "date" => Time.utc(2009, 9, 9), "key" => "one")
+    b = repo.create("new content", "author" => jane, "date" => Time.utc(2009, 9, 10), "key" => "two")
+    c = repo.create("new content", "author" => jane, "date" => Time.utc(2009, 9, 11), "key" => "one")
+    
+    assert_equal [a,c], repo.index('key', 'one')
+    assert_equal [b],   repo.index('key', 'two')
+    
+    assert_equal [a],   repo.index('author', john.email)
+    assert_equal [b,c], repo.index('author', jane.email)
+  end
+  
+  #
+  # destroy test
+  #
+  
+  def test_destroy_removes_the_document
+    date = Time.local(2009, 9, 9)
+    id = repo.create("content", 'date' => date)
+    repo.commit("added a new doc")
+    
+    repo.destroy(id)
+    repo.commit("removed the new doc")
+    
+    assert_equal [], repo["2009/0909"]
+  end
+  
+  #
+  # each test
+  #
+  
+  def test_each_yields_each_doc_to_the_block_reverse_ordered_by_date
+    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
+    b = repo.create("d", 'date' => Time.utc(2009, 9, 10))
+    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
+    
+    repo.commit("added docs")
+    
+    results = []
+    repo.each {|doc| results << doc }
+    assert_equal [a, b, c], results
+  end
+  
+  def test_each_does_not_yield_doc_like_entries_in_repo
+    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
+    b = repo.create("d", 'date' => Time.utc(2009, 9, 10))
+    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
+    
+    repo.add(
+      "year/mmdd" => "skipped",
+      "00/0000" => "skipped",
+      "0000/00" => "skipped"
+    )
+    repo.commit("added docs and other files")
+    
+    results = []
+    repo.each {|doc| results << doc }
+    assert_equal [a, b, c], results
+  end
+  
+  #
+  # timeline test
+  #
+  
+  def test_timeline_returns_the_most_recently_added_docs
+    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
+    d = repo.create("d", 'date' => Time.utc(2009, 9, 10))
+    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
+    
+    b = repo.create("b", 'date' => Time.utc(2008, 9, 10))
+    e = repo.create("e", 'date' => Time.utc(2008, 9, 9))
+    
+    repo.commit("added docs")
+    
+    assert_equal [a, d, c, b, e], repo.timeline
+    assert_equal [ d, c, b], repo.timeline(:n => 3, :offset => 1)
+  end
+
+  #
+  # link test
+  #
+
+  def test_link_links_the_parent_sha_to_the_empty_sha_by_child
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
+
+    repo.link(a, b).commit("linked a file")
+    assert_equal "", repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
+  end
+
+  def test_link_links_to_ref_if_specified
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
+    c = repo.set("blob", "c")
+
+    repo.link(a, b, :ref => c).commit("linked a file")
+    assert_equal c, repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
+  end
+
+  def test_link_nests_link_under_dir_if_specified
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
+
+    repo.link(a, b, :dir => "path/to/dir").commit("linked a file")
+    assert_equal "", repo["path/to/dir/#{a[0,2]}/#{a[2,38]}/#{b}"]
+  end
+
+  #
+  # ref test
+  #
+
+  def test_ref_returns_the_ref_attribute_in_a_link
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
+    c = repo.set("blob", "c")
+
+    repo.link(a, b, :ref => c).commit("linked a file")
+    assert_equal c, repo.ref(a, b)
+
+    repo.link(a, c).commit("linked a file")
+    assert_equal "", repo.ref(a, c)
+  end
+
+  def test_ref_works_with_link_options
+    a = repo.set("blob", "a")
+    b = repo.set("blob", "b")
+    c = repo.set("blob", "c")
+
+    repo.link(a, b, :ref => c, :dir => "path/to/dir").commit("linked a file")
+    assert_equal c, repo.ref(a, b, :dir => "path/to/dir")
+
+    repo.link(a, c, :dir => "path/to/dir").commit("linked a file")
+    assert_equal "", repo.ref(a, c, :dir => "path/to/dir")
+  end
+
+  #
+  # parents test
+  #
+
+  def test_parents_returns_array_of_parents_linking_to_child
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, c).link(b, c).commit("created links")
+
+    assert_equal [a, b].sort, repo.parents(c).sort
+    assert_equal [], repo.parents(b)
+  end
+
+  def test_parents_only_searches_trees_in_the_ab_xyz_format
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, c)
+    repo.add("abc/#{b[2,38]}/#{c}" => "not ab")
+    repo.add("#{b[0,2]}/xy/#{c}" => "not xyx")
+    repo.commit("created links and skipped 'links'")
+
+    assert_equal [a], repo.parents(c)
+    assert_equal [a[0,2], "abc", b[0,2]].sort, repo["/"].sort
+  end
+
+  def test_parents_returns_array_of_parents_linking_to_child_under_dir_if_specified
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, c, :dir => "one").link(b, c, :dir => "two").commit("created links")
+
+    assert_equal [a], repo.parents(c, :dir => "one")
+    assert_equal [b], repo.parents(c, :dir => "two")
+  end
+
+  #
+  # children test
+  #
+
+  def test_children_returns_array_of_linked_children
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, b).link(a, c).commit("created links")
+
+    assert_equal [b, c].sort, repo.children(a).sort
+    assert_equal [], repo.children(b)
+  end
+
+  def test_children_returns_array_of_linked_children_under_dir_if_specified
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, b, :dir => "one").link(a, c, :dir => "two").commit("created links")
+
+    assert_equal [b], repo.children(a, :dir => "one")
+    assert_equal [c], repo.children(a, :dir => "two")
+  end
+
+  def test_children_returns_a_hash_of_children_if_recursive_is_specified
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, b).link(b, c).commit("created recursive links")
+
+    assert_equal [b], repo.children(a)
+    assert_equal({a => [b], b => [c], c => []}, repo.children(a, :recursive => true))
+  end
+
+  def test_recursive_children_detects_circular_linkage
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
+
+    err = assert_raises(RuntimeError) { repo.children(a, :recursive => true) }
+    assert_equal %Q{circular link detected:
+  #{a}
+  #{b}
+  #{c}
+  #{a}
+}, err.message
+  end
+
+  def test_recursive_children_allows_two_threads_to_link_the_same_commit
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+    d = repo.set("blob", "D")
+
+    repo.link(a, b)
+    repo.link(b, d)
+
+    repo.link(a, c)
+    repo.link(c, d)
+
+    repo.commit("linked to the same commit on two threads")
+
+    result = repo.children(a, :recursive => true)
+    result.each_value {|value| value.sort! }
+    assert_equal({
+      a => [b, c].sort,
+      b => [d],
+      c => [d],
+      d => []
+    }, result)
+  end
+
+  #
+  # unlink test
+  #
+
+  def test_unlink_removes_the_parent_child_linkage
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, b).link(b, c).commit("created recursive links")
+
+    assert_equal [b], repo.children(a)
+    assert_equal [c], repo.children(b)
+
+    repo.unlink(a, b).commit("unlinked a, b")
+
+    assert_equal [], repo.children(a)
+    assert_equal [c], repo.children(b)
+  end
+
+  def test_unlink_reursively_removes_children_if_specified
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, b).link(b, c).commit("created recursive links")
+
+    assert_equal [b], repo.children(a)
+    assert_equal [c], repo.children(b)
+
+    repo.unlink(a, b, :recursive => true).commit("recursively unlinked a, b")
+
+    assert_equal [], repo.children(a)
+    assert_equal [], repo.children(b)
+  end
+
+  def test_unlink_removes_children_under_dir_if_specified
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+    d = repo.set("blob", "C")
+    e = repo.set("blob", "C")
+
+    repo.link(a, b, :dir => "one").link(b, c, :dir => "one")
+    repo.link(a, d, :dir => "two").link(d, e, :dir => "two")
+
+    repo.commit("created recursive links under dir")
+
+    assert_equal [b], repo.children(a, :dir => "one")
+    assert_equal [c], repo.children(b, :dir => "one")
+    assert_equal [d], repo.children(a, :dir => "two")
+    assert_equal [e], repo.children(d, :dir => "two")
+
+    repo.unlink(a, d, :dir => "two", :recursive => true).commit("recursively unlinked a under dir")
+
+    assert_equal [b], repo.children(a, :dir => "one")
+    assert_equal [c], repo.children(b, :dir => "one")
+    assert_equal [], repo.children(a, :dir => "two")
+    assert_equal [], repo.children(d, :dir => "two")
+  end
+
+  def test_unlink_quietly_does_nothing_for_unlinked_or_missing_parent_or_child
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, b).link(a, c).commit("created recursive links")
+
+    assert_equal [b, c].sort, repo.children(a).sort
+    assert_equal [], repo.children(b)
+    assert_equal [a], repo.parents(c)
+
+    repo.unlink(b, c)
+    repo.unlink(nil, c)
+    repo.unlink(b, nil)
+
+    assert_equal [b, c].sort, repo.children(a).sort
+    assert_equal [], repo.children(b)
+    assert_equal [a], repo.parents(c)
+  end
+
+  def test_recursive_unlink_removes_circular_linkages
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    c = repo.set("blob", "C")
+
+    repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
+
+    err = assert_raises(RuntimeError) { repo.children(a, :recursive => true) }
+    repo.unlink(a, b, :recursive => true).commit("unlinked links")
+
+    assert_equal [], repo.children(a)
+    assert_equal [], repo.children(b)
+    assert_equal [], repo.children(c)
   end
 end

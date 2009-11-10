@@ -6,11 +6,10 @@ require 'gitgo/repo/index'
 
 module Gitgo
   
-  # A wrapper to a Grit::Repo that allows access and modification of
-  # repository data by path, without checking the repository out.  The api is
-  # patterned after commands you'd invoke on the command line.  Several key
-  # methods of this class are patterned after
-  # {GitStore}[http://github.com/georgi/git_store].
+  # A wrapper to a Grit::Repo that allows access and modification of a git
+  # repository without checking the repository out.  The api is patterned
+  # after commands you'd invoke on the command line, although there are
+  # numerous Gitgo-specific methods for working with Gitgo documents.
   #
   # == Usage
   #
@@ -28,7 +27,7 @@ module Gitgo
   #
   #   repo.rm("remove_this_file")
   #   repo.commit("removed extra file")
-  #                  
+  #                          
   # Now access the content:
   #
   #   repo["/"]                          # => ["README", "lib"]
@@ -47,9 +46,9 @@ module Gitgo
   #
   # === The Working Tree
   #
-  # Changes to the repo are tracked by tree until being committed. Tree is a
-  # hash of (path, [mode, sha]) pairs representing the in-memory working tree
-  # contents. Symbol paths indicate a subtree that could be expanded.
+  # Changes to the repo are tracked by a Tree until being committed. Trees can
+  # be thought of as a hash of (path, [:mode, sha]) pairs representing the
+  # in-memory working tree contents. 
   #
   #   repo = Repo.init("example", :author => "John Doe <jdoe@example.com>")
   #   repo.add(
@@ -59,30 +58,32 @@ module Gitgo
   #
   #   repo.tree
   #   # => {
-  #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
-  #   #   "lib"    => {
-  #   #     "project" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"]
+  #   #   "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+  #   #   "lib" => {
+  #   #     "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"]
   #   #   }
   #   # }
+  #
+  # Trees can be collapsed using reset.  Afterwards subtrees are only expanded
+  # as needed; before expansion they appear as a [:mode, sha] pair and after
+  # expansion they appear as a hash.  Symbol paths indicate a subtree that
+  # could be expanded.
   #
   #   repo.reset
   #   repo.tree
   #   # => {
-  #   #   "README" => ["100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
-  #   #   :lib     => ["040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
+  #   #   "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
+  #   #   :lib =>     [:"040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
   #   # }
-  #
-  # When the repo adds or removes content, the subtrees are expanded as needed
-  # to show the changes.
   #
   #   repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
   #   repo.tree
   #   # => {
   #   #   "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
-  #   #   "lib"    => {
+  #   #   "lib" => {
   #   #     "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
   #   #     "project" => {
-  #   #       "utils" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add]
+  #   #       "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"]
   #   #     }
   #   #   }
   #   # }
@@ -90,21 +91,16 @@ module Gitgo
   #   repo.rm("README")
   #   repo.tree
   #   # => {
-  #   #   "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1", :rm],
-  #   #   "lib"    => {
+  #   #   "lib" => {
   #   #     "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
   #   #     "project" => {
-  #   #       "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4", :add]
+  #   #       "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"]
   #   #     }
   #   #   }
   #   # }
   #
-  # As you can see, subtrees also track the mode for the subtree.  Note that
-  # the expanded subtrees have not been written to the repo and so they don't
-  # have id at this point (this echos what happens when you stage changes with
-  # 'git add' but have yet to commit the changes with 'git commit').
-  #
-  # A summary of the blobs that have changed can be obtained via status:
+  # The working tree can be compared with the commit tree to produce a list of
+  # files that have been added and removed using the status method:
   #
   #   repo.status
   #   # => {
@@ -257,6 +253,10 @@ module Gitgo
       add(path => content)
     end
     
+    #########################################################################
+    # Git API
+    #########################################################################
+    
     # Adds content at the specified paths.  Takes a hash of (path, content)
     # pairs where the content can either be:
     #
@@ -292,229 +292,6 @@ module Gitgo
       paths.each {|path| nils[path] = nil }
       add(nils)
       self
-    end
-    
-    # Links the parent and child by adding a reference to the child under the
-    # sha path for the parent.
-    #
-    # While parent can refer to any git object, only blobs and trees should be
-    # linked as children; other object types (ex commit, tag) are seen as
-    # corruption by git. 
-    #  
-    def link(parent, child, options={})
-      ref = options[:ref]
-      sha = ref ? set(:blob, ref) : empty_sha
-      
-      add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, sha])
-      self
-    end
-
-    # Returns an array of parents that link to the child.  Note this is a very
-    # expensive operation because it fully expands the in-memory working tree.
-    def parents(child, options={})
-      segments = path_segments(options[:dir] || "/")
-      parents = []
-      
-      # seek /ab/xyz/sha where sha == child
-      @tree.subtree(segments).each_tree(true) do |ab, ab_tree|
-        next if ab.length != 2
-        
-        ab_tree.each_tree(true) do |xyz, xyz_tree|
-          next if xyz.length != 38
-          
-          if xyz_tree.keys.any? {|sha| sha.to_s == child }
-            parents << "#{ab}#{xyz}"
-          end
-        end
-      end
-      parents
-    end
-
-    # Returns an array of children linked to the parent.  If recursive is
-    # specified, this method will recursively seek children for each child and
-    # the return will be a nested hash of linked shas.
-    def children(parent, options={})
-      children = self[sha_path(options, parent)] || []
-
-      return children unless options[:recursive]
-
-      tree = options[:tree] ||= {}
-      tree[parent] = children
-
-      visited = options[:visited] ||= [parent]
-      children.each do |child|
-        circular = visited.include?(child)
-        visited.push child
-
-        if circular
-          raise "circular link detected:\n  #{visited.join("\n  ")}\n"
-        end
-        
-        unless tree.has_key?(child)
-          children(child, options)
-        end
-        
-        visited.pop
-      end
-
-      tree
-    end
-    
-    # Returns the sha of the object the linked child refers to, ie the :ref
-    # option used when making a link. 
-    def ref(parent, child, options={})
-      self[sha_path(options, parent, child)]
-    end
-
-    # Unlinks the parent and child by removing the reference to the child
-    # under the sha-path for the parent.  Unlink will recursively remove all
-    # links to the child if specified.
-    def unlink(parent, child, options={})
-      return self unless parent && child
-      rm(sha_path(options, parent, child))
-
-      if options[:recursive]
-        visited = options[:visited] ||= []
-
-        # the child should only need to be visited once
-        # as one visit will unlink any grandchildren
-        unless visited.include?(child)
-          visited.push child
-
-          # note options cannot be passed to links here,
-          # because recursion is NOT desired and visited
-          # will overlap/conflict
-          children(child, :dir => options[:dir]).each do |grandchild|
-            unlink(child, grandchild, options)
-          end
-        end
-      end
-
-      self
-    end
-    
-    # Creates a new Document using the content and attributes, writes it to
-    # the repo and returns it's sha.  New documents are stored by timestamp.
-    def create(content, attrs={}, options={})
-      attrs['author'] ||= author
-      attrs['date']   ||= Time.now
-
-      store(Document.new(attrs, content), options)
-    end
-
-    # Stores the document by timestamp.
-    def store(doc, options={})
-      mode = options[:mode] || DEFAULT_BLOB_MODE
-      id = set(:blob, doc.to_s)
-
-      add(timestamp(doc.date, id) => [mode, id])
-
-      id
-    end
-
-    # Gets the document indicated by id, or nil if no such document exists.
-    def read(id)
-      blob = grit.blob(id)
-      blob.data.empty? ? nil : Document.parse(blob.data, id)
-    end
-    
-    def index(key, value, n=10, start=0)
-      idx_file = index_path(key, value)
-      
-      case
-      when File.exists?(idx_file)
-        Index.open(idx_file) {|idx| idx.read(n, start) }
-      when File.exists?(index_path)
-        []
-      else
-        reindex!
-        index(key, value, n, start)
-      end
-    end
-
-    # Updates the content of the specified document and reassigns all links
-    # to the document.
-    def update(id, content, attrs={})
-      return nil unless old_doc = read(id)
-
-      parents = self.parents(id)
-      children = self.children(id)
-      new_doc = old_doc.merge(attrs, content)
-
-      parents.each {|parent| unlink(parent, id) }
-      children.each {|child| unlink(id, child) }
-      rm timestamp(old_doc.date, id)
-
-      id = store(new_doc)
-      parents.each {|parent| link(parent, id) }
-      children.each {|child| link(id, child) }
-
-      new_doc.sha = id
-      new_doc
-    end
-
-    # Removes the document from the repo by deleting it from the timeline.
-    def destroy(id)
-
-      # Destroying a doc with children is a bad idea because there is no one
-      # good way of removing the children.  Children with multiple parents
-      # should not be unlinked recursively.  Children with no other parents
-      # should be unlinked and destroyed (because nothing will reference them
-      # anymore).
-      #
-      # Note the same is not true for parents; a doc can simply remove itself
-      # from the parents, each of which will remain valid afterwards.
-      unless children(id).empty?
-        raise "cannot destroy a document with children"
-      end
-
-      return nil unless doc = read(id)
-
-      parents(id).each {|parent| unlink(parent, id) }
-      rm timestamp(doc.date, id)
-
-      doc
-    end
-
-    # Yields each document in the repo, ordered by date (with day resolution).
-    def each
-      years = self[[]] || []
-      years.sort!
-      years.reverse_each do |year|
-        next unless year =~ YEAR
-        
-        mmdd = self[[year]] || []
-        mmdd.sort!
-        mmdd.reverse_each do |mmdd|
-          next unless mmdd =~ MMDD
-          
-          # y,md need to be iterated in reverse to correctly sort by
-          # date; this is not the case with the unordered shas
-          self[[year, mmdd]].each do |sha|
-            yield(sha)
-          end
-        end
-      end
-    end
-    
-    # Returns an array of shas representing recent documents added.
-    def timeline(options={})
-      options = {:n => 10, :offset => 0}.merge(options)
-      offset = options[:offset]
-      n = options[:n]
-
-      shas = []
-      return shas if n <= 0
-
-      each do |sha|
-        if offset > 0
-          offset -= 1
-        else
-          shas << sha
-          break if n && shas.length == n
-        end
-      end
-      shas
     end
     
     def commit(message, options={})
@@ -638,6 +415,134 @@ module Gitgo
       reset
     end
     
+    #########################################################################
+    # Document API
+    #########################################################################
+
+    # Creates a new Document using the content and attributes, writes it to
+    # the repo and returns it's sha.  New documents are stored by timestamp.
+    def create(content, attrs={}, options={})
+      attrs['author'] ||= author
+      attrs['date']   ||= Time.now
+
+      store(Document.new(attrs, content), options)
+    end
+
+    # Stores the document by timestamp.
+    def store(doc, options={})
+      mode = options[:mode] || DEFAULT_BLOB_MODE
+      id = set(:blob, doc.to_s)
+
+      add(timestamp(doc.date, id) => [mode, id])
+
+      id
+    end
+
+    # Gets the document indicated by id, or nil if no such document exists.
+    def read(id)
+      blob = grit.blob(id)
+      blob.data.empty? ? nil : Document.parse(blob.data, id)
+    end
+    
+    # Updates the content of the specified document and reassigns all links
+    # to the document.
+    def update(id, content, attrs={})
+      return nil unless old_doc = read(id)
+
+      parents = self.parents(id)
+      children = self.children(id)
+      new_doc = old_doc.merge(attrs, content)
+
+      parents.each {|parent| unlink(parent, id) }
+      children.each {|child| unlink(id, child) }
+      rm timestamp(old_doc.date, id)
+
+      id = store(new_doc)
+      parents.each {|parent| link(parent, id) }
+      children.each {|child| link(id, child) }
+
+      new_doc.sha = id
+      new_doc
+    end
+
+    # Removes the document from the repo by deleting it from the timeline.
+    def destroy(id)
+
+      # Destroying a doc with children is a bad idea because there is no one
+      # good way of removing the children.  Children with multiple parents
+      # should not be unlinked recursively.  Children with no other parents
+      # should be unlinked and destroyed (because nothing will reference them
+      # anymore).
+      #
+      # Note the same is not true for parents; a doc can simply remove itself
+      # from the parents, each of which will remain valid afterwards.
+      unless children(id).empty?
+        raise "cannot destroy a document with children"
+      end
+
+      return nil unless doc = read(id)
+
+      parents(id).each {|parent| unlink(parent, id) }
+      rm timestamp(doc.date, id)
+
+      doc
+    end
+
+    # Yields each document in the repo, ordered by date (with day resolution).
+    def each
+      years = self[[]] || []
+      years.sort!
+      years.reverse_each do |year|
+        next unless year =~ YEAR
+        
+        mmdd = self[[year]] || []
+        mmdd.sort!
+        mmdd.reverse_each do |mmdd|
+          next unless mmdd =~ MMDD
+          
+          # y,md need to be iterated in reverse to correctly sort by
+          # date; this is not the case with the unordered shas
+          self[[year, mmdd]].each do |sha|
+            yield(sha)
+          end
+        end
+      end
+    end
+    
+    # Returns an array of shas representing recent documents added.
+    def timeline(options={})
+      options = {:n => 10, :offset => 0}.merge(options)
+      offset = options[:offset]
+      n = options[:n]
+
+      shas = []
+      return shas if n <= 0
+
+      each do |sha|
+        if offset > 0
+          offset -= 1
+        else
+          shas << sha
+          break if n && shas.length == n
+        end
+      end
+      shas
+    end
+    
+    def index(key, value, n=10, start=0)
+      idx_file = index_path(key, value)
+      
+      case
+      when File.exists?(idx_file)
+        Index.open(idx_file) {|idx| idx.read(n, start) }
+      when File.exists?(index_path)
+        []
+      else
+        reindex!
+        index(key, value, n, start)
+      end
+    end
+    
     def reindex!
       indexes = Hash.new {|hash, key| hash[key] = [] }
       each do |sha|
@@ -668,6 +573,105 @@ module Gitgo
         Index.open(path, "w") {|idx| idx.write(shas.join) }
       end
       
+      self
+    end
+    
+    # Links the parent and child by adding a reference to the child under the
+    # sha path for the parent.
+    #
+    # While parent can refer to any git object, only blobs and trees should be
+    # linked as children; other object types (ex commit, tag) are seen as
+    # corruption by git. 
+    #  
+    def link(parent, child, options={})
+      ref = options[:ref]
+      sha = ref ? set(:blob, ref) : empty_sha
+      
+      add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, sha])
+      self
+    end
+
+    # Returns an array of parents that link to the child.  Note this is a very
+    # expensive operation because it fully expands the in-memory working tree.
+    def parents(child, options={})
+      segments = path_segments(options[:dir] || "/")
+      parents = []
+      
+      # seek /ab/xyz/sha where sha == child
+      @tree.subtree(segments).each_tree(true) do |ab, ab_tree|
+        next if ab.length != 2
+        
+        ab_tree.each_tree(true) do |xyz, xyz_tree|
+          next if xyz.length != 38
+          
+          if xyz_tree.keys.any? {|sha| sha.to_s == child }
+            parents << "#{ab}#{xyz}"
+          end
+        end
+      end
+      parents
+    end
+
+    # Returns an array of children linked to the parent.  If recursive is
+    # specified, this method will recursively seek children for each child and
+    # the return will be a nested hash of linked shas.
+    def children(parent, options={})
+      children = self[sha_path(options, parent)] || []
+
+      return children unless options[:recursive]
+
+      tree = options[:tree] ||= {}
+      tree[parent] = children
+
+      visited = options[:visited] ||= [parent]
+      children.each do |child|
+        circular = visited.include?(child)
+        visited.push child
+
+        if circular
+          raise "circular link detected:\n  #{visited.join("\n  ")}\n"
+        end
+        
+        unless tree.has_key?(child)
+          children(child, options)
+        end
+        
+        visited.pop
+      end
+
+      tree
+    end
+    
+    # Returns the sha of the object the linked child refers to, ie the :ref
+    # option used when making a link. 
+    def ref(parent, child, options={})
+      self[sha_path(options, parent, child)]
+    end
+
+    # Unlinks the parent and child by removing the reference to the child
+    # under the sha-path for the parent.  Unlink will recursively remove all
+    # links to the child if specified.
+    def unlink(parent, child, options={})
+      return self unless parent && child
+      rm(sha_path(options, parent, child))
+
+      if options[:recursive]
+        visited = options[:visited] ||= []
+
+        # the child should only need to be visited once
+        # as one visit will unlink any grandchildren
+        unless visited.include?(child)
+          visited.push child
+
+          # note options cannot be passed to links here,
+          # because recursion is NOT desired and visited
+          # will overlap/conflict
+          children(child, :dir => options[:dir]).each do |grandchild|
+            unlink(child, grandchild, options)
+          end
+        end
+      end
+
       self
     end
     
