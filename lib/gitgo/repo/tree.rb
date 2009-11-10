@@ -66,7 +66,11 @@ module Gitgo
         @sha = nil
       end
       
-      def each_pair(expand=true)
+      # To maintain performance it is imperative that trees only be expanded
+      # as needed.  To promote this practice the default for each_pair is to
+      # not expand the entries.  Strongly consider whether or not you need
+      # expansion before setting expand to true.
+      def each_pair(expand=false)
         if expand
           keys.each do |key|
             yield(key, self[key])
@@ -75,20 +79,6 @@ module Gitgo
           index.each_pair do |key, value|
             yield(key, value)
           end
-        end
-      end
-      
-      def each_blob
-        each_pair do |key, value|
-          next if value.kind_of?(Repo::Tree)
-          yield(key, value)
-        end
-      end
-      
-      def each_tree
-        each_pair do |key, value|
-          next unless value.kind_of?(Repo::Tree)
-          yield(key, value)
         end
       end
       

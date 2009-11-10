@@ -161,12 +161,12 @@ module Gitgo
           repo.children(issue, :dir => INDEX)
         end
         
-        tree = repo.tree[INDEX]
-        tree.each_tree do |ab, ab_tree|
-          ab_tree.each_tree do |xyz, xyz_tree|
-            idx.update "#{ab}#{xyz}"
-          end
-        end if tree
+        # tree = repo.tree[INDEX]
+        # tree.each_tree do |ab, ab_tree|
+        #   ab_tree.each_tree do |xyz, xyz_tree|
+        #     idx.update "#{ab}#{xyz}"
+        #   end
+        # end if tree
         
         idx
       end
