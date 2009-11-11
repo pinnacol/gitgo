@@ -23,7 +23,6 @@ module Gitgo
     
     COMMIT = "at"
     REGARDING = "re"
-    INDEX = "iss"
     INHERIT = %w{state tags}
     STATES = %w{open closed}
     
@@ -87,9 +86,7 @@ module Gitgo
         raise "unknown issue: #{issue.inspect}"
       end
       
-      doc = inherit(doc, 'type' => 'comment')
-
-      comment = repo.create(content, doc)
+      comment = repo.create(content, inherit(doc, 'type' => 'comment', 're' => issue))
 
       # link the comment to each parent and update the index
       parents = request[REGARDING] || [issue]
@@ -101,7 +98,6 @@ module Gitgo
         repo.link(commit, comment, :ref => issue)
       end
       
-      repo.cache.reset(issue)
       repo.commit!("updated issue #{issue}") if commit?
       redirect url("#{issue}/#{comment}")
     end
@@ -127,20 +123,17 @@ module Gitgo
       grit.refs
     end
     
-    # Returns an array of children for the issue
+    # Returns an array of children for the issue; cached per-request
     def children(issue)
-      repo.query(issue, :children) do
-        repo.children(issue, :recursive => true)
-      end
+      repo.children(issue, :recursive => true)
     end
     
     def opinions(issue)
-      repo.query(issue, :opinions) do
-        children = self.children(issue)
-        children.keys.select do |key|
-          children[key].empty?
-        end
+      opinions = []
+      children(issue).each_pair do |key, value|
+        opinions << key if value.empty?
       end
+      opinions
     end
     
     def active?(doc)

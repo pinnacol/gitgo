@@ -3,7 +3,6 @@ require 'gitgo/document'
 require 'gitgo/patches/grit'
 require 'gitgo/repo/tree'
 require 'gitgo/repo/index'
-require 'gitgo/repo/cache'
 
 module Gitgo
   
@@ -145,22 +144,17 @@ module Gitgo
     # The in-memory working tree tracking any adds and removes.
     attr_reader :tree
 
-    # An in-memory cache for sha data; updated when a sha is updated.
-    attr_reader :cache
-
     # Initializes a new Git for the repo at the specified path.
     # Raises an error if no such repo exists.  Options can specify the
     # following:
     #
     #   :branch     the branch for self
     #   :author     the author for self
-    #   :cache      the in-memory cache
     #   + any Grit::Repo options
     #
     def initialize(path=Dir.pwd, options={})
       @grit = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
       @branch = options[:branch] || DEFAULT_BRANCH
-      @cache  = options[:cache] || Cache.new
       self.author = options[:author]
       reset
     end
@@ -480,7 +474,6 @@ module Gitgo
       parents.each {|parent| unlink(parent, id) }
       children.each {|child| unlink(id, child) }
       rm timestamp(old_doc.date, id)
-      cache.reset(id)
 
       id = store(new_doc)
       parents.each {|parent| link(parent, id) }
@@ -509,13 +502,8 @@ module Gitgo
 
       parents(id).each {|parent| unlink(parent, id) }
       rm timestamp(doc.date, id)
-      cache.reset(id)
 
       doc
-    end
-    
-    def query(sha, key)
-      cache.entries(sha)[key] ||= yield
     end
     
     # Yields each document in the repo, ordered by date (with day resolution).
@@ -571,7 +559,6 @@ module Gitgo
       sha = ref ? set(:blob, ref) : empty_sha
       
       add(sha_path(options, parent, child) => [DEFAULT_BLOB_MODE, sha])
-      cache.reset(parent, child)
       
       self
     end
@@ -639,7 +626,6 @@ module Gitgo
     def unlink(parent, child, options={})
       return self unless parent && child
       rm(sha_path(options, parent, child))
-      cache.reset(parent, child)
 
       if options[:recursive]
         visited = options[:visited] ||= []
