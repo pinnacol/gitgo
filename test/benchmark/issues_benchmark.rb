@@ -60,7 +60,8 @@ class IssuesBenchmark < Test::Unit::TestCase
         
         post.call(x) if post
         
-        io = IO.popen("du -sk #{repo.path}")
+        # check the non-disposable additions
+        io = IO.popen("du -sk #{repo.path('objects')}")
         io.read =~ /(\d+)/
         io.close
         size = $1
@@ -99,9 +100,7 @@ class IssuesBenchmark < Test::Unit::TestCase
         "secret" => 123,
         "commit" => "true")
         
-      unless last_response.redirect?
-        flunk last_response.body
-      end
+      assert last_response.redirect?
       now += 86400 # one day
     end
     
@@ -114,56 +113,35 @@ class IssuesBenchmark < Test::Unit::TestCase
     profile_test(:action => action, :post => gc)
   end
   
-  def test_parts_of_create
-    author = repo.author
-    date = Time.now
-    idx = app.prototype.idx
+  def test_index_speed
+    now = Time.now
     
-    m = 20
     n = 10
+    m = 20
     benchmark_test do |x|
-      totals = {}
-      previous = {}
+      total = 0
       (0...n).to_a.collect do |n|
-        min = n*m
-        max = min + m-1
-        splits = {}
-        x.report("#{min}-#{max}") do
-          min.upto(max) do |i|
-            issue = timer(:create, splits) { repo.create("content #{i}", {'author' => author, 'date' => date}) }
-            timer(:link, splits)   { repo.link(issue, issue, :dir => app::INDEX) }
-            timer(:update, splits) { idx.update(issue) }
-            timer(:commit, splits) { repo.commit!("added issue #{issue}") }
-            date += 8640
+        time = x.report("@#{n*m}") do
+          100.times do
+            get("/issue")
           end
+        end
+        assert last_response.ok?
+        
+        0.upto(m) do |i|
+          post("/issue", 
+            "doc[title]" => "issue #{n*m + i}", 
+            "doc[date]" => now.to_i,
+            "secret" => 123,
+            "commit" => "true")
+
+          assert last_response.redirect?
+          now += 86400 # one day
         end
         
-        splits.each_pair do |key, array|
-          sum = array.inject(0.0) {|sum, i| sum + i}
-          avg = sum/m
-          
-          delta = 0
-          if prior_sum = previous[key]
-            delta = sum - prior_sum
-          end
-          
-          sign = case
-          when delta > 0 then "+"
-          when delta < 0 then "-"
-          else " "
-          end
-          
-          previous[key] = sum
-          (totals[key] ||= []) << "  %03d-%03d: %.4fs (%.4f x/s) #{sign} %.4f" % [min, max, sum, avg, delta.abs]
-        end
-      end
-      
-      puts
-      totals.keys.sort_by do |key|
-        key.to_s
-      end.each do |key|
-        puts "#{key}"
-        puts totals[key].join("\n")
+        [n*m, time.total]
+      end.each do |total, split|
+        puts "@%.3d issues\t%.2fs\t%.2d index/s" % [total, split, m.to_f/split]
       end
     end
   end
