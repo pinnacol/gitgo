@@ -113,11 +113,77 @@ class IssuesBenchmark < Test::Unit::TestCase
     profile_test(:action => action, :post => gc)
   end
   
+  def test_update_speed
+    now = Time.now
+    post("/issue", 
+      "doc[title]" => "issue", 
+      "doc[date]" => now.to_i,
+      "secret" => 123,
+      "commit" => "true")
+    
+    assert last_response.redirect?
+    
+    id = File.basename(last_response['Location'])
+    now += 86400 # one day
+    
+    previous = id
+    action = lambda do |i|
+      put("/issue/#{id}", 
+        "content" => "comment #{i}",
+        "re[]" => previous,
+        "doc[date]" => now.to_i,
+        "secret" => 123,
+        "commit" => "true")
+      
+      assert last_response.redirect?, last_response.body
+      previous = File.basename(last_response['Location'])
+      now += 86400 # one day
+    end
+    
+    profile_test(:action => action)
+  end
+  
+  def test_update_speed_with_gc
+    now = Time.now
+    post("/issue", 
+      "doc[title]" => "issue", 
+      "doc[date]" => now.to_i,
+      "secret" => 123,
+      "commit" => "true")
+    
+    assert last_response.redirect?
+    
+    id = File.basename(last_response['Location'])
+    now += 86400 # one day
+    
+    previous = id
+    action = lambda do |i|
+      put("/issue/#{id}", 
+        "content" => "comment #{i}",
+        "re[]" => previous,
+        "doc[date]" => now.to_i,
+        "secret" => 123,
+        "commit" => "true")
+      
+      assert last_response.redirect?, last_response.body
+      previous = File.basename(last_response['Location'])
+      now += 86400 # one day
+    end
+    
+    gc = lambda do |x|
+      x.report("gc") do
+        repo.gc
+      end
+    end
+    
+    profile_test(:action => action, :post => gc)
+  end
+  
   def test_index_speed
     now = Time.now
     
     n = 10
-    m = 20
+    m = 10
     benchmark_test do |x|
       total = 0
       (0...n).to_a.collect do |n|
