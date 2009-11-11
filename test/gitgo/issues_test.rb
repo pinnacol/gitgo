@@ -19,8 +19,9 @@ class IssuesTest < Test::Unit::TestCase
   end
   
   # open an issue using a post, and return the sha of the new issue
-  def open_issue(title)
-    post("/issue", "doc[title]" => title)
+  def open_issue(title, attrs={})
+    attrs["doc[title]"] = title
+    post("/issue", attrs)
     last_response_location
   end
   
@@ -65,6 +66,42 @@ class IssuesTest < Test::Unit::TestCase
     
     assert last_response.body !~ /Issue A/
     assert last_response.body !~ /Issue B/
+    assert last_response.body =~ /Issue C/
+  end
+  
+  def test_index_filters_on_all_params
+    a = open_issue("Issue A", "doc[a]" => "one", "doc[b]" => "one")
+    b = open_issue("Issue B", "doc[a]" => "two", "doc[b]" => "two")
+    c = open_issue("Issue C", "doc[a]" => "one", "doc[b]" => "two")
+    
+    repo.commit "created fixture"
+    
+    get("/issue")
+    assert last_response.ok?
+    
+    assert last_response.body =~ /Issue A/
+    assert last_response.body =~ /Issue B/
+    assert last_response.body =~ /Issue C/
+    
+    get("/issue", "a" => "one")
+    assert last_response.ok?
+    
+    assert last_response.body =~ /Issue A/
+    assert last_response.body !~ /Issue B/
+    assert last_response.body =~ /Issue C/
+    
+    get("/issue", "a" => "one", "b" => "one")
+    assert last_response.ok?
+    
+    assert last_response.body =~ /Issue A/
+    assert last_response.body !~ /Issue B/
+    assert last_response.body !~ /Issue C/
+    
+    get("/issue", "a" => ["one", "two"], "b" => "two")
+    assert last_response.ok?
+    
+    assert last_response.body !~ /Issue A/
+    assert last_response.body =~ /Issue B/
     assert last_response.body =~ /Issue C/
   end
   

@@ -1,9 +1,8 @@
-<% unless comments.empty? %>
-  <dt class="comments">Comments</dt>
+<% unless comments.empty? %><dt class="comments">Comments</dt>
   <dd class="comments">
   <ul><% comments.each do |comment| %>
   <li>
-  <%= erb :_comment, :locals => {:doc => comment, :children => children}, :layout => false %>
-  </li>
-  </ul><% end %>
+<%= erb :_comment, :locals => {:doc => comment, :children => children}, :layout => false %>
+  </li><% end %>
+  </ul>
   </dd><% end %>

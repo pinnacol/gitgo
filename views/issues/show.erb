@@ -8,14 +8,7 @@
   <dd class="author"><%= doc.author %></dd>
   <dt class="date">Date</dt>
   <dd class="date"><abbr title="<%= doc.date.iso8601 %>"><%= doc.date.strftime('%Y/%m/%d %H:%M %p') %></abbr></dd>
-  <dt class="state">State</dt>
-  <dd class="state"><%= doc['state'] %></dd><% unless tags.empty? %>
-  <dt class="tags">Tags</dt>
-  <dd class="tags">
-    <ul class="tags"><% tags.each do |tag| %>
-    <li class="tag"><%= tag %></li><% end %>
-    </ul>
-  </dd><% end %><%= erb :_comments, :locals => {:comments => children[doc], :children => children}, :layout => false %>
+  <%= erb :_comments, :locals => {:comments => children[doc], :children => children}, :layout => false %>
   <dt class="update">Update Issue</dt>
   <dd class="update">
     <form class="update" action="/issue/<%= id %>" method="post">

@@ -144,6 +144,21 @@ module Gitgo
       Document.new(attributes.merge(attrs), content || self.content)
     end
     
+    def diff(parent)
+      
+      # {"added" => "value", :removed => "value"}
+      diff = attributes(false)
+      parent.attributes(false).each_pair do |key, value|
+        if diff.has_key?(key) 
+          diff.delete(key) if diff[key] == value
+        else
+          diff[key.to_sym] = value
+        end
+      end
+      
+      diff
+    end
+    
     # Serializes self into a string according to the document format.
     def to_s
       attributes = @attrs.merge(

@@ -1,19 +1,10 @@
-<div class="comment">
-  <dl class="description">
-  <dt class="desc">Comment</dt>
-  <dd class="desc">Comment on the issue</dd>
-  <dt class="author">Author</dt>
-  <dd class="author">John Doe</dd>
-  <dt class="email">Email</dt>
-  <dd class="email">john.doe@email.com</dd>
-  <dt class="date">Date</dt>
-  <dd class="date"><abbr title="Time.now.iso8601">Date Time</abbr></dd>
-  <dt class="state">State</dt>
-  <dd class="state">Closed</dd>
-  <dt class="comments">Comments</dt>
-  <dd class="comments">
-  <ul>
-  </ul>
-  </dd>
-  </dl>
-</div>
+    <dl class="comment">
+    <dt class="content">Comment</dt>
+    <dd class="content"><%= doc.content %></dd>
+    <dt class="author">Author</dt>
+    <dd class="author"><%= doc.author %></dd>
+    <dt class="date">Date</dt>
+    <dd class="date"><abbr title="<%= doc.date.iso8601 %>"><%= doc.date.strftime('%Y/%m/%d %H:%M %p') %></abbr></dd><% doc.attributes(false).each_pair do |key, value| %>
+    <dt><%= key %></dt>
+    <dd><%= value %></dd><% end %><%= erb :_comments, :locals => {:comments => children[doc], :children => children}, :layout => false %>
+    </dl>

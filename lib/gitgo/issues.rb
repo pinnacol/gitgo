@@ -7,7 +7,7 @@ module Gitgo
 
     get('/')       { index }
     get('/:id')    {|id| show(id) }
-    get('/:id/:comment')    {|id| show(id, comment) }
+    get('/:id/:comment') {|id, comment| show(id, comment) }
     post('/')      { create }
     post('/:id') do |id|
       _method = request[:_method]
@@ -28,10 +28,25 @@ module Gitgo
     def index
       issues = self.issues
       
-      if state = request['state']
-        docs_in_state = repo.index("state", state)
+      filters = []
+      request.params.each_pair do |key, values|
+        values = [values] unless values.kind_of?(Array)
+        
+        filter = []
+        values.each do |value|
+          filter.concat repo.index(key, value)
+        end
+        filters << filter
+      end
+      
+      unless filters.empty?
         issues.delete_if do |issue|
-          (opinions(issue) & docs_in_state).empty?
+          selected = opinions(issue)
+          filters.each do |filter|
+            selected = selected & filter
+          end
+          
+          selected.empty?
         end
       end
       
@@ -39,7 +54,7 @@ module Gitgo
       
       erb :index, :locals => {
         :issues => issues,
-        :current_state => state
+        :current_state => request[:state]
       }
     end
     
@@ -85,6 +100,8 @@ module Gitgo
         raise "unknown issue: #{issue.inspect}"
       end
       
+      # note the comment is always in regards to the issue internally, but it
+      # will be linked to comments as specified by the REGARDING parameter
       comment = repo.create(content, inherit(doc, 'type' => 'comment', 're' => issue))
 
       # link the comment to each parent and update the index
