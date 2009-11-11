@@ -1,5 +1,4 @@
 require 'gitgo/controller'
-require 'gitgo/index'
 
 module Gitgo
   class Issues < Controller
