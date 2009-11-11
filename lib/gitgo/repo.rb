@@ -457,6 +457,10 @@ module Gitgo
         []
       end
     end
+    
+    def list(key)
+      Dir.glob(index_path(key, "*"))
+    end
 
     # Gets the document indicated by id, or nil if no such document exists.
     def read(id)
@@ -778,12 +782,12 @@ module Gitgo
         values = [values] unless values.kind_of?(Array)
         
         values.each do |value|
-          yield(index_path(key, value))  if value
+          yield(index_path(key, value))  unless value.to_s.empty?
         end
       end
       
       email = doc.author.email
-      yield(index_path('author', email)) if email
+      yield(index_path('author', email)) unless email.to_s.empty?
       yield(index_log)
     end
   end

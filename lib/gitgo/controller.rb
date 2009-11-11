@@ -132,7 +132,7 @@ module Gitgo
     end
     
     # Returns a hash of document attributes specified in the request.
-    def attrs
+    def attrs(overrides=nil)
       attrs = request[ATTRIBUTES] || {}
       
       if admin?
@@ -143,6 +143,7 @@ module Gitgo
         attrs['date'] = Time.now
       end
       
+      attrs.merge!(overrides) if overrides
       attrs
     end
     
@@ -152,6 +153,15 @@ module Gitgo
     
     def session
       request ? request.env['rack.session'] : nil
+    end
+    
+    # A self-filling per-request cache of documents that ensures a document will
+    # only be read once within a given request.  Use like:
+    #
+    #   doc = docs[id]
+    #
+    def docs
+      @docs ||= Hash.new {|hash, id| hash[id] = repo.read(id) }
     end
     
     # Renders template as erb, then formats using RedCloth.

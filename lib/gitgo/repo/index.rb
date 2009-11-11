@@ -11,7 +11,7 @@ module Gitgo
         # is given the index is yielded to it and closed afterwards; in this
         # case the return of open is the block result.
         def open(path, mode="r")
-          idx = new File.open(path, mode)
+          idx = new(File.open(path, mode))
           
           return idx unless block_given?
 

@@ -8,6 +8,7 @@ module Gitgo
 
     get('/')       { index }
     get('/:id')    {|id| show(id) }
+    get('/:id/:comment')    {|id| show(id, comment) }
     post('/')      { create }
     post('/:id') do |id|
       _method = request[:_method]
@@ -27,14 +28,16 @@ module Gitgo
     STATES = %w{open closed}
     
     def index
-      state = request['state']
-      issues = idx.query(state) do
-        idx.select_keys do |id|
-          state.nil? || docs[id]['state'] == state
-        end.collect do |id|
-          docs[id]
+      issues = self.issues
+      
+      if state = request['state']
+        docs_in_state = repo.index("state", state)
+        issues.delete_if do |issue|
+          (opinions(issue) & docs_in_state).empty?
         end
       end
+      
+      issues.collect! {|sha| docs[sha] }
       
       erb :index, :locals => {
         :issues => issues,
@@ -43,9 +46,7 @@ module Gitgo
     end
     
     def create
-      issue = repo.create(content, attrs.merge!('state' => 'open'))
-      repo.link(issue, issue, :dir => INDEX)
-      idx.update(issue)
+      issue = repo.create(content, attrs('type' => 'issue', 'state' => 'open'))
       
       # if specified, link the issue to an object (should be a commit)
       if commit = at_commit
@@ -56,24 +57,27 @@ module Gitgo
       redirect url(issue)
     end
     
-    def show(issue)
-      children = {}
-      active = idx[issue]
+    def show(issue, comment=nil)
+      unless docs[issue]
+        raise "unknown issue: #{issue.inspect}"
+      end
       
       # get children and resolve to docs
-      repo.children(issue, :recursive => true).each_key do |id|
+      trace = {}
+      children(issue).each_key do |id|
         doc = docs[id]
-        doc[:active] = active.include?(doc)
+        doc[:active] ||= active?(doc)
       end.each_pair do |parent_id, child_ids|
         parent_doc = docs[parent_id]
         child_docs = child_ids.collect {|id| docs[id] }
-        children[parent_doc] = child_docs
+        trace[parent_doc] = child_docs
       end
       
       erb :show, :locals => {
         :id => issue,
         :doc => docs[issue],
-        :children => children
+        :children => trace,
+        :comment => comment
       }
     end
     
@@ -83,50 +87,23 @@ module Gitgo
         raise "unknown issue: #{issue.inspect}"
       end
       
-      comment = repo.create(content, inherit(doc))
-      repo.link(issue, comment, :dir => INDEX)
-      idx.update(issue)
-      
+      doc = inherit(doc, 'type' => 'comment')
+
+      comment = repo.create(content, doc)
+
       # link the comment to each parent and update the index
       parents = request[REGARDING] || [issue]
       parents = [parents] unless parents.kind_of?(Array)
-      
-      parents.each do |parent|
-        repo.unlink(issue, parent, :dir => INDEX)
-        repo.link(parent, comment)
-      end
+      parents.each {|parent| repo.link(parent, comment) }
       
       # if specified, link the issue to an object (should be a commit)
       if commit = at_commit
         repo.link(commit, comment, :ref => issue)
       end
       
+      repo.cache.reset(issue)
       repo.commit!("updated issue #{issue}") if commit?
-      redirect url(issue)
-    end
-    
-    def destroy(issue)
-      # repo.children(issue, :recursive => true)
-      #   repo.unlink(parent, child, :recursive => recursive?)
-      # end
-      # 
-      # if doc = repo.destroy(issue)
-      #   repo.commit("removed document: #{child}") if commit?
-      # end
-      # 
-      # redirect(request['redirect'] || url)
-      # 
-      # doc = repo.read(issue)
-      # comment = repo.create(request[CONTENT], inherit(doc))
-      # 
-      # # if re is specified, link the comment to the object (should be a commit)
-      # # as an update to the issue... ie using a blob that points to the issue.
-      # if commit = request[REGARDING]
-      #   repo.link(commit, comment, :as => issue)
-      # end
-      # 
-      # repo.commit("updated issue #{issue}") if commit?
-      # redirect url(issue)
+      redirect url("#{issue}/#{comment}")
     end
     
     #
@@ -140,57 +117,49 @@ module Gitgo
     
     # Same as attrs, but ensures each of the INHERIT attributes is inherited
     # from doc if it is not specified in the request.
-    def inherit(doc)
-      base = attrs
+    def inherit(doc, overrides=nil)
+      base = attrs(overrides)
       INHERIT.each {|key| base[key] ||= doc[key] }
       base
-    end
-    
-    # A self-filling per-request cache of documents that ensures a document will
-    # only be read once within a given request.  Use like:
-    #
-    #   doc = docs[id]
-    #
-    def docs
-      @docs ||= Hash.new {|hash, id| hash[id] = repo.read(id) }
-    end
-    
-    def idx
-      @idx ||= begin
-        idx = Index.new do |issue|
-          repo.children(issue, :dir => INDEX)
-        end
-        
-        # tree = repo.tree[INDEX]
-        # tree.each_tree do |ab, ab_tree|
-        #   ab_tree.each_tree do |xyz, xyz_tree|
-        #     idx.update "#{ab}#{xyz}"
-        #   end
-        # end if tree
-        
-        idx
-      end
-    end
-    
-    def issues
-      idx.keys
     end
     
     def refs
       grit.refs
     end
     
-    def states
-      idx.query(:states) do
-        doc_states = idx.collect {|id| docs[id]['state'] }.compact
-        (STATES + doc_states).uniq.sort
+    # Returns an array of children for the issue
+    def children(issue)
+      repo.query(issue, :children) do
+        repo.children(issue, :recursive => true)
       end
     end
     
-    def tags
-      idx.query(:tags) do
-        idx.collect {|id| docs[id]['tags'] }.compact.flatten.uniq.sort
+    def opinions(issue)
+      repo.query(issue, :opinions) do
+        children = self.children(issue)
+        children.keys.select do |key|
+          children[key].empty?
+        end
       end
+    end
+    
+    def active?(doc)
+      true  # for now...
+    end
+    
+    # Returns an array of issues
+    def issues
+      repo.index("type", "issue")
+    end
+    
+    # Returns an array of states currently in use
+    def states
+      (STATES + repo.list("states")).uniq
+    end
+    
+    # Returns an array of tags currently in use
+    def tags
+      repo.list("tags")
     end
   end
 end

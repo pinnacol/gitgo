@@ -30,7 +30,8 @@ class IssuesTest < Test::Unit::TestCase
   end
   
   def last_response_location
-    File.basename(last_response["Location"])
+    last_response["Location"] =~ /\/(.{40})(?:\/(.{40}))?\z/
+    $2 ? [$1, $2] : $1
   end
   
   #
@@ -81,8 +82,7 @@ class IssuesTest < Test::Unit::TestCase
     assert_equal "New Issue", issue['title']
     assert_equal "Issue Description", issue.content
     assert_equal app.author.email, issue.author.email
-    assert_equal [id], repo.children(id, :dir => app::INDEX)
-    
+     
     assert_equal "/issue/#{id}", last_response['Location']
   end
   
@@ -102,40 +102,38 @@ class IssuesTest < Test::Unit::TestCase
   #
   
   def test_put_creates_a_comment_on_an_issue
-    issue = repo.create("New Issue")
-    repo.link(issue, issue, :dir => app::INDEX).commit("created fixture")
-    assert_equal [issue], repo.children(issue, :dir => app::INDEX)
+    issue = open_issue("Issue A")
+    assert_equal [], repo.children(issue)
     
     put("/issue/#{issue}", "content" => "Comment on the Issue", "commit" => "true")
     assert last_response.redirect?, last_response.body
-    assert_equal "/issue/#{issue}", last_response['Location']
+    id, comment = last_response_location
     
-    id = repo.activity(app.author).first
-    comment = repo.read(id)
+    assert_equal issue, id
+    assert_equal [comment], repo.children(issue)
     
+    comment = repo.read(comment)
     assert_equal "Comment on the Issue", comment.content
     assert_equal app.author.email, comment.author.email
-    assert_equal [id], repo.children(issue)
-    assert_equal [id], repo.children(issue, :dir => app::INDEX)
   end
   
   def test_put_links_comment_to_re
-    issue = repo.create("New Issue")
+    issue = open_issue("Issue A")
     a = repo.create("Comment A")
     
-    repo.link(issue, a, :dir => app::INDEX).commit("created fixture")
-    assert_equal [a], repo.children(issue, :dir => app::INDEX)
+    assert_equal [], repo.children(issue)
+    assert_equal [], repo.children(a)
     
     put("/issue/#{issue}", "content" => "Comment on A", "re" => a, "commit" => "true")
     assert last_response.redirect?, last_response.body
+    id, comment = last_response_location
     
-    id = repo.activity(app.author).first
-    comment = repo.read(id)
-    
-    assert_equal "Comment on A", comment.content
+    assert_equal issue, id
     assert_equal [], repo.children(issue)
-    assert_equal [id], repo.children(a)
-    assert_equal [id], repo.children(issue, :dir => app::INDEX)
+    assert_equal [comment], repo.children(a)
+    
+    comment = repo.read(comment)
+    assert_equal "Comment on A", comment.content
   end
   
   def test_put_links_comment_to_multiple_re
@@ -143,21 +141,21 @@ class IssuesTest < Test::Unit::TestCase
     a = repo.create("Comment A")
     b = repo.create("Comment B")
     
-    repo.link(issue, a, :dir => app::INDEX)
-    repo.link(issue, b, :dir => app::INDEX).commit("created fixture")
-    assert_equal [a, b].sort, repo.children(issue, :dir => app::INDEX).sort
+    assert_equal [], repo.children(issue)
+    assert_equal [], repo.children(a)
+    assert_equal [], repo.children(a)
     
     put("/issue/#{issue}", "content" => "Comment on A and B", "re" => [a, b], "commit" => "true")
     assert last_response.redirect?, last_response.body
+    id, comment = last_response_location
     
-    id = repo.activity(app.author).first
-    comment = repo.read(id)
-    
-    assert_equal "Comment on A and B", comment.content
+    assert_equal issue, id
     assert_equal [], repo.children(issue)
-    assert_equal [id], repo.children(a)
-    assert_equal [id], repo.children(b)
-    assert_equal [id], repo.children(issue, :dir => app::INDEX)
+    assert_equal [comment], repo.children(a)
+    assert_equal [comment], repo.children(b)
+    
+    comment = repo.read(comment)
+    assert_equal "Comment on A and B", comment.content
   end
   
   def test_put_links_comment_at_commit_referencing_issue
@@ -166,8 +164,9 @@ class IssuesTest < Test::Unit::TestCase
     
     put("/issue/#{issue}", "at" => commit, "commit" => "true")
     assert last_response.redirect?, last_response.body
+    id, comment = last_response_location
     
-    comment = repo.activity(app.author).first
+    assert_equal issue, id
     assert_equal [comment], repo.children(commit)
     assert_equal issue, repo.ref(commit, comment)
   end
