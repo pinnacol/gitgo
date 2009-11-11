@@ -28,14 +28,17 @@ module Gitgo
     def index
       issues = self.issues
       
-      filters = []
+      criteria = {}
       request.params.each_pair do |key, values|
-        values = [values] unless values.kind_of?(Array)
+        criteria[key] = values.kind_of?(Array) ? values : [values]
+      end
+      
+      filters = []
+      criteria.each_pair do |key, values|
+        filter = values.collect do |value|
+          repo.index(key, value)
+        end.flatten
         
-        filter = []
-        values.each do |value|
-          filter.concat repo.index(key, value)
-        end
         filters << filter
       end
       
@@ -54,7 +57,7 @@ module Gitgo
       
       erb :index, :locals => {
         :issues => issues,
-        :current_state => request[:state]
+        :criteria => criteria
       }
     end
     

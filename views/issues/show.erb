@@ -12,7 +12,8 @@
   <dt class="update">Update Issue</dt>
   <dd class="update">
     <form class="update" action="/issue/<%= id %>" method="post">
-      <input type="hidden" name="_method" value="update" />
+      <input type="hidden" name="_method" value="update" /><% children.each_pair do |doc, values| %><% next unless values.empty? %>
+      <input type="hidden" name="re[]" value="<%= doc.sha %>" /><% end %>
       
       <dl class="form">
       <dt><label for="content">Comment</label></dt>

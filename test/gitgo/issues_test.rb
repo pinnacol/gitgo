@@ -154,6 +154,23 @@ class IssuesTest < Test::Unit::TestCase
     assert_equal app.author.email, comment.author.email
   end
   
+  def test_put_can_close_an_issue
+    issue = open_issue("Issue A")
+    repo.commit "created fixture"
+    
+    get("/issue")
+    assert last_response.body =~ /Issue A/
+    
+    put("/issue/#{issue}", "doc[state]" => "closed", "commit" => "true")
+    assert last_response.redirect?
+    
+    get("/issue", "state" => "open")
+    assert last_response.body !~ /Issue A/
+    
+    get("/issue", "state" => "closed")
+    assert last_response.body =~ /Issue A/
+  end
+  
   def test_put_links_comment_to_re
     issue = open_issue("Issue A")
     a = repo.create("Comment A")

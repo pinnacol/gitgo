@@ -1,9 +1,14 @@
-<h1><%= current_state ? current_state.capitalize : '' %> Issues</h1>
+<h1>Issues</h1>
+
 <ul class="issuenav"><% states.each do |state| %>
 <li><a href="issue?state=<%= state %>"><%= state %></a></li><% end %>
 </ul>
 
-<% if issues.empty? %><em>None!</em><% end %>
+<dl class="criteria"><% criteria.keys.sort.each do |key| %>
+  <dt><%= key %></dt>
+  <dd><%= criteria[key].join(',') %></dd><% end %>
+</dl>
+
 <div class="issues">
   <ul class="issues"><% issues.each do |doc| %>
   <li><%= issue_link(doc) %></li><% end %>
@@ -30,3 +35,4 @@
   <dd></dd>
   </dl>
 </form>
+
