@@ -426,6 +426,20 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [], repo["2009/0909"]
   end
   
+  def test_destroy_resets_cache_for_destroyed_document
+    date = Time.local(2009, 9, 9)
+    id = repo.create("content", 'date' => date)
+    repo.commit("added a new doc")
+    
+    repo.query(id, :key) { "value" }
+    assert_equal "value", repo.query(id, :key) { "alt" }
+    
+    repo.destroy(id)
+    repo.commit("removed the new doc")
+    
+    assert_equal "alt", repo.query(id, :key) { "alt" }
+  end
+  
   #
   # each test
   #
@@ -506,6 +520,22 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "", repo["path/to/dir/#{a[0,2]}/#{a[2,38]}/#{b}"]
   end
 
+  def test_link_resets_cache_for_parent_and_child
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    
+    repo.query(a, :key) { "a" }
+    repo.query(b, :key) { "b" }
+    
+    assert_equal "a", repo.query(a, :key) { "alt" }
+    assert_equal "b", repo.query(b, :key) { "alt" }
+    
+    repo.link(a, b)
+    
+    assert_equal "alt", repo.query(a, :key) { "alt" }
+    assert_equal "alt", repo.query(b, :key) { "alt" }
+  end
+  
   #
   # ref test
   #
@@ -745,5 +775,22 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [], repo.children(a)
     assert_equal [], repo.children(b)
     assert_equal [], repo.children(c)
+  end
+  
+  def test_unlink_resets_cache_for_parent_and_child
+    a = repo.set("blob", "A")
+    b = repo.set("blob", "B")
+    repo.link(a, b)
+    
+    repo.query(a, :key) { "a" }
+    repo.query(b, :key) { "b" }
+    
+    assert_equal "a", repo.query(a, :key) { "alt" }
+    assert_equal "b", repo.query(b, :key) { "alt" }
+    
+    repo.unlink(a, b)
+    
+    assert_equal "alt", repo.query(a, :key) { "alt" }
+    assert_equal "alt", repo.query(b, :key) { "alt" }
   end
 end

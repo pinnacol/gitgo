@@ -509,7 +509,11 @@ module Gitgo
 
       doc
     end
-
+    
+    def query(sha, key)
+      cache.entries(sha)[key] ||= yield
+    end
+    
     # Yields each document in the repo, ordered by date (with day resolution).
     def each
       years = self[[]] || []

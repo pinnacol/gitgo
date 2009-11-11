@@ -18,10 +18,6 @@ module Gitgo
         entries(sha)[key] = value
       end
       
-      def query(sha, key)
-        entries(sha)[key] ||= yield
-      end
-      
       def reset(*shas)
         shas.each do |sha|
           @store.delete(sha)
