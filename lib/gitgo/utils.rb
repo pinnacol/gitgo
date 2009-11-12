@@ -87,6 +87,7 @@ module Gitgo
     end
     
     def collapse(array, result=[])
+      array = array.dup
       result << array.shift
       
       if array.length == 1

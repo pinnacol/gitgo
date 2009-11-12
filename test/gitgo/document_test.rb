@@ -139,6 +139,9 @@ content
   end
   
   def test_ASET_sets_array_tags_directly
+    doc['tags'] =  []
+    assert_equal nil, doc["tags"]
+    
     doc['tags'] =  [""]
     assert_equal [""], doc["tags"]
     
@@ -148,7 +151,7 @@ content
   
   def test_ASET_parses_tags_from_string_as_shellwords
     doc['tags'] =  ""
-    assert_equal [], doc["tags"]
+    assert_equal nil, doc["tags"]
     
     doc['tags'] =  "a"
     assert_equal ["a"], doc["tags"]

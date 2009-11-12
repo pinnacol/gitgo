@@ -74,26 +74,33 @@ module Gitgo
     end
     
     def show(issue, comment=nil)
-      unless docs[issue]
+      unless issue_doc = docs[issue]
         raise "unknown issue: #{issue.inspect}"
       end
       
       # get children and resolve to docs
-      trace = {}
+      ancestry = {}
+      tails = []
       children(issue).each_key do |id|
         doc = docs[id]
         doc[:active] ||= active?(doc)
       end.each_pair do |parent_id, child_ids|
         parent_doc = docs[parent_id]
-        child_docs = child_ids.collect {|id| docs[id] }
-        trace[parent_doc] = child_docs
+        child_docs = child_ids.collect {|id| docs[id] }.sort_by {|doc| doc.date }
+        ancestry[parent_doc] = child_docs
+        tails << parent_doc if child_docs.empty?
       end
+      
+      comments = flatten(ancestry)[issue_doc]
+      comments = collapse(comments)
+      comments.shift
       
       erb :show, :locals => {
         :id => issue,
-        :doc => docs[issue],
-        :children => trace,
-        :comment => comment
+        :doc => issue_doc,
+        :comments => comments,
+        :tails => tails,
+        :selected => comment
       }
     end
     

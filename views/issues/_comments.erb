@@ -1,8 +1,8 @@
-<% unless comments.empty? %><dt class="comments">Comments</dt>
-  <dd class="comments">
-  <ul><% comments.each do |comment| %>
+  <ul><% comments.each do |comment| %><% if comment.kind_of?(Array) %>
   <li>
-<%= erb :_comment, :locals => {:doc => comment, :children => children}, :layout => false %>
-  </li><% end %>
+<%= erb :_comments, :locals => {:parent => parent, :comments => comment }, :layout => false %>
+  </li><% else %>
+  <li>
+<%= erb :_comment, :locals => {:parent => parent, :comment => comment }, :layout => false %>
+  </li><% parent = comment %><% end %><% end %>
   </ul>
-  </dd><% end %>

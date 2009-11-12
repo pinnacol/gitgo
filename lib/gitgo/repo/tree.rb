@@ -133,11 +133,14 @@ module Gitgo
         @sha = nil
       end
       
-      # Yields each (path, entry) pair to the block.  Entries can be
-      # [:mode,sha] arrays or Trees.  If expand is true then subtrees will be
-      # expanded, but strongly consider whether or not expansion is necessary
-      # because it is computationally expensive.
+      # Yields each (path, entry) pair to the block, ordered by path.  Entries
+      # can be [:mode,sha] arrays or Trees.  If expand is true then subtrees
+      # will be expanded, but strongly consider whether or not expansion is
+      # necessary because it is computationally expensive.
       def each_pair(expand=false)
+        
+        # sorting the keys is important when writing the tree;
+        # unsorted keys cause warnings in git fsck
         keys = index.keys.sort_by {|key| key.to_s }
         store = expand ? self : index
         

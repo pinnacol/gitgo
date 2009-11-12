@@ -114,7 +114,11 @@ module Gitgo
       else value
       end
       
-      attributes[key] = value
+      if value.nil?
+        attributes.delete(key)
+      else
+        attributes[key] = value
+      end
     end
     
     # Returns the author as set in attributes.
@@ -224,14 +228,11 @@ module Gitgo
     
     # helper to parse/validate tags
     def parse_tags(tags) # :nodoc:
-      case tags
-      when String
-        Shellwords.shellwords(tags)
-      when Array
-        tags
-      else
-        []
+      unless tags.kind_of?(Array)
+        tags = Shellwords.shellwords(tags.to_s)
       end
+      
+      tags.empty? ? nil : tags
     end
     
     # returns an array of indexed attribute keys

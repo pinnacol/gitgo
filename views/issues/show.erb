@@ -8,12 +8,15 @@
   <dd class="author"><%= doc.author %></dd>
   <dt class="date">Date</dt>
   <dd class="date"><abbr title="<%= doc.date.iso8601 %>"><%= doc.date.strftime('%Y/%m/%d %H:%M %p') %></abbr></dd>
-  <%= erb :_comments, :locals => {:comments => children[doc], :children => children}, :layout => false %>
+  <dt class="comments">Comments</dt>
+  <dd class="comments">
+<%= erb :_comments, :locals => {:parent => doc, :comments => comments}, :layout => false %>
+  </dd>
   <dt class="update">Update Issue</dt>
   <dd class="update">
     <form class="update" action="/issue/<%= id %>" method="post">
-      <input type="hidden" name="_method" value="update" /><% children.each_pair do |doc, values| %><% next unless values.empty? %>
-      <input type="hidden" name="re[]" value="<%= doc.sha %>" /><% end %>
+      <input type="hidden" name="_method" value="update" /><% tails.each do |tail| %>
+      <input type="hidden" name="re[]" value="<%= tail.sha %>" /><% end %>
       
       <dl class="form">
       <dt><label for="content">Comment</label></dt>
