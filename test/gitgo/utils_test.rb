@@ -3,14 +3,7 @@ require 'gitgo/utils'
 
 class UtilsTest < Test::Unit::TestCase
   include Gitgo::Utils
-  include RepoTestHelper
-  
-  attr_accessor :repo
-  
-  def setup_repo(repo)
-    @repo = Gitgo::Repo.new super(repo)
-  end
-  
+
   #
   # path_links test
   #
@@ -26,5 +19,52 @@ class UtilsTest < Test::Unit::TestCase
     assert_equal [
       "<a href=\"/tree/id\">id</a>"
     ], path_links("id", "")
+  end
+  
+  #
+  # flatten test
+  #
+  
+  def test_flatten_flattens_an_ancestry
+    hash = {
+      "a" => ["b"],
+      "b" => ["c"],
+      "c" => ["d"],
+      "d" => ["e"],
+      "e" => []
+    }
+    
+    assert_equal({
+      "a" => ["a", ["b", ["c", ["d", ["e"]]]]],
+      "b" => ["b", ["c", ["d", ["e"]]]],
+      "c" => ["c", ["d", ["e"]]],
+      "d" => ["d", ["e"]],
+      "e" => ["e"]
+    }, flatten(hash))
+    
+    hash = {
+      "a" => ["b"],
+      "b" => ["c", "d"],
+      "c" => ["d"],
+      "d" => ["e"],
+      "e" => []
+    }
+    
+    assert_equal({
+      "a" => ["a", ["b", ["c", ["d", ["e"]]], ["d", ["e"]]]],
+      "b" => ["b", ["c", ["d", ["e"]]], ["d", ["e"]]],
+      "c" => ["c", ["d", ["e"]]],
+      "d" => ["d", ["e"]],
+      "e" => ["e"]
+    }, flatten(hash))
+  end
+  
+  #
+  # collapse test
+  #
+  
+  def test_collapse_collapses_single_decendents_into_parent
+    assert_equal ["a", "b", "c", "d", "e"], collapse(["a", ["b", ["c", ["d", ["e"]]]]])
+    assert_equal ["a", "b", ["c", "d", "e"], ["d", "e"]], collapse(["a", ["b", ["c", ["d", ["e"]]], ["d", ["e"]]]])
   end
 end
