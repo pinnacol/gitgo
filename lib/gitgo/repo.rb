@@ -127,10 +127,13 @@ module Gitgo
     include Enumerable
     
     DEFAULT_BRANCH = 'gitgo'
-    WORK_TREE = 'gitgo'
-
+    WORK_TREE = 'gitgo/db'
+    INDEX_DIR = 'gitgo/local'
+    INDEX_LOG = 'gitgo/log'
+    INDEX_FILE = 'gitgo/index'
+    
     DEFAULT_BLOB_MODE = :"100644"
-    DEFAULT_TREE_MODE = :"040000"
+    DEFAULT_TREE_MODE = :"40000"
 
     YEAR = /\A\d{4,}\z/
     MMDD = /\A\d{4}\z/
@@ -172,11 +175,11 @@ module Gitgo
     end
     
     def index_path(*paths)
-      File.join(grit.path, WORK_TREE, "idx", *paths)
+      File.join(grit.path, INDEX_DIR, *paths)
     end
     
     def work_path(*paths)
-      File.join(grit.path, WORK_TREE, "db", *paths)
+      File.join(grit.path, WORK_TREE, *paths)
     end
     
     # Returns the configured author (which should be a Grit::Actor, or similar).
@@ -302,7 +305,7 @@ module Gitgo
     # Commits the current tree to branch with the specified message.  The
     # branch is created if it doesn't already exist.
     def commit!(message, options={})
-      mode, id = write_tree(tree)
+      mode, tree_id = write_tree(tree)
       now = Time.now
       parent = self.current
       author = options[:author] || self.author
@@ -323,7 +326,7 @@ module Gitgo
       # Note there is a trailing newline after the message.
       #
       lines = []
-      lines << "tree #{id}"
+      lines << "tree #{tree_id}"
       lines << "parent #{parent.id}" if parent
       lines << "author #{author.name} <#{author.email}> #{authored_date.strftime("%s %z")}"
       lines << "committer #{committer.name} <#{committer.email}> #{committed_date.strftime("%s %z")}"
@@ -332,7 +335,8 @@ module Gitgo
       lines << ""
 
       id = set(:commit, lines.join("\n"))
-      File.open(path("refs/heads/#{branch}"), "w") {|io| io << id }
+      File.open(path("refs/heads/#{branch}"), "w") {|io| io << "#{id}\n" }
+      sh("git read-tree --index-output='#{path(INDEX_FILE)}' #{tree_id}")
       id
     end
     
@@ -366,15 +370,17 @@ module Gitgo
 
     # Sets the current branch and updates index.  Checkout will also
     # checkout self into the directory specified by path, if specified.
-    def checkout(branch, path=nil, options={})
+    def checkout(branch=nil, path=nil, options={})
+      branch ||= @branch
+      
+      if branch != @branch
+         @branch = branch
+         reset
+       end
+       
       if path
         FileUtils.mkdir_p(path) unless File.exists?(path)
-        grit.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', options, @branch)
-      end
-      
-      if branch && branch != @branch
-        @branch = branch
-        reset
+        grit.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', options, [branch])
       end
     end
 
@@ -413,6 +419,10 @@ module Gitgo
       # GitRuby#file_index and GitRuby#ruby_git ?
       @grit = Grit::Repo.new(path, :is_bare => grit.bare)
       reset
+    end
+    
+    def fsck
+      sh("git fsck")
     end
     
     #########################################################################
@@ -676,17 +686,38 @@ module Gitgo
     end
     
     protected
-
+    
+    def sh(cmd)
+      env = {'GIT_DIR' => grit.path, 'GIT_INDEX_FILE' => path(INDEX_FILE) }
+      overrides = {}
+      
+      begin
+        env.each_pair do |key, value|
+          overrides[key] = ENV.has_key?(key) ? ENV[key] : nil
+          ENV[key] = value
+        end
+        
+        grit.git.sh(cmd)
+      ensure
+        overrides.each_pair do |key, value|
+          if value
+            ENV[key] = value
+          else
+            ENV.delete(key)
+          end
+        end
+      end
+    end
+    
     # executes the git command in the working tree
     def git(cmd, *args) # :nodoc:
       work_path = self.work_path
       checkout(nil, work_path) unless File.exists?(work_path)
 
       # chdir + setting the work tree may seem redundant, but it's not in the
-      # case of a bare gritsitory because:
-      # * some operations need to be done in the work tree
-      # * git will guess the parent dir of the grit if no work tree is set
-      #
+      # case of a bare repository because some operations need to be done in
+      # the work tree (hence chdir) and git will guess the parent dir of the
+      # grit if no work tree is set (hence GIT_WORK_TREE)
       Dir.chdir(work_path) do
         options = args.last.kind_of?(Hash) ? args.pop : {}
         grit.git.run("GIT_WORK_TREE='#{work_path}' ", cmd, '', options, args)
@@ -749,8 +780,18 @@ module Gitgo
           when Array then entry
           else [entry.mode, entry.id]
           end
-
-          lines << "#{mode} #{key}\0#{[id].pack("H*")}"
+          
+          line = "#{mode} #{key}\0#{[id].pack("H*")}"
+          
+          # modes should not begin with zeros (although it is not fatal
+          # if they do), otherwise fsck will print warnings like this:
+          #
+          # warning in tree 980127...: contains zero-padded file modes
+          if line =~ /\A0+(.*)\z/
+            line = $1
+          end
+          
+          lines << line
         end
         
         set(:tree, lines.join)
@@ -760,7 +801,7 @@ module Gitgo
     end
     
     def index_log # :nodoc:
-      path("index")
+      path(INDEX_LOG)
     end
     
     def each_index(doc) # :nodoc:

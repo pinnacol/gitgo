@@ -138,11 +138,10 @@ module Gitgo
       # expanded, but strongly consider whether or not expansion is necessary
       # because it is computationally expensive.
       def each_pair(expand=false)
-        if expand
-          keys.each {|key| yield(key, self[key]) }
-        else
-          index.each_pair {|key, value| yield(key, value) }
-        end
+        keys = index.keys.sort_by {|key| key.to_s }
+        store = expand ? self : index
+        
+        keys.each {|key| yield(key, store[key]) }
       end
       
       # Yields the (path, [:mode, sha]) pairs for each blob to the block.

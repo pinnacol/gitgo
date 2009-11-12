@@ -746,4 +746,25 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [], repo.children(b)
     assert_equal [], repo.children(c)
   end
+  
+  #
+  # integrity tests
+  #
+  
+  def test_repo_is_ok_after_create_link_and_commit
+    @repo = Repo.init(method_root[:tmp])
+    
+    a = repo.create("new content a")
+    b = repo.create("new content b")
+    c = repo.create("new content c")
+    
+    repo.link(a,b).link(b,c)
+    repo.commit("new commit")
+    
+    # the error output is normal since master is in fact unborn
+    stdout, stderr = repo.fsck
+    assert_equal "", stdout
+    assert_equal "notice: HEAD points to an unborn branch (master)\n", stderr
+  end
+  
 end
