@@ -3,6 +3,7 @@ require 'gitgo/document'
 require 'gitgo/patches/grit'
 require 'gitgo/repo/tree'
 require 'gitgo/repo/index'
+require 'gitgo/repo/utils'
 
 module Gitgo
   
@@ -125,13 +126,21 @@ module Gitgo
       end
     end
     include Enumerable
+    include Utils
     
+    # The default branch for storing Gitgo objects.
     DEFAULT_BRANCH = 'gitgo'
-    WORK_TREE = 'gitgo/db'
-    INDEX_FILE = 'gitgo/index'
+    
+    # The work tree for the repo -- this is the directory where gitgo objects
+    # are checked out during operations that need a working directory.  See
+    # checkout.
+    WORK_TREE = 'gitgo/work_tree'
+    
+    # The index file for the repo work tree.  See checkout.
+    INDEX_FILE = 'gitgo/index_file'
     
     INDEX_DIR = 'gitgo/idx'
-    INDEX_LOG = 'gitgo/log'
+    INDEX_ALL = 'gitgo/all'
     
     DEFAULT_BLOB_MODE = :"100644"
     DEFAULT_TREE_MODE = :"40000"
@@ -147,7 +156,7 @@ module Gitgo
 
     # The in-memory working tree tracking any adds and removes.
     attr_reader :tree
-
+    
     # Initializes a new Git for the repo at the specified path.
     # Raises an error if no such repo exists.  Options can specify the
     # following:
@@ -159,6 +168,11 @@ module Gitgo
     def initialize(path=Dir.pwd, options={})
       @grit = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
       @branch = options[:branch] || DEFAULT_BRANCH
+      
+      @work_tree = path(WORK_TREE).freeze
+      @index_file = path(INDEX_FILE).freeze
+      @index_all = path(INDEX_ALL).freeze
+      
       self.author = options[:author]
       reset
     end
@@ -364,40 +378,53 @@ module Gitgo
       diff
     end
 
-    # Sets the current branch and updates index.  Checkout will also
-    # checkout self into the directory specified by path, if specified.
-    def checkout(branch=self.branch)
+    # Sets the current branch and updates tree.  Checkout does not actually
+    # checkout any files unless a block is given.  In that case, the current
+    # branch will be checked out for the duration of the block into a
+    # gitgo-specific directory that is distinct from the user's working
+    # directory.  Checkout with a block permits the execution of git commands
+    # that must be performed in a working directory.
+    #
+    # Returns self.
+    #
+    # ==== Technical Notes
+    #
+    # Checkout requires the use of an independent work tree and index file so
+    # as not to conflict with the user's working directory.  These are given
+    # by:
+    #
+    #   work_tree  = repo.path(Repo::WORK_TREE)
+    #   index_file = repo.path(Repo::INDEX_FILE)
+    #
+    # Both are located within the .git directory, under the 'gitgo' directory.
+    def checkout(branch=self.branch) # :yields: working_dir
       if branch != @branch
         @branch = branch
         reset
       end
       
-      return self unless block_given?
+      return nil unless block_given?
       
-      git_dir = path
-      work_tree  = File.join(git_dir, WORK_TREE)
-      index_file = File.join(git_dir, INDEX_FILE)
-      
-      FileUtils.rm_r(work_tree) if File.exists?(work_tree)
-      FileUtils.rm(index_file)  if File.exists?(index_file)
-      
+      FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
+      FileUtils.rm(@index_file)  if File.exists?(@index_file)
+    
       begin
-        FileUtils.mkdir_p(work_tree)
-        
+        FileUtils.mkdir_p(@work_tree)
+      
         with_env(
-          'GIT_DIR' => git_dir, 
-          'GIT_WORK_TREE' => work_tree,
-          'GIT_INDEX_FILE' => index_file
+          'GIT_DIR' => grit.path, 
+          'GIT_WORK_TREE' => @work_tree,
+          'GIT_INDEX_FILE' => @index_file
         ) do
-          
+        
           grit.git.checkout({}, branch)
-          Dir.chdir(work_tree) do
-            yield(work_tree)
+          Dir.chdir(@work_tree) do
+            yield(@work_tree)
           end
         end
       ensure
-        FileUtils.rm_r(work_tree) if File.exists?(work_tree)
-        FileUtils.rm(index_file)  if File.exists?(index_file)
+        FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
+        FileUtils.rm(@index_file)  if File.exists?(@index_file)
       end
     end
       
@@ -712,39 +739,6 @@ module Gitgo
     
     protected
     
-    def with_env(env={})
-      overrides = {}
-      begin
-        ENV.keys.each do |key|
-          if key =~ /^GIT_/
-            overrides[key] = ENV.delete(key)
-          end
-        end
-        
-        env.each_pair do |key, value|
-          overrides[key] ||= nil
-          ENV[key] = value
-        end
-
-        yield
-      ensure
-        overrides.each_pair do |key, value|
-          if value
-            ENV[key] = value
-          else
-            ENV.delete(key)
-          end
-        end
-      end
-    end
-    
-    # Returns the sha for an empty file.  Note this only needs to be
-    # initialized once for a given repo; even if you change branches the
-    # object will be in the repo.
-    def empty_sha # :nodoc:
-      @empty_sha ||= set(:blob, "")
-    end
-    
     # Creates a nested sha path like:
     #
     #   dir/
@@ -767,11 +761,11 @@ module Gitgo
       date.strftime("%Y/%m%d/#{id}")
     end
     
-    def path_segments(path) # :nodoc:
-      segments = path.kind_of?(String) ? path.split("/") : path.dup
-      segments.shift if segments[0] && segments[0].empty?
-      segments.pop   if segments[-1] && segments[-1].empty?
-      segments
+    # Returns the sha for an empty file.  Note this only needs to be
+    # initialized once for a given repo; even if you change branches the
+    # object will be in the repo.
+    def empty_sha # :nodoc:
+      @empty_sha ||= set(:blob, "")
     end
     
     def commit_tree # :nodoc:
@@ -814,10 +808,6 @@ module Gitgo
       [tree_mode, tree_id]
     end
     
-    def index_log # :nodoc:
-      path(INDEX_LOG)
-    end
-    
     def each_index(doc) # :nodoc:
       doc.attributes(false).each_pair do |key, values|
         values = [values] unless values.kind_of?(Array)
@@ -829,7 +819,7 @@ module Gitgo
       
       email = doc.author.email
       yield(index_path('author', email)) unless email.to_s.empty?
-      yield(index_log)
+      yield(@index_all)
     end
   end
 end

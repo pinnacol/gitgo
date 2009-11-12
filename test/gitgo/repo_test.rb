@@ -5,8 +5,6 @@ class RepoTest < Test::Unit::TestCase
   include RepoTestHelper
   Repo = Gitgo::Repo
   
-  acts_as_shell_test
-  
   attr_writer :repo
   
   def setup
@@ -282,14 +280,16 @@ class RepoTest < Test::Unit::TestCase
   def test_checkout_checks_the_repo_out_into_work_tree_in_the_block
     setup_repo("simple.git")
     
-    assert !File.exists?(repo.path("gitgo/db"))
+    expected_work_tree = repo.path(Repo::WORK_TREE)
+    assert !File.exists?(expected_work_tree)
 
-    repo.checkout do
-      assert File.directory?(repo.path("gitgo/db"))
-      assert_equal "Contents of file TWO.", File.read(repo.path("gitgo/db/one/two.txt"))
+    repo.checkout do |work_tree|
+      assert_equal expected_work_tree, work_tree
+      assert File.directory?(work_tree)
+      assert_equal "Contents of file TWO.", File.read(File.join(work_tree, "/one/two.txt"))
     end
     
-    assert !File.exists?(repo.path("gitgo/db"))
+    assert !File.exists?(expected_work_tree)
   end
   
   #
@@ -361,21 +361,24 @@ class RepoTest < Test::Unit::TestCase
   def test_clone_and_pull_in_a_custom_env
     FileUtils.mkdir_p(method_root[:tmp])
     
-    b = method_root.path(:tmp, "b")
-    
     git_dir = method_root.path(:tmp, "c.git")
     work_tree = method_root.path(:tmp, "d")
     index_file = method_root.path(:tmp, "e")
     `GIT_DIR='#{git_dir}' git init --bare`
     
-    with_env(
-      'GIT_DIR' => git_dir,
-      'GIT_WORK_TREE' => work_tree,
-      'GIT_INDEX_FILE' => index_file
-    ) do
+    current_env = {}
+    ENV.each_pair do |key, value|
+      current_env[key] = value
+    end
+    
+    begin
+      ENV['GIT_DIR'] = git_dir
+      ENV['GIT_WORK_TREE'] = work_tree
+      ENV['GIT_INDEX_FILE'] = index_file
+      
       a = Repo.init(method_root.path(:tmp, "a"))
       a.add("a" => "a content").commit("added a file")
-  
+      
       b = a.clone(method_root.path(:tmp, "b"))
       b.add("b" => "b content").commit("added a file")
   
@@ -387,6 +390,11 @@ class RepoTest < Test::Unit::TestCase
       assert_equal nil, a["b"]
       assert_equal "a content", b["a"]
       assert_equal "b content", b["b"]
+    ensure
+      ENV.clear
+      current_env.each_pair do |key, value|
+        ENV[key] = value
+      end
     end
   end
   
