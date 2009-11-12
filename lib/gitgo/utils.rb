@@ -87,13 +87,14 @@ module Gitgo
     end
     
     def collapse(array, result=[])
-      array = array.dup
-      result << array.shift
-      
-      if array.length == 1
-        collapse(array.shift, result)
+      if array.length == 2
+        a, b = array
+        result << a
+        collapse(b, result)
       else
-        array.each do |sub|
+        a, *b = array
+        result << a
+        b.each do |sub|
           result << collapse(sub)
         end
       end
