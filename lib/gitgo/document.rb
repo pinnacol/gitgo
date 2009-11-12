@@ -43,6 +43,7 @@ module Gitgo
     end
     
     RESERVED_KEYS = %w{author date}
+    NON_INDEX_KEYS = %w{attachments}
     
     attr_reader :author
     attr_reader :date
@@ -138,6 +139,25 @@ module Gitgo
       end
     end
     
+    def each_index
+      indexed_attrs.each do |key|
+        value = @attrs[key]
+        
+        if value.kind_of?(Array)
+          values.each do |value|
+            yield(key, value)
+          end
+        else
+          yield(key, value)
+        end
+      end
+      
+      email = author.email
+      yield('author', email)
+      
+      self
+    end
+    
     # Merges the attributes and content with self to produce a new Document.
     # If content is nil, then the content for self will be used.
     def merge(attrs, content=nil)
@@ -167,6 +187,12 @@ module Gitgo
       ).extend(SortedToYaml)
       
       "#{attributes.to_yaml}--- \n#{content}"
+    end
+    
+    protected
+    
+    def indexed_attrs
+      @attrs.keys - NON_INDEX_KEYS
     end
     
     # From: http://snippets.dzone.com/posts/show/5811

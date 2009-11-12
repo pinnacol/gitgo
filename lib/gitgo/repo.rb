@@ -809,16 +809,11 @@ module Gitgo
     end
     
     def each_index(doc) # :nodoc:
-      doc.attributes(false).each_pair do |key, values|
-        values = [values] unless values.kind_of?(Array)
-        
-        values.each do |value|
-          yield(index_path(key, value))  unless value.to_s.empty?
-        end
+      doc.each_index do |key, value|
+        value = value.to_s
+        yield(index_path(key, value)) unless value.empty?
       end
       
-      email = doc.author.email
-      yield(index_path('author', email)) unless email.to_s.empty?
       yield(@index_all)
     end
   end

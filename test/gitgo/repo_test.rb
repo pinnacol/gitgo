@@ -437,18 +437,18 @@ class RepoTest < Test::Unit::TestCase
     john = Grit::Actor.new("John Doe", "john.doe@email.com")
     jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
     
-    assert_equal [], repo.index('key', 'one')
-    assert_equal [], repo.index('key', 'two')
+    assert_equal [], repo.index('state', 'one')
+    assert_equal [], repo.index('state', 'two')
     
     assert_equal [], repo.index('author', john.email)
     assert_equal [], repo.index('author', jane.email)
     
-    a = repo.create("new content", "author" => john, "key" => "one")
-    b = repo.create("new content", "author" => jane, "key" => "two")
-    c = repo.create("new content", "author" => jane, "key" => "one")
+    a = repo.create("new content", "author" => john, "state" => "one")
+    b = repo.create("new content", "author" => jane, "state" => "two")
+    c = repo.create("new content", "author" => jane, "state" => "one")
     
-    assert_equal [a,c].sort, repo.index('key', 'one').sort
-    assert_equal [b],        repo.index('key', 'two')
+    assert_equal [a,c].sort, repo.index('state', 'one').sort
+    assert_equal [b],        repo.index('state', 'two')
     
     assert_equal [a],        repo.index('author', john.email)
     assert_equal [b,c].sort, repo.index('author', jane.email).sort
