@@ -128,9 +128,10 @@ module Gitgo
     
     DEFAULT_BRANCH = 'gitgo'
     WORK_TREE = 'gitgo/db'
-    INDEX_DIR = 'gitgo/local'
-    INDEX_LOG = 'gitgo/log'
     INDEX_FILE = 'gitgo/index'
+    
+    INDEX_DIR = 'gitgo/idx'
+    INDEX_LOG = 'gitgo/log'
     
     DEFAULT_BLOB_MODE = :"100644"
     DEFAULT_TREE_MODE = :"40000"
@@ -176,10 +177,6 @@ module Gitgo
     
     def index_path(*paths)
       File.join(grit.path, INDEX_DIR, *paths)
-    end
-    
-    def work_path(*paths)
-      File.join(grit.path, WORK_TREE, *paths)
     end
     
     # Returns the configured author (which should be a Grit::Actor, or similar).
@@ -336,7 +333,6 @@ module Gitgo
 
       id = set(:commit, lines.join("\n"))
       File.open(path("refs/heads/#{branch}"), "w") {|io| io << "#{id}\n" }
-      sh("git read-tree --index-output='#{path(INDEX_FILE)}' #{tree_id}")
       id
     end
     
@@ -370,23 +366,46 @@ module Gitgo
 
     # Sets the current branch and updates index.  Checkout will also
     # checkout self into the directory specified by path, if specified.
-    def checkout(branch=nil, path=nil, options={})
-      branch ||= @branch
-      
+    def checkout(branch=self.branch)
       if branch != @branch
-         @branch = branch
-         reset
-       end
-       
-      if path
-        FileUtils.mkdir_p(path) unless File.exists?(path)
-        grit.git.run("GIT_WORK_TREE='#{path}' ", :checkout, '', options, [branch])
+        @branch = branch
+        reset
+      end
+      
+      return self unless block_given?
+      
+      git_dir = path
+      work_tree  = File.join(git_dir, WORK_TREE)
+      index_file = File.join(git_dir, INDEX_FILE)
+      
+      FileUtils.rm_r(work_tree) if File.exists?(work_tree)
+      FileUtils.rm(index_file)  if File.exists?(index_file)
+      
+      begin
+        FileUtils.mkdir_p(work_tree)
+        
+        with_env(
+          'GIT_DIR' => git_dir, 
+          'GIT_WORK_TREE' => work_tree,
+          'GIT_INDEX_FILE' => index_file
+        ) do
+          
+          grit.git.checkout({}, branch)
+          Dir.chdir(work_tree) do
+            yield(work_tree)
+          end
+        end
+      ensure
+        FileUtils.rm_r(work_tree) if File.exists?(work_tree)
+        FileUtils.rm(index_file)  if File.exists?(index_file)
       end
     end
-
+      
     # Pulls from the remote into the work tree.
     def pull(remote="origin", rebase=true)
-      git(:pull, remote, :rebase => rebase)
+      checkout do
+        grit.git.pull({:rebase => rebase}, remote)
+      end
       reset
     end
 
@@ -394,25 +413,28 @@ module Gitgo
     # the new grit.  Clone was primarily implemented for testing; normally
     # clones are managed by the user.
     def clone(path, options={})
-      grit.git.clone(options, grit.path, path)
-      clone = Grit::Repo.new(path)
+      with_env do
+        grit.git.clone(options, grit.path, path)
+        clone = Grit::Repo.new(path)
 
-      if options[:bare]
-        # bare origins directly copy branch heads without mapping them to
-        # 'refs/remotes/origin/' (see git-clone docs). this maps the branch
-        # head so the bare grit can checkout branch
-        clone.git.remote({}, "add", "origin", grit.path)
-        clone.git.fetch({}, "origin")
-        clone.git.branch({}, "-D", branch)
+        if options[:bare]
+          # bare origins directly copy branch heads without mapping them to
+          # 'refs/remotes/origin/' (see git-clone docs). this maps the branch
+          # head so the bare grit can checkout branch
+          clone.git.remote({}, "add", "origin", grit.path)
+          clone.git.fetch({}, "origin")
+          clone.git.branch({}, "-D", branch)
+        end
+
+        # sets up branch to track the origin to enable pulls
+        clone.git.branch({:track => true}, branch, "origin/#{branch}")
+        self.class.new(clone, :branch => branch, :author => author)
       end
-
-      # sets up branch to track the origin to enable pulls
-      clone.git.branch({:track => true}, branch, "origin/#{branch}")
-      self.class.new(clone, :branch => branch, :author => author)
     end
     
     def gc
-      grit.git.gc
+      with_env { grit.git.gc }
+      
       # this nasty reinitialization is required at this point because grit
       # apparently caches the packs... once you gc the packs change and
       # Grit::GitRuby bombs.  Maybe something more succinct could be done with
@@ -422,7 +444,10 @@ module Gitgo
     end
     
     def fsck
-      sh("git fsck")
+      checkout do
+        stdout, stderr = grit.git.sh("#{Grit::Git.git_binary} fsck")
+        stderr
+      end
     end
     
     #########################################################################
@@ -687,17 +712,21 @@ module Gitgo
     
     protected
     
-    def sh(cmd)
-      env = {'GIT_DIR' => grit.path, 'GIT_INDEX_FILE' => path(INDEX_FILE) }
+    def with_env(env={})
       overrides = {}
-      
       begin
-        env.each_pair do |key, value|
-          overrides[key] = ENV.has_key?(key) ? ENV[key] : nil
-          ENV[key] = value
+        ENV.keys.each do |key|
+          if key =~ /^GIT_/
+            overrides[key] = ENV.delete(key)
+          end
         end
         
-        grit.git.sh(cmd)
+        env.each_pair do |key, value|
+          overrides[key] ||= nil
+          ENV[key] = value
+        end
+
+        yield
       ensure
         overrides.each_pair do |key, value|
           if value
@@ -706,21 +735,6 @@ module Gitgo
             ENV.delete(key)
           end
         end
-      end
-    end
-    
-    # executes the git command in the working tree
-    def git(cmd, *args) # :nodoc:
-      work_path = self.work_path
-      checkout(nil, work_path) unless File.exists?(work_path)
-
-      # chdir + setting the work tree may seem redundant, but it's not in the
-      # case of a bare repository because some operations need to be done in
-      # the work tree (hence chdir) and git will guess the parent dir of the
-      # grit if no work tree is set (hence GIT_WORK_TREE)
-      Dir.chdir(work_path) do
-        options = args.last.kind_of?(Hash) ? args.pop : {}
-        grit.git.run("GIT_WORK_TREE='#{work_path}' ", cmd, '', options, args)
       end
     end
     

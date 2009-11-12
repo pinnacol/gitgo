@@ -5,6 +5,8 @@ class RepoTest < Test::Unit::TestCase
   include RepoTestHelper
   Repo = Gitgo::Repo
   
+  acts_as_shell_test
+  
   attr_writer :repo
   
   def setup
@@ -277,16 +279,17 @@ class RepoTest < Test::Unit::TestCase
     assert_equal ["alpha.txt", "one", "x", "x.txt"], repo["/"].sort
   end
   
-  def test_checkout_checks_the_repo_out_into_path
+  def test_checkout_checks_the_repo_out_into_work_tree_in_the_block
     setup_repo("simple.git")
     
-    path = method_root.path(:tmp, "work")
-    assert !File.exists?(path)
+    assert !File.exists?(repo.path("gitgo/db"))
 
-    repo.checkout(nil, path)
-
-    assert File.directory?(path)
-    assert_equal "Contents of file TWO.", File.read(method_root.path(:tmp, "work/one/two.txt"))
+    repo.checkout do
+      assert File.directory?(repo.path("gitgo/db"))
+      assert_equal "Contents of file TWO.", File.read(repo.path("gitgo/db/one/two.txt"))
+    end
+    
+    assert !File.exists?(repo.path("gitgo/db"))
   end
   
   #
@@ -353,6 +356,38 @@ class RepoTest < Test::Unit::TestCase
     
     b.pull
     assert_equal "A content", b["a"]
+  end
+  
+  def test_clone_and_pull_in_a_custom_env
+    FileUtils.mkdir_p(method_root[:tmp])
+    
+    b = method_root.path(:tmp, "b")
+    
+    git_dir = method_root.path(:tmp, "c.git")
+    work_tree = method_root.path(:tmp, "d")
+    index_file = method_root.path(:tmp, "e")
+    `GIT_DIR='#{git_dir}' git init --bare`
+    
+    with_env(
+      'GIT_DIR' => git_dir,
+      'GIT_WORK_TREE' => work_tree,
+      'GIT_INDEX_FILE' => index_file
+    ) do
+      a = Repo.init(method_root.path(:tmp, "a"))
+      a.add("a" => "a content").commit("added a file")
+  
+      b = a.clone(method_root.path(:tmp, "b"))
+      b.add("b" => "b content").commit("added a file")
+  
+      assert_equal a.branch, b.branch
+      assert_equal method_root.path(:tmp, "a/.git"), a.path
+      assert_equal method_root.path(:tmp, "b/.git"), b.path
+  
+      assert_equal "a content", a["a"]
+      assert_equal nil, a["b"]
+      assert_equal "a content", b["a"]
+      assert_equal "b content", b["b"]
+    end
   end
   
   #
@@ -761,10 +796,7 @@ class RepoTest < Test::Unit::TestCase
     repo.link(a,b).link(b,c)
     repo.commit("new commit")
     
-    # the error output is normal since master is in fact unborn
-    stdout, stderr = repo.fsck
-    assert_equal "", stdout
-    assert_equal "notice: HEAD points to an unborn branch (master)\n", stderr
+    assert_equal "", repo.fsck
   end
   
 end
