@@ -5,6 +5,14 @@ class DocumentTest < Test::Unit::TestCase
   Document = Gitgo::Document
   Actor = Grit::Actor
   
+  attr_accessor :author, :date, :doc
+  
+  def setup
+    @author = Grit::Actor.new("John Doe", "john.doe@email.com")
+    @date = Time.now
+    @doc = Document.new("author" => author, "date" => date)
+  end
+  
   #
   # parse test
   #
@@ -25,7 +33,7 @@ content
     assert_equal "john.doe@email.com", doc.author.email
     assert_equal 1252508400, doc.date.to_i
     assert_equal "mulit-\n  line \ncontent\n", doc.content
-    assert_equal({"key" => "value"}, doc.attributes(false))
+    assert_equal("value", doc.attributes["key"])
     assert_equal "1234", doc.sha
   end
   
@@ -65,6 +73,150 @@ content
     doc = Document.new("author" => author, "date" => date)
     assert_equal "John Doe", doc.author.name
     assert_equal date, doc.date
+  end
+  
+  #
+  # AGET test
+  #
+  
+  def test_AGET_returns_an_attribute
+    doc = Document.new(
+      "author" => author,
+      "date" => date,
+      "key" => "value")
+    
+    assert_equal author, doc["author"]
+    assert_equal date, doc["date"]
+    assert_equal "value", doc["key"]
+    assert_equal nil, doc["missing"]
+  end
+  
+  #
+  # ASET test
+  #
+  
+  def test_ASET_sets_an_attribute
+    assert_equal({
+      "author" => author,
+      "date" => date
+    }, doc.attributes)
+    
+    alt_author = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
+    alt_date = date + 1
+    
+    doc["author"] = alt_author
+    doc["date"] = alt_date
+    doc["key"] = "value"
+    
+    assert_equal({
+      "author" => alt_author,
+      "date" => alt_date,
+      "key" => "value"
+    }, doc.attributes)
+  end
+  
+  def test_ASET_parses_author_from_string
+    doc['author'] =  "Jane Doe <jane.doe@email.com>"
+    
+    assert_equal "Jane Doe", doc.author.name
+    assert_equal "jane.doe@email.com", doc.author.email
+  end
+  
+  def test_ASET_parses_dates_from_numerics
+    doc['date'] = 100.1
+    assert_equal Time.at(100.1), doc['date']
+    
+    doc['date'] = 100
+    assert_equal Time.at(100), doc['date']
+  end
+  
+  def test_ASET_parses_dates_from_numeric_strings
+    doc['date'] = "100.1"
+    assert_equal Time.at(100.1), doc['date']
+    
+    doc['date'] = "100"
+    assert_equal Time.at(100), doc['date']
+  end
+  
+  def test_ASET_sets_array_tags_directly
+    doc['tags'] =  [""]
+    assert_equal [""], doc["tags"]
+    
+    doc['tags'] = ["a", "b", "c"]
+    assert_equal ["a", "b", "c"], doc["tags"]
+  end
+  
+  def test_ASET_parses_tags_from_string_as_shellwords
+    doc['tags'] =  ""
+    assert_equal [], doc["tags"]
+    
+    doc['tags'] =  "a"
+    assert_equal ["a"], doc["tags"]
+    
+    doc['tags'] = "a b c"
+    assert_equal ["a", "b", "c"], doc["tags"]
+    
+    doc['tags'] = "a 'b c' \"'de'\""
+    assert_equal ["a", "b c", "'de'"], doc["tags"]
+  end
+  
+  #
+  # each_index test
+  #
+  
+  def test_each_index_yields_indexed_key_value_pairs_to_block
+    results = {}
+    doc.each_index do |key, value|
+      (results[key] ||= []) << value
+    end
+    
+    assert_equal({
+      'author' => [author.email],
+    }, results)
+    
+    # more realistic case
+    doc = Document.new(
+      'author' => author,
+      'date' => date,
+      'key' => 'value',
+      'n' => 1,
+      'tags' => ['a', 'b', 'c'],
+      'attachments' => ['not', 'indexed']
+    )
+    
+    results = {}
+    doc.each_index do |key, value|
+      (results[key] ||= []) << value
+    end
+    
+    assert_equal({
+      'author' => [author.email],
+      'key' => ['value'],
+      'n' => [1],
+      'tags' => ['a', 'b', 'c'],
+    }, results)
+  end
+  
+  #
+  # diff test
+  #
+  
+  def test_diff_returns_empty_array_for_same_attrs
+    assert_equal({}, doc.diff(doc))
+    
+    a = doc.merge("key" => "value")
+    b = doc.merge("key" => "value")
+    
+    assert_equal a.attributes, b.attributes
+    assert_equal({}, a.diff(b))
+  end
+  
+  def test_diff_returns_changes_in_attrs
+    a = doc.merge("changed" => "A", "a_only" => "a", "unchanged" => "value")
+    b = doc.merge("changed" => "B", "b_only" => "b", "unchanged" => "value")
+    
+    assert_equal({'changed' => "A", "a_only" => "a", :b_only => "b"}, a.diff(b))
+    assert_equal({'changed' => "B", :a_only => "a", "b_only" => "b"}, b.diff(a))
   end
   
   #

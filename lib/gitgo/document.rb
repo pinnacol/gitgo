@@ -1,4 +1,5 @@
 require 'grit/actor'
+require 'shellwords'
 
 module Gitgo
   
@@ -17,10 +18,10 @@ module Gitgo
   #   --- 
   #   content...
   #
-  # The author and date fields are mandatory, and must be formatted as shown
-  # where the author records both the author name and email and the date is in
-  # a numeric format.  The content is read literally as everything following
-  # the break.
+  # The author and date fields are mandatory, and must be formatted as shown.
+  # Specifically the author must consist of a user name and email in the git
+  # format and the date must be a number. The content consists of everything
+  # following the break.
   #
   class Document
     class << self
@@ -42,13 +43,27 @@ module Gitgo
       end
     end
     
-    RESERVED_KEYS = %w{author date}
-    NON_INDEX_KEYS = %w{attachments}
+    # The author key
+    AUTHOR = 'author'
     
-    attr_reader :author
-    attr_reader :date
-    attr_reader :content
+    # The date key
+    DATE = 'date'
+    
+    # The tags key
+    TAGS = 'tags'
+    
+    # An array of keys that will not be indexed directly (although note author
+    # IS indexed, albeit only by email)
+    NON_INDEX_KEYS = %w{author date attachments}
+    
+    # The sha for self, set by the repo when convenient (for example by read).
     attr_accessor :sha
+    
+    # A hash of attributes for self
+    attr_reader :attributes
+    
+    # The content for self
+    attr_reader :content
     
     # Initializes a new Document.  Author and date can be specified as strings
     # in their serialized formats:
@@ -70,90 +85,69 @@ module Gitgo
     #   doc.date              # => date
     #
     def initialize(attrs={}, content=nil, sha=nil)
-      self.author = attrs.delete('author')
-      self.date = attrs.delete('date')
-      @attrs = attrs
+      @attributes = attrs
+      @attributes[AUTHOR] = parse_author attrs[AUTHOR]
+      @attributes[DATE]   = parse_date attrs[DATE]
       @content = content
       @sha = sha
     end
-    
-    # Sets the author.  Author can be specified as a Grit::Actor or as a
-    # string in the standard author format.  Raises an error if set to nil.
-    def author=(author)
-      @author = case author
-      when String
-        Grit::Actor.from_string(author)
-      when nil
-        raise "author cannot be nil"
-      else
-        author
-      end
-    end
-    
-    # Sets the date.  Date can be specified as a Time, a numeric, or a string
-    # in the standard date format (see new for more details). Raises an error
-    # if set to nil.
-    def date=(date)
-      @date = case date
-      when Numeric
-        Time.at(date)
-      when String
-        sec, usec = date.split(".")
-        Time.at(sec.to_i, usec.to_i)
-      when nil
-        raise "date cannot be nil"
-      else
-        date
-      end
-    end
-    
+ 
     # Gets an attribute.
     def [](key)
-      if RESERVED_KEYS.include?(key)
-        send(key)
-      else
-        @attrs[key]
-      end
+      attributes[key]
     end
     
-    # Sets an attribute.
+    # Sets an attribute.  Author and date attributes are parsed and validated.
+    # 
+    # ==== Author and Date
+    #
+    # Author can be specified as a Grit::Actor or as a string in the standard
+    # author format.  Author may not be set to nil.
+    #
+    # Date can be specified as a Time, a numeric, or a string in the standard
+    # date format. Date may not be set to nil.
     def []=(key, value)
-      if RESERVED_KEYS.include?(key)
-        send("#{key}=", value)
-      else
-        @attrs[key] = value
+      value = case key
+      when AUTHOR then parse_author(value)
+      when DATE   then parse_date(value)
+      when TAGS   then parse_tags(value)
+      else value
       end
+      
+      attributes[key] = value
     end
     
-    # Returns the attributes for self.  Attributes cannot be set through this
-    # method; use ASET instead.
-    def attributes(all=true)
-      all ? @attrs.merge('author' => author, 'date' => date) : @attrs.dup
+    # Returns the author as set in attributes.
+    def author
+      attributes[AUTHOR]
+    end
+    
+    # Returns the date as set in attributes.
+    def date
+      attributes[DATE]
     end
     
     # Yields each attribute to the block, sorted by key.
     def each_pair
-      attributes = self.attributes
       attributes.keys.sort!.each do |key|
         yield(key, attributes[key])
       end
     end
     
+    # Yields each indexed key-value pair to the block.
     def each_index
-      indexed_attrs.each do |key|
-        value = @attrs[key]
+      index_keys.each do |key|
+        value = attributes[key]
         
-        if value.kind_of?(Array)
-          values.each do |value|
-            yield(key, value)
-          end
+        if value.respond_to?(:each)
+          value.each {|val| yield(key, val) }
         else
           yield(key, value)
         end
       end
       
       email = author.email
-      yield('author', email)
+      yield(AUTHOR, email)
       
       self
     end
@@ -164,15 +158,26 @@ module Gitgo
       Document.new(attributes.merge(attrs), content || self.content)
     end
     
-    def diff(parent)
+    # Returns a hash of differences in the attributes of self and parent. 
+    # Added and modified attributes will be keyed by strings and removes are
+    # keyed by symbols.  Keys to skip can be specified by exclude.
+    def diff(parent, *exclude)
+      current = attributes
+      previous = parent.attributes
+      keys = (current.keys + previous.keys - exclude).uniq
       
-      # {"added" => "value", :removed => "value"}
-      diff = attributes(false)
-      parent.attributes(false).each_pair do |key, value|
-        if diff.has_key?(key) 
-          diff.delete(key) if diff[key] == value
+      diff = {}
+      keys.each do |key|
+        current_value  = current[key]
+        previous_value = previous[key]
+        next if current_value == previous_value
+        
+        if current.has_key?(key)
+          # added or modified
+          diff[key.to_s] = current[key]
         else
-          diff[key.to_sym] = value
+          # removed
+          diff[key.to_sym] = previous[key]
         end
       end
       
@@ -181,22 +186,61 @@ module Gitgo
     
     # Serializes self into a string according to the document format.
     def to_s
-      attributes = @attrs.merge(
-        "author" => "#{author.name} <#{author.email}>",
-        "date" => date.to_f
+      attrs = attributes.merge(
+        AUTHOR => "#{author.name} <#{author.email}>",
+        DATE   => date.to_f
       ).extend(SortedToYaml)
       
-      "#{attributes.to_yaml}--- \n#{content}"
+      "#{attrs.to_yaml}--- \n#{content}"
     end
     
     protected
     
-    def indexed_attrs
-      @attrs.keys - NON_INDEX_KEYS
+    # helper to parse/validate an author
+    def parse_author(author) # :nodoc:
+      case author
+      when String
+        Grit::Actor.from_string(author)
+      when nil
+        raise "author cannot be nil"
+      else
+        author
+      end
+    end
+    
+    # helper to parse/validate a date
+    def parse_date(date) # :nodoc:
+      case date
+      when Numeric
+        Time.at(date)
+      when String
+        Time.at(date.to_f)
+      when nil
+        raise "date cannot be nil"
+      else
+        date
+      end
+    end
+    
+    # helper to parse/validate tags
+    def parse_tags(tags) # :nodoc:
+      case tags
+      when String
+        Shellwords.shellwords(tags)
+      when Array
+        tags
+      else
+        []
+      end
+    end
+    
+    # returns an array of indexed attribute keys
+    def index_keys # :nodoc:
+      attributes.keys - NON_INDEX_KEYS
     end
     
     # From: http://snippets.dzone.com/posts/show/5811
-    module SortedToYaml
+    module SortedToYaml # :nodoc:
       
       # Replacing the to_yaml function so it'll serialize hashes sorted (by their keys)
       #
