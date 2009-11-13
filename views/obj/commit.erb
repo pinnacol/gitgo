@@ -1,0 +1,4 @@
+<h2>Commit <%= commit.id %></h2>
+<div class="commit">
+  <%= erb :diff, :locals => {:commit => commit }, :layout => false, :views => "views/server" %>
+</div>

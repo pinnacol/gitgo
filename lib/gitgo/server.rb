@@ -12,15 +12,16 @@ module Gitgo
     
     get("/")            { index }
     get("/code")        { code_index }
-    get('/commit')      { show_commit('master') }
-    get('/commit/:id')  {|id| show_commit(id) }
-    get('/tree')        { show_tree("master") }
-    get('/tree/:id')    {|id| show_tree(id) }
-    get('/tree/:id/*')  {|id, path| show_tree(id, path) }
-    get('/blob/:id/*')  {|id, path| show_blob(id, path) }
-    get('/show/:id')    {|id| show_sha(id) }
-    get('/doc/:id')     {|id| show_doc(id) }
-    get("/:id/commits") {|id| show_history(id) }
+    # get('/commit')      { show_commit('master') }
+    get('/commit/:commit')  {|commit| show_commit(commit) }
+    # get('/tree')        { show_tree("master") }
+    get('/tree/:commit')    {|commit| show_tree(commit) }
+    get('/tree/:commit/*')  {|commit, path| show_tree(commit, path) }
+    get('/blob/:commit/*')  {|commit, path| show_blob(commit, path) }
+    get('/obj/:sha')        {|sha| show_object(sha) }
+    get('/raw/:sha')        {|sha| show_raw(sha) }
+    
+    # get("/:id/commits") {|id| show_history(id) }
     
     use Comment
     use Issue
@@ -58,15 +59,28 @@ module Gitgo
       erb :blob, :locals => {:commit => commit, :blob => blob, :id => id, :path => path }
     end
     
-    def show_sha(id)
+    def show_object(id)
       case repo.type(id)
       when "blob"
-        erb :sha_blob, :locals => {:id => id, :blob => grit.blob(id)}
+        erb :blob, :locals => {:id => id, :blob => grit.blob(id)}, :views => "views/obj"
       when "tree"
-        erb :sha_tree, :locals => {:id => id, :tree => grit.tree(id)}
-      when "commit", "tag"
-        erb :diff, :locals => {:id => id, :commit => grit.commit(id)}
+        erb :tree, :locals => {:id => id, :tree => grit.tree(id)}, :views => "views/obj"
+      when "commit"
+        erb :commit, :locals => {:id => id, :commit => grit.commit(id)}, :views => "views/obj"
+      # when "tag"
+      #   erb :tag, :locals => {:id => id, :tag => }, :views => "views/obj"
       else not_found
+      end
+    end
+    
+    def show_raw(id)
+      response['Content-Type'] = "text/plain"
+      
+      if params['download'] =~ /\Atrue\z/
+        response['Content-Disposition'] = "attachment; filename=#{id};"
+        grit.git.ruby_git.get_raw_object_by_sha1(id).content
+      else
+        grit.git.cat_file({:p => true}, id)
       end
     end
     

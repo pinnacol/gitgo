@@ -20,11 +20,11 @@ module Gitgo
     end
 
     def show_link(obj)
-      %Q{<a href="/show/#{obj.id}">#{obj.name}</a>}
+      %Q{<a href="/obj/#{obj.id}">#{obj.name}</a>}
     end
     
     def sha_link(sha)
-      %Q{<a href="/show/#{sha}">#{sha}</a>}
+      %Q{<a href="/obj/#{sha}">#{sha}</a>}
     end
     
     def issue_link(doc)

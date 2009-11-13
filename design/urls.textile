@@ -20,9 +20,8 @@
 /comments/id   # comments, for commit
 
 # GENERAL RULES
-/singular          # list of objects, search by [id, type]
-/singular/id       # show object
-/singular/id?at=commit  # show, with info about it existing at the commit
+/singular              # list of objects, search by [id, type]
+/singular/commit/id    # show at the commit
 
 /plural            # search on a type of object
 /plural/id         # search, filtered by id
