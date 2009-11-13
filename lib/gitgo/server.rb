@@ -19,7 +19,6 @@ module Gitgo
     get('/tree/:commit/*')  {|commit, path| show_tree(commit, path) }
     get('/blob/:commit/*')  {|commit, path| show_blob(commit, path) }
     get('/obj/:sha')        {|sha| show_object(sha) }
-    get('/raw/:sha')        {|sha| show_raw(sha) }
     
     # get("/:id/commits") {|id| show_history(id) }
     
@@ -60,27 +59,28 @@ module Gitgo
     end
     
     def show_object(id)
-      case repo.type(id)
-      when "blob"
-        erb :blob, :locals => {:id => id, :blob => grit.blob(id)}, :views => "views/obj"
-      when "tree"
-        erb :tree, :locals => {:id => id, :tree => grit.tree(id)}, :views => "views/obj"
-      when "commit"
-        erb :commit, :locals => {:id => id, :commit => grit.commit(id)}, :views => "views/obj"
-      # when "tag"
-      #   erb :tag, :locals => {:id => id, :tag => }, :views => "views/obj"
-      else not_found
-      end
-    end
-    
-    def show_raw(id)
-      response['Content-Type'] = "text/plain"
-      
-      if params['download'] =~ /\Atrue\z/
+      case
+      when set?('content')
+        response['Content-Type'] = "text/plain"
+        grit.git.cat_file({:p => true}, id)
+        
+      when set?('download')
+        response['Content-Type'] = "text/plain"
         response['Content-Disposition'] = "attachment; filename=#{id};"
         grit.git.ruby_git.get_raw_object_by_sha1(id).content
+        
       else
-        grit.git.cat_file({:p => true}, id)
+        case repo.type(id)
+        when "blob"
+          erb :blob, :locals => {:id => id, :blob => grit.blob(id)}, :views => "views/obj"
+        when "tree"
+          erb :tree, :locals => {:id => id, :tree => grit.tree(id)}, :views => "views/obj"
+        when "commit"
+          erb :commit, :locals => {:id => id, :commit => grit.commit(id)}, :views => "views/obj"
+        # when "tag"
+        #   erb :tag, :locals => {:id => id, :tag => }, :views => "views/obj"
+        else not_found
+        end
       end
     end
     

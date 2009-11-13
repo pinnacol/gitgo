@@ -145,25 +145,21 @@ class ServerTest < Test::Unit::TestCase
     # assert last_response.body.include?('tag of project with one, two, three only'), last_response.body
   end
   
-  #
-  # raw test
-  #
-
-  def test_raw_returns_a_pretty_print_of_raw_data
+  def test_obj_returns_pretty_print_content_if_specified
     setup_app("simple.git")
 
     # blob
-    get("/raw/c9036dc2e34776218519a95470bd1dce1b47ac9a")
+    get("/obj/c9036dc2e34776218519a95470bd1dce1b47ac9a", :content => true)
     assert_equal "text/plain", last_response['Content-Type']
     assert_equal "Contents of file x.", last_response.body
 
     # tree
-    get("/raw/42dd6245f1dfd6f5c4fcbe62bb86b79d89f539cc")
+    get("/obj/42dd6245f1dfd6f5c4fcbe62bb86b79d89f539cc", :content => true)
     assert_equal "text/plain", last_response['Content-Type']
     assert_equal "100644 blob d6b80e9b86f052fef9f495446fdf7bdebd8a5b7e\ty.txt\n040000 tree 8f7de8797365eefbac8abeff9b9e78130122fcc2\ty", last_response.body
 
     # commit
-    get("/raw/ee9a1ca4441ab2bf937808b26eab784f3d041643")
+    get("/obj/ee9a1ca4441ab2bf937808b26eab784f3d041643", :content => true)
     assert_equal "text/plain", last_response['Content-Type']
     assert_equal %q{tree 71719943af3c7a12804c1a9946913392cac3a55e
 parent 990191ea92e4dc85f598203e123849df1f8bd124
@@ -174,7 +170,7 @@ added files x, y, and z
 }, last_response.body
 
     # tag
-    get("/raw/d0ad2534e98f0a2b9573af0355d7371468eb77f1")
+    get("/obj/d0ad2534e98f0a2b9573af0355d7371468eb77f1", :content => true)
     assert_equal "text/plain", last_response['Content-Type']
     assert_equal %q{object 449b5502e8dc49264d862b4fc0c01ba115fc9f82
 type commit
@@ -184,22 +180,22 @@ tagger Simon Chiang <simon.chiang@pinnacol.com> 1255115917 -0600
 tag of project with one, two, three only
 }, last_response.body
   end
-  
-  def test_raw_downloads_true_raw_data_if_specified
+
+  def test_obj_downloads_true_raw_data_if_specified
     setup_app("simple.git")
     
     # blob
-    get("/raw/c9036dc2e34776218519a95470bd1dce1b47ac9a", :download => true)
+    get("/obj/c9036dc2e34776218519a95470bd1dce1b47ac9a", :download => true)
     assert_equal "text/plain", last_response['Content-Type']
     assert_equal "Contents of file x.", last_response.body
     
     # tree
-    get("/raw/42dd6245f1dfd6f5c4fcbe62bb86b79d89f539cc", :download => true)
+    get("/obj/42dd6245f1dfd6f5c4fcbe62bb86b79d89f539cc", :download => true)
     assert_equal "text/plain", last_response['Content-Type']
     assert_equal "100644 y.txt\000\326\270\016\233\206\360R\376\371\364\225Do\337{\336\275\212[~40000 y\000\217}\350yse\356\373\254\212\276\377\233\236x\023\001\"\374\302", last_response.body
     
     # commit
-    get("/raw/ee9a1ca4441ab2bf937808b26eab784f3d041643", :download => true)
+    get("/obj/ee9a1ca4441ab2bf937808b26eab784f3d041643", :download => true)
     assert_equal "text/plain", last_response['Content-Type']
     assert_equal %q{tree 71719943af3c7a12804c1a9946913392cac3a55e
 parent 990191ea92e4dc85f598203e123849df1f8bd124
@@ -210,7 +206,7 @@ added files x, y, and z
 }, last_response.body
     
     # tag
-    get("/raw/d0ad2534e98f0a2b9573af0355d7371468eb77f1", :download => true)
+    get("/obj/d0ad2534e98f0a2b9573af0355d7371468eb77f1", :download => true)
     assert_equal "text/plain", last_response['Content-Type']
     assert_equal %q{object 449b5502e8dc49264d862b4fc0c01ba115fc9f82
 type commit
