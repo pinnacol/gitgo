@@ -69,6 +69,18 @@ module Gitgo
       end
     end
     
+    def head
+      grit.head
+    end
+    
+    def refs(remotes=false)
+      refs = grit.refs
+      unless remotes
+        refs.delete_if {|ref| ref.kind_of?(Grit::Remote) }
+      end
+      refs
+    end
+    
     def commit(id)
       (id.length == 40 ? grit.commit(id) : nil) || commit_by_ref(id)
     end

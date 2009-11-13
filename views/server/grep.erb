@@ -10,7 +10,13 @@
   <dd><input id="invert_match" type="checkbox" name="invert_match" value="true" <%= invert_match ? 'checked="true" ' : '' %>/></dd>
   <dt><label for="fixed_strings">Literal Match</label></dt>
   <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= fixed_strings ? 'checked="true" ' : '' %>/></dd>
-  <dt><input type="submit" value="Grep" /></dt>
+  <dt><label for="at">At</label></dt>
+  <dd>
+    <select id="at" name="at"><% refs.each do |ref| %>
+    <option <%= commit == ref.name ? 'selected="true" ' : ''%>value="<%= ref.commit %>"><%= ref.name %></option><% end %>
+    </select>
+  </dd>
+  <dt><input type="submit" value="Search" /></dt>
   <dd></dd>
   </dl>
 </form>

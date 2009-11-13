@@ -47,7 +47,7 @@ module Gitgo
         :e => request["pattern"]
       }
       
-      id = request["commit"] || 'master'
+      id = request["commit"] || head.commit
       unless commit = self.commit(id)
         raise "unknown commit: #{id}"
       end
