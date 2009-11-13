@@ -405,26 +405,11 @@ module Gitgo
       
       return nil unless block_given?
       
-      FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
-      FileUtils.rm(@index_file)  if File.exists?(@index_file)
-    
-      begin
-        FileUtils.mkdir_p(@work_tree)
-      
-        with_env(
-          'GIT_DIR' => grit.path, 
-          'GIT_WORK_TREE' => @work_tree,
-          'GIT_INDEX_FILE' => @index_file
-        ) do
-        
-          grit.git.checkout({}, branch)
-          Dir.chdir(@work_tree) do
-            yield(@work_tree)
-          end
+      with_repo_env do |work_tree, index_file|
+        grit.git.checkout({}, branch)
+        Dir.chdir(work_tree) do
+          yield(work_tree)
         end
-      ensure
-        FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
-        FileUtils.rm(@index_file)  if File.exists?(@index_file)
       end
     end
       
@@ -477,6 +462,31 @@ module Gitgo
       end
     end
     
+    def grep(pattern, options={})
+      pattern = {:e => pattern} unless pattern.kind_of?(Hash)
+      
+      return [] if pattern[:e].to_s.empty?
+      
+      pattern = pattern.merge(
+        :cached => true,
+        :name_only => true,
+        :full_name => true
+      )
+      
+      with_repo_env do |work_tree, index_file|
+        commit = options[:at] || branch
+        
+        unless commit.kind_of?(Grit::Commit)
+          commit = grit.commits(commit, 1).first
+        end
+        
+        grit.git.read_tree({:index_output => index_file}, commit.tree.id)
+        grit.git.grep(pattern).split("\n").collect do |path|
+          [path, commit.tree / path]
+        end
+      end
+    end
+      
     #########################################################################
     # Document API
     #########################################################################
@@ -738,6 +748,27 @@ module Gitgo
     end
     
     protected
+    
+    def with_repo_env # :nodoc
+      FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
+      FileUtils.rm(@index_file)  if File.exists?(@index_file)
+    
+      begin
+        FileUtils.mkdir_p(@work_tree)
+      
+        with_env(
+          'GIT_DIR' => grit.path, 
+          'GIT_WORK_TREE' => @work_tree,
+          'GIT_INDEX_FILE' => @index_file
+        ) do
+          
+          yield(@work_tree, @index_file)
+        end
+      ensure
+        FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
+        FileUtils.rm(@index_file)  if File.exists?(@index_file)
+      end
+    end
     
     # Creates a nested sha path like:
     #

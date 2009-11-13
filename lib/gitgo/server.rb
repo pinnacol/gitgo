@@ -12,14 +12,17 @@ module Gitgo
     
     get("/")            { index }
     get("/code")        { code_index }
-    # get('/commit')      { show_commit('master') }
-    get('/commit/:commit')  {|commit| show_commit(commit) }
-    # get('/tree')        { show_tree("master") }
+    get('/blob')        { grep }
+    # get('/tree')        { grep(Grit::Tree) }
+    # get('/commit')      { list('commit') }
+    
+    get('/blob/:commit/*')  {|commit, path| show_blob(commit, path) }
     get('/tree/:commit')    {|commit| show_tree(commit) }
     get('/tree/:commit/*')  {|commit, path| show_tree(commit, path) }
-    get('/blob/:commit/*')  {|commit, path| show_blob(commit, path) }
-    get('/obj/:sha')        {|sha| show_object(sha) }
+    get('/commit/:commit')  {|commit| show_commit(commit) }
     
+    get('/obj/:sha')        {|sha| show_object(sha) }
+
     # get("/:id/commits") {|id| show_history(id) }
     
     use Comment
@@ -34,6 +37,27 @@ module Gitgo
         :branches => grit.branches,
         :tags => grit.tags
       }
+    end
+    
+    def grep
+      options = {
+        :ignore_case => set?("ignore_case"),
+        :invert_match => set?("invert_match"),
+        :fixed_strings => set?("fixed_strings"),
+        :e => request["pattern"]
+      }
+      
+      id = request["commit"] || 'master'
+      unless commit = self.commit(id)
+        raise "unknown commit: #{id}"
+      end
+      
+      selected = repo.grep(options, :at => commit)
+      
+      erb :grep, :locals => options.merge(
+        :commit => id,
+        :selected => selected
+      )
     end
     
     def show_commit(id)

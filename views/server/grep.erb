@@ -1,0 +1,24 @@
+<h1>Search for Blob</h1>
+
+<form class="grep" action="/blob" method="get">
+  <dl class="form">
+  <dt><label for="pattern">Pattern</label></dt>
+  <dd><input id="pattern" type="text" name="pattern" value="<%= e %>" /></dd>
+  <dt><label for="ignore_case">Case-Insensitive</label></dt>
+  <dd><input id="ignore_case" type="checkbox" name="ignore_case" value="true" <%= ignore_case ? 'checked="true" ' : '' %>/></dd>
+  <dt><label for="invert_match">Invert Match</label></dt>
+  <dd><input id="invert_match" type="checkbox" name="invert_match" value="true" <%= invert_match ? 'checked="true" ' : '' %>/></dd>
+  <dt><label for="fixed_strings">Literal Match</label></dt>
+  <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= fixed_strings ? 'checked="true" ' : '' %>/></dd>
+  <dt><input type="submit" value="Grep" /></dt>
+  <dd></dd>
+  </dl>
+</form>
+
+<% if selected.empty? %><em>None selected!</em><% end %>
+<table><% selected.each do |(path, obj)| %>
+<tr>
+<td><a href="/blob/<%= commit %>/<%= path %>"><%= path %></a> </td>
+<td><%= sha_link(obj.id) %></td>
+</tr><% end %>
+</table>

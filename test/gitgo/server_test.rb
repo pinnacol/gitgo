@@ -14,36 +14,43 @@ class ServerTest < Test::Unit::TestCase
     app.instance_variable_set :@prototype, nil
   end
   
+
   #
-  # commit test
+  # blob test
   #
   
-  def test_get_commit_shows_diff
+  def test_get_blob_shows_contents_for_blob
     setup_app("simple.git")
     
     # by ref
-    get("/commit/xyz")
-    assert last_response.ok?
+    get("/blob/xyz/x.txt")
     assert last_response.body.include?('ee9a1ca4441ab2bf937808b26eab784f3d041643')
     assert last_response.body.include?('added files x, y, and z')
-    assert last_response.body.include?('<li class="add">x.txt</li>')
-
+    assert last_response.body.include?('Contents of file x.')
+    
     # by sha
-    get("/commit/e9b525ed0dfde2833001173e7f185939b46b0274")
-    assert last_response.ok?
-    assert last_response.body.include?('e9b525ed0dfde2833001173e7f185939b46b0274')
-    assert last_response.body.include?('<li class="add">alpha.txt</li>')
-    assert last_response.body.include?('<li class="rm">one.txt</li>')
+    get("/blob/7d3db1d8b487a098e9f5bca17c21c668d800f749/a/b.txt")
+    assert last_response.body.include?('7d3db1d8b487a098e9f5bca17c21c668d800f749')
+    assert last_response.body.include?('changed contents of a, b, and c')
+    assert last_response.body.include?('Contents of file B.')
 
-    diff = %q{--- a/x.txt
-+++ b/x.txt
-@@ -1 +1 @@
--Contents of file x.
-\ No newline at end of file
-+Contents of file X.
-\ No newline at end of file}
+    # by tag
+    get("/blob/only-123/one/two/three.txt")
+    assert last_response.body.include?('449b5502e8dc49264d862b4fc0c01ba115fc9f82')
+    assert last_response.body.include?('removed files a, b, and c')
+    assert last_response.body.include?('Contents of file three.')
+  end
+  
+  def test_get_blob_greps_for_blobs_at_specified_commit
+    setup_app("simple.git")
+    
+    get("/blob", :pattern => 'file', 'commit' => '7d3db1d8b487a098e9f5bca17c21c668d800f749')
+    assert last_response.body.include?('a/b/c.txt'), last_response.body
+    assert !last_response.body.include?('x/y/z.txt'), last_response.body
 
-    assert last_response.body.include?(diff)
+    get("/blob", :pattern => 'file', 'commit' => 'a1aafafbb5f74fb48312afedb658569b00f4a796')
+    assert !last_response.body.include?('a/b/c.txt'), last_response.body
+    assert last_response.body.include?('x/y/z.txt'), last_response.body
   end
   
   #
@@ -91,31 +98,37 @@ class ServerTest < Test::Unit::TestCase
   end
   
   #
-  # blob test
+  # commit test
   #
-  
-  def test_get_blob_shows_contents_for_blob
+
+  def test_get_commit_shows_diff
     setup_app("simple.git")
-    
+
     # by ref
-    get("/blob/xyz/x.txt")
+    get("/commit/xyz")
+    assert last_response.ok?
     assert last_response.body.include?('ee9a1ca4441ab2bf937808b26eab784f3d041643')
     assert last_response.body.include?('added files x, y, and z')
-    assert last_response.body.include?('Contents of file x.')
-    
+    assert last_response.body.include?('<li class="add">x.txt</li>')
+
     # by sha
-    get("/blob/7d3db1d8b487a098e9f5bca17c21c668d800f749/a/b.txt")
-    assert last_response.body.include?('7d3db1d8b487a098e9f5bca17c21c668d800f749')
-    assert last_response.body.include?('changed contents of a, b, and c')
-    assert last_response.body.include?('Contents of file B.')
+    get("/commit/e9b525ed0dfde2833001173e7f185939b46b0274")
+    assert last_response.ok?
+    assert last_response.body.include?('e9b525ed0dfde2833001173e7f185939b46b0274')
+    assert last_response.body.include?('<li class="add">alpha.txt</li>')
+    assert last_response.body.include?('<li class="rm">one.txt</li>')
 
-    # by tag
-    get("/blob/only-123/one/two/three.txt")
-    assert last_response.body.include?('449b5502e8dc49264d862b4fc0c01ba115fc9f82')
-    assert last_response.body.include?('removed files a, b, and c')
-    assert last_response.body.include?('Contents of file three.')
+    diff = %q{--- a/x.txt
++++ b/x.txt
+@@ -1 +1 @@
+-Contents of file x.
+\ No newline at end of file
++Contents of file X.
+\ No newline at end of file}
+
+    assert last_response.body.include?(diff)
   end
-
+  
   #
   # obj test
   #
