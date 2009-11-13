@@ -67,7 +67,8 @@ module Gitgo
       when set?('download')
         response['Content-Type'] = "text/plain"
         response['Content-Disposition'] = "attachment; filename=#{id};"
-        grit.git.ruby_git.get_raw_object_by_sha1(id).content
+        raw_object = grit.git.ruby_git.get_raw_object_by_sha1(id)
+        "%s %d\0" % [raw_object.type, raw_object.content.length] + raw_object.content
         
       else
         case repo.type(id)
