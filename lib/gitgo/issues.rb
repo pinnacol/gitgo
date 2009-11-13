@@ -95,12 +95,22 @@ module Gitgo
       comments = collapse(comments)
       comments.shift
       
+      merge_state = 'closed'
+      merge_tags = []
+      tails.each do |tail|
+        # state = tail.state if 
+        merge_tags.concat tail.tags
+      end
+      merge_tags.uniq!
+      
       erb :show, :locals => {
         :id => issue,
         :doc => issue_doc,
         :comments => comments,
         :tails => tails,
-        :selected => comment
+        :merge_tags => merge_state,
+        :merge_tags => merge_tags,
+        :selected => comment,
       }
     end
     

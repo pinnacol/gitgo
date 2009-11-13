@@ -88,6 +88,8 @@ module Gitgo
       @attributes = attrs
       @attributes[AUTHOR] = parse_author attrs[AUTHOR]
       @attributes[DATE]   = parse_date attrs[DATE]
+      self[TAGS] = attrs[TAGS]
+      
       @content = content
       @sha = sha
     end
@@ -129,6 +131,12 @@ module Gitgo
     # Returns the date as set in attributes.
     def date
       attributes[DATE]
+    end
+    
+    # Returns the tags as set in attributes, or an empty array if no tags are
+    # set.
+    def tags
+      attributes[TAGS] || []
     end
     
     # Yields each attribute to the block, sorted by key.

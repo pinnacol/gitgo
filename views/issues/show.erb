@@ -28,7 +28,7 @@
         </select>
       </dd>
       <dt><label for="tags">Tags</label></dt>
-      <dd><input type="text" id="tags" name="doc[tags]" value="<%= tags.join(",") %>" /></dd>
+      <dd><input type="text" id="tags" name="doc[tags]" value="<%= merge_tags.join(" ") %>" /></dd>
       <dt><label for="at">At</label></dt>
       <dd>
         <select id="at" name="at"><% refs.each do |ref| %>
