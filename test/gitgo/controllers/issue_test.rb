@@ -1,7 +1,7 @@
-require File.dirname(__FILE__) + "/../test_helper"
-require 'gitgo/issues'
+require File.dirname(__FILE__) + "/../../test_helper"
+require 'gitgo/controllers/issue'
 
-class IssuesTest < Test::Unit::TestCase
+class IssueTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   
@@ -15,7 +15,7 @@ class IssuesTest < Test::Unit::TestCase
   end
   
   def app
-    Gitgo::Issues
+    Gitgo::Controllers::Issue
   end
   
   # open an issue using a post, and return the sha of the new issue

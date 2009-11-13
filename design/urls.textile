@@ -1,0 +1,28 @@
+
+/
+/blob          # list of blobs, search by [id, blob] or [path, blob]
+/blob/id       # show blob
+/tree          # list of trees, search by [id, tree] or [path, tree]
+/tree/id       # show tree
+/commit        # list of commits, search by [id, commit]
+/commit/id     # show commit
+/tag           # list of tags, search by [id, tag]
+/tag/id        # show tag
+/issue         # show list of issues, search by [id, issue]
+/issue/id      # show issue
+/comment       # show list of comments, search by [id, comment]
+/comment/id    # show comment
+
+/issues        # main issues search page... params dictate criteria
+/issues/id     # issues, at commit
+
+/comments      # comments history listing commit
+/comments/id   # comments, for commit
+
+# GENERAL RULES
+/singular          # list of objects, search by [id, type]
+/singular/id       # show object
+/singular/id?at=commit  # show, with info about it existing at the commit
+
+/plural            # search on a type of object
+/plural/id         # search, filtered by id

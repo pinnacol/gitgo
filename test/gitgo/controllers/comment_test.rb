@@ -1,7 +1,7 @@
-require File.dirname(__FILE__) + "/../test_helper"
-require 'gitgo/comments'
+require File.dirname(__FILE__) + "/../../test_helper"
+require 'gitgo/controllers/comment'
 
-class CommentsTest < Test::Unit::TestCase
+class CommentTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   
@@ -15,7 +15,7 @@ class CommentsTest < Test::Unit::TestCase
   end
   
   def app
-    Gitgo::Comments
+    Gitgo::Controllers::Comment
   end
   
   #

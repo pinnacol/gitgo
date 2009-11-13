@@ -714,7 +714,7 @@ module Gitgo
         hash[path] = File.exists?(path) ? Index.read(path) : []
       end
       
-      previous = indexes[index_log]
+      previous = indexes[@index_all]
       current = collect {|sha| sha }
       
       previous.clear if full

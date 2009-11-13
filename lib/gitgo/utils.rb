@@ -54,7 +54,7 @@ module Gitgo
       if comments.empty?
         erb :_comment_form, :locals => {
           :id => id
-        }, :views => "views/comments", :layout => false
+        }, :views => "views/comment", :layout => false
         
       else
         @nesting_depth ||= 0
@@ -62,7 +62,7 @@ module Gitgo
         result = erb :_comments, :locals => {
           :comments => comments, 
           :nesting_depth => @nesting_depth
-        }, :views => "views/comments", :layout => false
+        }, :views => "views/comment", :layout => false
         @nesting_depth -= 1
     
         result
