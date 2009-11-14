@@ -44,13 +44,13 @@ class ServerTest < Test::Unit::TestCase
   def test_get_blob_greps_for_blobs_at_specified_commit
     setup_app("simple.git")
     
-    get("/blob", :pattern => 'file', 'commit' => '7d3db1d8b487a098e9f5bca17c21c668d800f749')
-    assert last_response.body.include?('a/b/c.txt'), last_response.body
-    assert !last_response.body.include?('x/y/z.txt'), last_response.body
+    get("/blob", :pattern => 'file', 'at' => '7d3db1d8b487a098e9f5bca17c21c668d800f749')
+    assert last_response.body.include?('a/b/c.txt')
+    assert !last_response.body.include?('x/y/z.txt')
 
-    get("/blob", :pattern => 'file', 'commit' => 'a1aafafbb5f74fb48312afedb658569b00f4a796')
-    assert !last_response.body.include?('a/b/c.txt'), last_response.body
-    assert last_response.body.include?('x/y/z.txt'), last_response.body
+    get("/blob", :pattern => 'file', 'at' => 'a1aafafbb5f74fb48312afedb658569b00f4a796')
+    assert !last_response.body.include?('a/b/c.txt')
+    assert last_response.body.include?('x/y/z.txt')
   end
   
   #
@@ -95,6 +95,18 @@ class ServerTest < Test::Unit::TestCase
     }.each do |link|
       assert last_response.body.include?(link)
     end
+  end
+  
+  def test_get_tree_greps_paths_at_specified_commit
+    setup_app("simple.git")
+    
+    get("/tree", :pattern => 'txt', 'at' => '7d3db1d8b487a098e9f5bca17c21c668d800f749')
+    assert last_response.body.include?('a/b/c.txt')
+    assert !last_response.body.include?('x/y/z.txt')
+
+    get("/tree", :pattern => 'txt', 'at' => 'a1aafafbb5f74fb48312afedb658569b00f4a796')
+    assert !last_response.body.include?('a/b/c.txt')
+    assert last_response.body.include?('x/y/z.txt')
   end
   
   #

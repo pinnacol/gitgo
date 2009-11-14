@@ -12,8 +12,8 @@ module Gitgo
     
     get("/")            { index }
     get("/code")        { code_index }
-    get('/blob')        { grep }
-    # get('/tree')        { grep(Grit::Tree) }
+    get('/blob')        { blob_grep }
+    get('/tree')        { tree_grep }
     # get('/commit')      { list('commit') }
     
     get('/blob/:commit/*')  {|commit, path| show_blob(commit, path) }
@@ -39,7 +39,7 @@ module Gitgo
       }
     end
     
-    def grep
+    def blob_grep
       options = {
         :ignore_case => set?("ignore_case"),
         :invert_match => set?("invert_match"),
@@ -47,16 +47,64 @@ module Gitgo
         :e => request["pattern"]
       }
       
-      id = request["commit"] || head.commit
+      id = request["at"] || head.commit
       unless commit = self.commit(id)
         raise "unknown commit: #{id}"
       end
       
-      selected = repo.grep(options, :at => commit)
+      selected = []
+      unless options[:e].to_s.empty?
+        pattern = options.merge(
+          :cached => true,
+          :name_only => true,
+          :full_name => true
+        )
+
+        repo.sandbox do |work_tree, index_file|
+          grit.git.read_tree({:index_output => index_file}, commit.tree.id)
+          grit.git.grep(pattern).split("\n").collect do |path|
+            selected << [path, commit.tree / path]
+          end
+        end
+      end
       
       erb :grep, :locals => options.merge(
-        :commit => id,
+        :type => 'blob',
+        :at => id,
         :selected => selected
+      )
+    end
+    
+    def tree_grep
+      options = {
+        :ignore_case => set?("ignore_case"),
+        :invert_match => set?("invert_match"),
+        :fixed_strings => set?("fixed_strings"),
+      }
+      
+      id = request["at"] || head.commit
+      unless commit = self.commit(id)
+        raise "unknown commit: #{id}"
+      end
+      
+      pattern = request["pattern"]
+      selected = []
+      
+      unless pattern.to_s.empty?
+        repo.sandbox do |work_tree, index_file|
+          grep_options = grit.git.transform_options(options)
+          results = grit.git.run('', :ls_tree, " | grep #{grep_options.join(' ')} #{grit.git.e(pattern)}", {:name_only => true, :r => true}, [commit.tree.id])
+          results.split("\n").collect do |path|
+            selected << [path, commit.tree / path]
+          end
+        end
+      end
+      
+      erb :grep, :locals => options.merge(
+        :type => 'tree',
+        :at => id,
+        :selected => selected,
+        :e => pattern
       )
     end
     

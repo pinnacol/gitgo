@@ -1,6 +1,6 @@
-<h1>Search for Blob</h1>
+<h1>Grep <%= type.capitalize %></h1>
 
-<form class="grep" action="/blob" method="get">
+<form class="grep" action="/<%= type %>" method="get">
   <dl class="form">
   <dt><label for="pattern">Pattern</label></dt>
   <dd><input id="pattern" type="text" name="pattern" value="<%= e %>" /></dd>
@@ -13,10 +13,10 @@
   <dt><label for="at">At</label></dt>
   <dd>
     <select id="at" name="at"><% refs.each do |ref| %>
-    <option <%= commit == ref.name ? 'selected="true" ' : ''%>value="<%= ref.commit %>"><%= ref.name %></option><% end %>
+    <option <%= at == ref.commit.id ? 'selected="true" ' : ''%>value="<%= ref.commit %>"><%= ref.name %></option><% end %>
     </select>
   </dd>
-  <dt><input type="submit" value="Search" /></dt>
+  <dt><input type="submit" value="Grep" /></dt>
   <dd></dd>
   </dl>
 </form>
@@ -24,7 +24,7 @@
 <% if selected.empty? %><em>None selected!</em><% end %>
 <table><% selected.each do |(path, obj)| %>
 <tr>
-<td><a href="/blob/<%= commit %>/<%= path %>"><%= path %></a> </td>
+<td><a href="/blob/<%= at %>/<%= path %>"><%= path %></a> </td>
 <td><%= sha_link(obj.id) %></td>
 </tr><% end %>
 </table>
