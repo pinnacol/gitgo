@@ -90,10 +90,14 @@ module Gitgo
       pattern = request["pattern"]
       selected = []
       
-      unless pattern.to_s.empty?
+      unless pattern.nil?
         repo.sandbox do |work_tree, index_file|
-          grep_options = grit.git.transform_options(options)
-          results = grit.git.run('', :ls_tree, " | grep #{grep_options.join(' ')} #{grit.git.e(pattern)}", {:name_only => true, :r => true}, [commit.tree.id])
+          postfix = pattern.empty? ? '' : begin
+            grep_options = grit.git.transform_options(options)
+            " | grep #{grep_options.join(' ')} #{grit.git.e(pattern)}"
+          end
+          
+          results = grit.git.run('', :ls_tree, postfix, {:name_only => true, :r => true}, [commit.tree.id])
           results.split("\n").collect do |path|
             selected << [path, commit.tree / path]
           end
