@@ -141,6 +141,18 @@ class ServerTest < Test::Unit::TestCase
     assert last_response.body.include?(diff)
   end
   
+  def test_get_commit_greps_commits
+    setup_app("simple.git")
+    
+    get("/commit", :grep => 'added')
+    assert last_response.body.include?('added files x, y, and z')
+    assert !last_response.body.include?('removed files a, b, and c')
+
+    get("/commit", :grep => 'removed')
+    assert !last_response.body.include?('added files x, y, and z')
+    assert last_response.body.include?('removed files a, b, and c')
+  end
+  
   #
   # obj test
   #

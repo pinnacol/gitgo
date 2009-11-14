@@ -1,0 +1,31 @@
+<h1>Grep Commit</h1>
+
+<form class="grep" action="/commit" method="get">
+  <dl class="form">
+  <dt><label for="author">Author</label></dt>
+  <dd><input id="author" type="text" name="author" value="<%= author %>" /></dd>
+  <dt><label for="committer">Committer</label></dt>
+  <dd><input id="committer" type="text" name="committer" value="<%= committer %>" /></dd>
+  <dt><label for="grep">Message</label></dt>
+  <dd><input id="grep" type="text" name="grep" value="<%= grep %>" /></dd>
+  <dt><label for="ignore_case">Case-Insensitive</label></dt>
+  <dd><input id="ignore_case" type="checkbox" name="regexp_ignore_case " value="true" <%= regexp_ignore_case ? 'checked="true" ' : '' %>/></dd>
+  <dt><label for="fixed_strings">Fixed Strings</label></dt>
+  <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= fixed_strings ? 'checked="true" ' : '' %>/></dd>
+  <dt><label for="all_match">All Match</label></dt>
+  <dd><input id="all_match" type="checkbox" name="all_match" value="true" <%= all_match ? 'checked="true" ' : '' %>/></dd>
+  <dt><label for="max_count">Max Count</label></dt>
+  <dd><input id="max_count" type="text" name="max_count" value="<%= max_count %>" /></dd>
+  <dt><input type="submit" value="Grep" /></dt>
+  <dd></dd>
+  </dl>
+</form>
+
+<% if selected.empty? %><em>None selected!</em><% end %>
+<table><% selected.each do |commit| %>
+<tr>
+<td><%= commit.author %><%= commit.committer.to_s != commit.author.to_s ? " (#{commit.committer})" : "" %></td>
+<td><a href="/commit/<%= commit.id %>"><%= commit.id %></a></td>
+<td><%= commit.message %></td>
+</tr><% end %>
+</table>

@@ -14,7 +14,7 @@ module Gitgo
     get("/code")        { code_index }
     get('/blob')        { blob_grep }
     get('/tree')        { tree_grep }
-    # get('/commit')      { list('commit') }
+    get('/commit')      { commit_grep }
     
     get('/blob/:commit/*')  {|commit, path| show_blob(commit, path) }
     get('/tree/:commit')    {|commit| show_tree(commit) }
@@ -62,7 +62,7 @@ module Gitgo
 
         repo.sandbox do |work_tree, index_file|
           grit.git.read_tree({:index_output => index_file}, commit.tree.id)
-          grit.git.grep(pattern).split("\n").collect do |path|
+          grit.git.grep(pattern).split("\n").each do |path|
             selected << [path, commit.tree / path]
           end
         end
@@ -98,7 +98,7 @@ module Gitgo
           end
           
           results = grit.git.run('', :ls_tree, postfix, {:name_only => true, :r => true}, [commit.tree.id])
-          results.split("\n").collect do |path|
+          results.split("\n").each do |path|
             selected << [path, commit.tree / path]
           end
         end
@@ -110,6 +110,43 @@ module Gitgo
         :selected => selected,
         :e => pattern
       )
+    end
+    
+    def commit_grep
+      patterns = {
+        :author => params['author'],
+        :committer => params['committer'],
+        :grep => params['grep']
+      }
+      
+      filters = {
+        :regexp_ignore_case => set?("regexp_ignore_case"),
+        :fixed_strings => set?("fixed_strings"),
+        :max_count => params['max_count'] || '10',
+        :all_match => set?("all_match")
+      }
+      
+      options = {}
+      patterns.each_pair do |key, value|
+        unless value.nil? || value.empty?
+          options[key] = value
+        end
+      end
+      
+      selected = []
+      unless options.empty?
+        options.merge!(filters)
+        options[:format] = "%H"
+        
+        repo.sandbox do |work_tree, index_file|
+          grit.git.log(options).split("\n").each do |sha|
+            selected << grit.commit(sha)
+          end
+        end
+      end
+      
+      locals = {:selected => selected}.merge!(patterns).merge!(filters)
+      erb :commit_grep, :locals => locals
     end
     
     def show_commit(id)
