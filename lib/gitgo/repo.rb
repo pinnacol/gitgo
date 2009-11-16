@@ -456,9 +456,9 @@ module Gitgo
     end
     
     def fsck
-      checkout do
+      sandbox do |work_tree, index_file|
         stdout, stderr = grit.git.sh("#{Grit::Git.git_binary} fsck")
-        stderr.split("\n")
+        stderr.split("\n") + stdout.split("\n")
       end
     end
     
