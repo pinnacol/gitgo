@@ -2,7 +2,7 @@
 
 <div class="diff">
   <ul class="diff"><% commit.diffs.each do |diff| %><% if diff.new_file %>
-  <li class="add"><%= diff.b_path %></li><%            elsif diff.deleted_file %>
+  <li class="add"><a href="/blob/<%= commit.id %>/<%= diff.b_path %>"><%= diff.b_path %></a></li><%            elsif diff.deleted_file %>
   <li class="rm"><%= diff.a_path %></li><%             else %>
   <li class="diff">
     <pre><%= escape_html(diff.diff) %></pre>

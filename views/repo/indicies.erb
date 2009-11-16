@@ -1,0 +1,21 @@
+<h1>Index</h1>
+
+<ul><% keys.each do |key| %>
+<li><a href="<%= url "indicies/#{key}" %>"><%= key %></a></li><% end %>
+</ul>
+
+<% if current_key %>
+<h2>Key: <%= current_key %></h2>
+<ul><% if values.empty? %>
+<li>None</li><% end %><% values.each do |value| %>
+<li><a href="<%= url "indicies/#{current_key}/#{value}" %>"><%= value %></a></li><% end %>
+</ul>
+<% end %>
+
+<% if current_value %>
+<h2>Value: <%= current_value %></h2>
+<ul><% if shas.empty? %>
+<li>None</li><% end %><% shas.each do |sha| %>
+<li><%= sha_link(sha) %></li><% end %>
+</ul>
+<% end %>

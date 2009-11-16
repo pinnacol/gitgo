@@ -3,12 +3,14 @@
 <dl>
 <dt>Path</dt>
 <dd><%= repo.path %></dd>
-<dt>At</dt>
-<dd><%= repo.current.id %> (<%= repo.branch %>)</dd>
+<dt>Branch</dt>
+<dd><%= repo.branch %></dd>
+<dt>Commit</dt>
+<dd><%= erb :_commit, :locals => {:commit => repo.current }, :views => 'views/server', :layout => false %></dd>
 <dt>Indexes</dt>
 <dd>
-  <ul><% indexes.each do |index| %>
-  <li><%= index %></li><% end %>
+  <ul><% keys.each do |key| %>
+  <li><a href="<%= url "indicies/#{key}" %>"><%= key %></a></li><% end %>
   </ul>
 </dd>
 </dl>
@@ -17,6 +19,7 @@
 <ul>
 <li>
   <form class="update" action="<%= url 'reindex' %>" method="post">
+  <input type="checkbox" name="full" value="true" checked="false" /> Full
   <input type="submit" value="Reindex" /></dt>
   </form>
 </li>
