@@ -4,6 +4,7 @@ require 'stringio'
 
 class RepoIndexTest < Test::Unit::TestCase
   Index = Gitgo::Repo::Index
+  acts_as_file_test
   
   attr_accessor :idx
   
@@ -17,18 +18,17 @@ class RepoIndexTest < Test::Unit::TestCase
   PACKED_SHAS = SHAS.collect {|sha| [sha].pack("H*") }
   
   def setup
+    super
     @idx = Index.new StringIO.new
   end
   
   #
-  # length test
+  # class.read test
   #
   
-  def test_length_returns_number_of_packed_shas_in_file
-    assert_equal 0, idx.length
-    
-    idx.file << PACKED_SHAS.join
-    assert_equal 5, idx.length
+  def test_read_reads_all_entries
+    path = method_root.prepare(:tmp, "example") {|io| io << PACKED_SHAS.join }
+    assert_equal SHAS, Index.read(path)
   end
   
   #

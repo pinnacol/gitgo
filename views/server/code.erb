@@ -1,5 +1,8 @@
 <h2>Code</h2>
 <div class="code">
+  <h3>Grep</h3>
+  <%=  erb :_grepnav, :layout => false %>
+  
   <h3>Branches</h3><% if branches.empty? %>
   <em>No branches yet.</em><% end %>
   <ul><% branches.each do |ref| %>

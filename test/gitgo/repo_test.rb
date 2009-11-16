@@ -399,6 +399,17 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # stats test
+  #
+  
+  def test_stats_returns_a_hash_of_repo_stats
+    stats = repo.stats
+    assert_equal Hash, stats.class
+    assert stats.include?("size")
+    assert stats.include?("count")
+  end
+  
+  #
   # create test
   #
   
@@ -457,6 +468,15 @@ class RepoTest < Test::Unit::TestCase
   #
   # list test
   #
+  
+  def test_list_returns_a_list_of_indexes_when_no_key_is_specified
+    assert_equal [], repo.list
+    
+    john = Grit::Actor.new("John Doe", "john.doe@email.com")
+    repo.create("new content", "author" => john, "state" => "one")
+    
+    assert_equal ["author", "state"], repo.list.sort
+  end
   
   def test_list_returns_a_list_of_index_values
     assert_equal [], repo.list('author')
@@ -838,7 +858,7 @@ class RepoTest < Test::Unit::TestCase
     repo.link(a,b).link(b,c)
     repo.commit("new commit")
     
-    assert_equal "", repo.fsck
+    assert_equal [], repo.fsck
   end
   
 end

@@ -458,7 +458,14 @@ module Gitgo
     def fsck
       checkout do
         stdout, stderr = grit.git.sh("#{Grit::Git.git_binary} fsck")
-        stderr
+        stderr.split("\n")
+      end
+    end
+    
+    def stats
+      with_env do
+        stdout, stderr = grit.git.sh("#{Grit::Git.git_binary} count-objects --verbose")
+        YAML.load(stdout)
       end
     end
     
@@ -521,9 +528,12 @@ module Gitgo
     end
     
     # Returns a list of possible values for the specified index key.
-    def list(key)
-      start = index_path(key).chomp("/").length + 1
-      Dir.glob(index_path(key, "*")).collect! {|path| path[start..-1] }
+    def list(key=nil)
+      paths = [key].compact
+      start = index_path(*paths).chomp("/").length + 1
+      
+      paths << "*"
+      Dir.glob(index_path(*paths)).collect! {|path| path[start..-1] }
     end
 
     # Gets the document indicated by id, or nil if no such document exists.

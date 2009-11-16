@@ -1,0 +1,15 @@
+<h1>Status (<%= repo.branch %>)</h1>
+
+<ul><% if status.empty? %>
+<li>No changes</li><% end %><% status.keys.sort.each do |key| %>
+<li><%= status[key] %> <%= key %></li><% end %>
+</ul>
+
+<form class="update" action="<%= url 'commit' %>" method="post">
+<input type="text" name="message" value="" <% if status.empty? %>disabled="true" <% end %>/>
+<input type="submit" value="Commit" <% if status.empty? %>disabled="true" <% end %>/></dt>
+</form>
+
+<form class="update" action="<%= url 'reset' %>" method="post">
+<input type="submit" value="Reset" <% if status.empty? %>disabled="true" <% end %>/></dt>
+</form>

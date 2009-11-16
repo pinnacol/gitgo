@@ -24,7 +24,7 @@ module Gitgo
         
         # Reads the index file and returns an array of shas.  
         def read(path)
-          open(path) {|idx| idx.read(idx.length) }
+          open(path) {|idx| idx.read(nil) }
         end
         
         # Opens the index file and writes the sha.
@@ -64,11 +64,6 @@ module Gitgo
         file.pos / ENTRY_SIZE
       end
       
-      # Returns the number of entries in self.
-      def length
-        file.size / ENTRY_SIZE
-      end
-      
       # Reads n entries from the start index and returns them as an array. Nil
       # n will read all remaining entries and nil start will read from the
       # current index.
@@ -78,12 +73,12 @@ module Gitgo
           file.pos = start_pos
         end
         
-        unless n
-          n = (file.size - file.pos)/ENTRY_SIZE
+        str = file.read(n.nil? ? nil : n * ENTRY_SIZE).to_s
+        unless str.length % 20 == 0
+          raise "invalid packed sha length: #{str.length}"
         end
-        
-        entries = file.read(n * ENTRY_SIZE).to_s.unpack(UNPACK * n)
-        
+        entries = str.unpack(UNPACK * (str.length / 20))
+
         # clear out all missing entries, which will be empty
         while last = entries.last
           if last.empty?

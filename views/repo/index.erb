@@ -1,0 +1,31 @@
+<h1>Repo</h1>
+
+<dl>
+<dt>Path</dt>
+<dd><%= repo.path %></dd>
+<dt>At</dt>
+<dd><%= repo.current.id %> (<%= repo.branch %>)</dd>
+<dt>Indexes</dt>
+<dd>
+  <ul><% indexes.each do |index| %>
+  <li><%= index %></li><% end %>
+  </ul>
+</dd>
+</dl>
+
+<h2>Maintenance</h2>
+<ul>
+<li>
+  <form class="update" action="<%= url 'reindex' %>" method="post">
+  <input type="submit" value="Reindex" /></dt>
+  </form>
+</li>
+<li><a href="<%= url('status') %>">status</a></li>
+<li><a href="<%= url('fsck') %>">fsck</a></li>
+</ul>
+
+<h2>Stats</h2>
+<dl><% stats.keys.sort.each do |key| %>
+<dt><%= key %></dt>
+<dd><%= stats[key] %></dd><% end %>
+</dl>

@@ -1,10 +1,10 @@
 require 'gitgo/controller'
 require 'gitgo/controllers/comment'
 require 'gitgo/controllers/issue'
+require 'gitgo/controllers/repo'
 
 module Gitgo
   class Server < Controller
-    include Controllers
     
     # Page routing (public, then views/*.textile)
     set :static, true
@@ -28,8 +28,9 @@ module Gitgo
     
     get("/commits/:id") {|id| show_commits(id) }
     
-    use Comment
-    use Issue
+    use Controllers::Comment
+    use Controllers::Issue
+    use Controllers::Repo
     
     def index
       erb :index
