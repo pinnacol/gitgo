@@ -50,7 +50,7 @@ module Gitgo
       timeline = repo.timeline(:n => per_page, :offset => page * per_page) do |sha|
         email == nil || docs[sha].author.email == email
       end
-      timeline.collect! {|sha| docs[sha] }
+      timeline = timeline.collect {|sha| docs[sha] }.sort_by {|doc| doc.date }
       
       erb :timeline, :locals => {
         :page => page,

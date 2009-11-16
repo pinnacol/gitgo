@@ -9,7 +9,7 @@
 <li><a href="/activity/<%= email %>"><%= escape_html email %></a></li><% end %>
 </ul>
 
-<ul class="timeline"><% timeline.each do |doc| %>
+<ul class="timeline"><% timeline.reverse_each do |doc| %>
 <li>
   <ul>
   <li><%= doc.date.strftime('%Y/%m/%d') %></li>
