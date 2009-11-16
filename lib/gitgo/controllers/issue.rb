@@ -110,7 +110,7 @@ module Gitgo
       
         # note the comment is always in regards to the issue internally, but it
         # will be linked to comments as specified by the REGARDING parameter
-        comment = repo.create(content, inherit(doc, 'type' => 'comment', 're' => issue))
+        comment = repo.create(content, inherit(doc, 'type' => 'update', 're' => issue))
 
         # link the comment to each parent and update the index
         parents = request[REGARDING] || [issue]

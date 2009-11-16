@@ -794,7 +794,17 @@ module Gitgo
       previous = indexes[@index_all]
       current = collect {|sha| sha }
       
-      previous.clear if full
+      if full
+        previous.clear
+        
+        Dir.glob(index_path("*")) do |path|
+          if File.directory?(path)
+            FileUtils.rm_r(path)
+          else
+            FileUtils.rm(path)
+          end
+        end
+      end
       
       # adds
       (current - previous).each do |sha|

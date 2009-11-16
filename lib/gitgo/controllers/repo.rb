@@ -13,9 +13,9 @@ module Gitgo
         }
       end
       
-      get("/indicies")             { indicies }
-      get("/indicies/:key")        {|key| indicies(key) }
-      get("/indicies/:key/:value") {|key, value| indicies(key, value) }
+      get("/idx")             { idx }
+      get("/idx/:key")        {|key| idx(key) }
+      get("/idx/:key/:value") {|key, value| idx(key, value) }
       
       get("/status") do
         erb :status, :locals => {:status => repo.status}
@@ -40,8 +40,8 @@ module Gitgo
         redirect url("status")
       end
       
-      def indicies(key=nil, value=nil)
-        erb :indicies, :locals => {
+      def idx(key=nil, value=nil)
+        erb :idx, :locals => {
           :current_key => key,
           :keys => repo.list,
           :current_value => value,

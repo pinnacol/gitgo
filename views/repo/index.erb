@@ -10,7 +10,7 @@
 <dt>Indexes</dt>
 <dd>
   <ul><% keys.each do |key| %>
-  <li><a href="<%= url "indicies/#{key}" %>"><%= key %></a></li><% end %>
+  <li><a href="<%= url "idx/#{key}" %>"><%= key %></a></li><% end %>
   </ul>
 </dd>
 </dl>
@@ -19,7 +19,7 @@
 <ul>
 <li>
   <form class="update" action="<%= url 'reindex' %>" method="post">
-  <input type="checkbox" name="full" value="true" checked="false" /> Full
+  <input type="checkbox" name="full" value="true" /> Full
   <input type="submit" value="Reindex" /></dt>
   </form>
 </li>

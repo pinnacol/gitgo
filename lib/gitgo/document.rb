@@ -52,9 +52,8 @@ module Gitgo
     # The tags key
     TAGS = 'tags'
     
-    # An array of keys that will not be indexed directly (although note author
-    # IS indexed, albeit only by email)
-    NON_INDEX_KEYS = %w{author date attachments}
+    # An array of keys that will be indexed if present (author is automatic)
+    INDEX_KEYS = %w{type state}
     
     # The sha for self, set by the repo when convenient (for example by read).
     attr_accessor :sha
@@ -148,7 +147,7 @@ module Gitgo
     
     # Yields each indexed key-value pair to the block.
     def each_index
-      index_keys.each do |key|
+      INDEX_KEYS.each do |key|
         value = attributes[key]
         
         if value.respond_to?(:each)
@@ -241,11 +240,6 @@ module Gitgo
       end
       
       tags.empty? ? nil : tags
-    end
-    
-    # returns an array of indexed attribute keys
-    def index_keys # :nodoc:
-      attributes.keys - NON_INDEX_KEYS
     end
     
     # From: http://snippets.dzone.com/posts/show/5811
