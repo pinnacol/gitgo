@@ -1,7 +1,7 @@
 <h1>Commits</h1>
 <ul class="commitnav">
-<li class="newer"><% if page >= 1 %><a href="/<%= id %>/commits?page=<%= page - 1 %>&per_page=<%= per_page %>">newer</a><% else %>(newer)<% end %></li>
-<li class="older"><% if commits.length == per_page %><a href="/<%= id %>/commits?page=<%= page + 1 %>&per_page=<%= per_page %>">older</a><% else %>(older)<% end %></li>
+<li class="newer"><% if page >= 1 %><a href="/commits/<%= id %>?page=<%= page - 1 %>&per_page=<%= per_page %>">newer</a><% else %>(newer)<% end %></li>
+<li class="older"><% if commits.length == per_page %><a href="/commits/<%= id %>?page=<%= page + 1 %>&per_page=<%= per_page %>">older</a><% else %>(older)<% end %></li>
 </ul>
 
 <div class="commits">

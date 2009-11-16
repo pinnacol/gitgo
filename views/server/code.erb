@@ -3,12 +3,12 @@
   <h3>Branches</h3><% if branches.empty? %>
   <em>No branches yet.</em><% end %>
   <ul><% branches.each do |ref| %>
-  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li><% end %>
+  <li><%= tree_link(ref.name) %> (<%= commits_link(ref.name) %>)</li><% end %>
   </ul>
 
   <h3>Tags</h3><% if tags.empty? %>
   <em>No tags yet.</em><% end %>
   <ul><% tags.each do |ref| %>
-  <li><%= tree_link(ref.name) %> (<a href="/<%= ref.name %>/commits">history</a>)</li><% end %>
+  <li><%= tree_link(ref.name) %> (<%= commits_link(ref.name) %>)</li><% end %>
   </ul>
 </div>

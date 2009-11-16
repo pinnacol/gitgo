@@ -26,7 +26,7 @@ module Gitgo
     
     get('/obj/:sha')        {|sha| show_object(sha) }
     
-    # get("/:id/commits") {|id| show_history(id) }
+    get("/commits/:id") {|id| show_commits(id) }
     
     use Comment
     use Issue
@@ -226,7 +226,7 @@ module Gitgo
       end
     end
     
-    def show_history(id)
+    def show_commits(id)
       commit = self.commit(id)
       page = (request[:page] || 0).to_i
       per_page = (request[:per_page] || 10).to_i
