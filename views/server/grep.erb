@@ -1,5 +1,7 @@
 <h1>Grep <%= type.capitalize %></h1>
 
+<%=  erb :_grepnav, :layout => false %>
+
 <form class="grep" action="/<%= type %>" method="get">
   <dl class="form">
   <dt><label for="pattern">Pattern</label></dt>
