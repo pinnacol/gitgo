@@ -520,8 +520,10 @@ module Gitgo
       end
     end
     
+    # Returns a list of possible values for the specified index key.
     def list(key)
-      Dir.glob(index_path(key, "*"))
+      start = index_path(key).chomp("/").length + 1
+      Dir.glob(index_path(key, "*")).collect! {|path| path[start..-1] }
     end
 
     # Gets the document indicated by id, or nil if no such document exists.
@@ -749,18 +751,21 @@ module Gitgo
     
     def comments(sha, docs=cache)
       ancestry = {}
-      children(sha, :recursive => true).each_pair do |id, children|
-        doc = docs[id]
+      children(sha, :recursive => true).each_pair do |parent, children|
+        next if parent == sha
+        
+        doc = docs[parent]
         doc[:active] ||= active?(doc)
         doc[:tail]   ||= children.empty?
         
-      end.each_pair do |parent_id, child_ids|
-        parent_doc = docs[parent_id]
-        child_docs = child_ids.collect {|id| docs[id] }.sort_by {|doc| doc.date }
-        ancestry[parent_doc] = child_docs
+      end.each_pair do |parent, children|
+        parent = docs[parent] unless parent == sha
+        
+        children.collect! {|id| docs[id] }.sort_by {|doc| doc.date }
+        ancestry[parent] = children
       end
     
-      comments = flatten(ancestry)[docs[sha]]
+      comments = flatten(ancestry)[sha]
       comments = collapse(comments)
       comments.shift
       

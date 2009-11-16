@@ -27,7 +27,7 @@ module Gitgo
       STATES = %w{open closed}
     
       def index
-        issues = self.issues
+        issues = repo.index("type", "issue")
       
         criteria = {}
         request.params.each_pair do |key, values|
@@ -146,12 +146,7 @@ module Gitgo
       def refs
         grit.refs
       end
-    
-      # Returns an array of issues
-      def issues
-        repo.index("type", "issue")
-      end
-    
+      
       # Returns an array of states currently in use
       def states
         (STATES + repo.list("states")).uniq

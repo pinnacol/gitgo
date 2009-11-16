@@ -55,7 +55,8 @@ module Gitgo
         :page => page,
         :per_page => per_page,
         :email => email,
-        :timeline => timeline
+        :timeline => timeline,
+        :emails => repo.list('author')
       }
     end
     

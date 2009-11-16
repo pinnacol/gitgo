@@ -1,9 +1,27 @@
 <h1>Activity<%= email ? " for #{email}" : "" %></h1>
-<ul class="commentnav">
+<ul>
 <li class="newer"><% if page >= 1 %><a href="/activity<%= email ? "/#{email}" : "" %>?page=<%= page - 1 %>&per_page=<%= per_page %>">newer</a><% else %>(newer)<% end %></li>
 <li class="older"><% if timeline.length == per_page %><a href="/activity<%= email ? "/#{email}" : "" %>?page=<%= page + 1 %>&per_page=<%= per_page %>">older</a><% else %>(older)<% end %></li>
 </ul>
 
-<div class="comments">
-<%= erb :_timeline, :locals => {:timeline => timeline}, :layout => false %>
-</div>
+<ul>
+<li><a href="/activity">All Authors</a></li><% emails.each do |email| %>
+<li><a href="/activity/<%= email %>"><%= email %></a></li><% end %>
+</ul>
+
+<ul class="timeline"><% timeline.each do |doc| %>
+<li>
+  <ul>
+  <li><%= doc.date.strftime('%Y/%m/%d') %></li>
+  <li><%= doc['type'] %></li>
+  <li><%= 
+  case doc['type']
+  when 'comment'  then obj_link(doc['re'])
+  when 'issue'    then issue_link(doc)
+  when 'update'   then "#{issue_link(docs[doc['re']])} (state: #{doc['state']})"
+  else "Added #{doc.sha}"
+  end %></li>
+  <li><%= activity_link(doc.author) %></li>
+  </ul>
+</li><% end %>
+</ul>

@@ -455,6 +455,23 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # list test
+  #
+  
+  def test_list_returns_a_list_of_index_values
+    assert_equal [], repo.list('author')
+    
+    john = Grit::Actor.new("John Doe", "john.doe@email.com")
+    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
+    
+    a = repo.create("new content", "author" => john)
+    b = repo.create("new content", "author" => jane)
+    c = repo.create("new content", "author" => jane)
+    
+    assert_equal [jane.email, john.email], repo.list('author').sort
+  end
+  
+  #
   # destroy test
   #
   
