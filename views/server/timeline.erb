@@ -1,0 +1,9 @@
+<h1>Activity<%= email ? " for #{email}" : "" %></h1>
+<ul class="commentnav">
+<li class="newer"><% if page >= 1 %><a href="/activity<%= email ? "/#{email}" : "" %>?page=<%= page - 1 %>&per_page=<%= per_page %>">newer</a><% else %>(newer)<% end %></li>
+<li class="older"><% if timeline.length == per_page %><a href="/activity<%= email ? "/#{email}" : "" %>?page=<%= page + 1 %>&per_page=<%= per_page %>">older</a><% else %>(older)<% end %></li>
+</ul>
+
+<div class="comments">
+<%= erb :_timeline, :locals => {:timeline => timeline}, :layout => false %>
+</div>

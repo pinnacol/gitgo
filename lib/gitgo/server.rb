@@ -12,6 +12,9 @@ module Gitgo
     
     get("/")            { index }
     get("/code")        { code_index }
+    get('/activity')        { timeline }
+    get('/activity/:email') {|email| timeline(email) }
+    
     get('/blob')        { blob_grep }
     get('/tree')        { tree_grep }
     get('/commit')      { commit_grep }
@@ -22,7 +25,7 @@ module Gitgo
     get('/commit/:commit')  {|commit| show_commit(commit) }
     
     get('/obj/:sha')        {|sha| show_object(sha) }
-
+    
     # get("/:id/commits") {|id| show_history(id) }
     
     use Comment
@@ -36,6 +39,23 @@ module Gitgo
       erb :code, :locals => {
         :branches => grit.branches,
         :tags => grit.tags
+      }
+    end
+    
+    def timeline(email=nil)
+      page = (request[:page] || 0).to_i
+      per_page = (request[:per_page] || 10).to_i
+      
+      timeline = repo.timeline(:n => per_page, :offset => page * per_page) do |sha|
+        email == nil || docs[sha].author.email == email
+      end
+      timeline.collect! {|sha| docs[sha] }
+      
+      erb :timeline, :locals => {
+        :page => page,
+        :per_page => per_page,
+        :email => email,
+        :timeline => timeline
       }
     end
     

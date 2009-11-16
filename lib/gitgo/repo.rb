@@ -605,6 +605,10 @@ module Gitgo
       return shas if n <= 0
 
       each do |sha|
+        if block_given?
+          next unless yield(sha)
+        end
+        
         if offset > 0
           offset -= 1
         else

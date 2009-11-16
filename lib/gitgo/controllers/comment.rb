@@ -7,7 +7,6 @@ module Gitgo
       set :views, "views/comment"
 
       # No-parent routes
-      get('/')       { timeline }
       get('/:id')    {|id| index(id) }
       post('/')      { create(nil) }
       post('/:id') do |id|
@@ -34,17 +33,6 @@ module Gitgo
       end
       put('/:parent/:child')    {|parent, child| update(parent, child) }
       delete('/:parent/:child') {|parent, child| destroy(parent, child) }
-    
-      def timeline
-        page = (request[:page] || 0).to_i
-        per_page = (request[:per_page] || 10).to_i
-      
-        erb :timeline, :locals => {
-          :page => page,
-          :per_page => per_page,
-          :timeline => repo.timeline(:n => per_page, :offset => page * per_page)
-        }
-      end
     
       def index(id)
         redirect("/doc/#{id}")

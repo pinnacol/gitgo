@@ -5,26 +5,34 @@ module Gitgo
       repo.grit
     end
     
-    def commit_link(id)
-      %Q{<a href="/commit/#{id}">#{id}</a>}
+    def commit_link(commit)
+      %Q{<a href="/commit/#{commit}">#{commit}</a>}
     end
 
-    def tree_link(id, *paths)
-      path = paths.empty? ? id : File.join(id, *paths)
+    def tree_link(commit, *paths)
+      path = paths.empty? ? commit : File.join(commit, *paths)
       %Q{<a href="/tree/#{path}">#{File.basename(path)}</a>}
     end
 
-    def blob_link(id, *paths)
-      path = File.join(id, *paths)
+    def blob_link(commit, *paths)
+      path = File.join(commit, *paths)
       %Q{<a href="/blob/#{path}">#{File.basename(path)}</a>}
     end
 
+    def obj_link(sha)
+      "#{sha_link(sha)} (#{repo.type(sha)})"
+    end
+    
     def show_link(obj)
       %Q{<a href="/obj/#{obj.id}">#{obj.name}</a>}
     end
     
     def sha_link(sha)
       %Q{<a href="/obj/#{sha}">#{sha}</a>}
+    end
+    
+    def activity_link(author)
+      %Q{#{author.name} (<a href="/activity/#{author.email}">#{author.email}</a>)}
     end
     
     def issue_link(doc)
