@@ -70,9 +70,10 @@ class IssueTest < Test::Unit::TestCase
   end
   
   def test_index_filters_on_all_params
-    a = open_issue("Issue A", "doc[a]" => "one", "doc[b]" => "one")
-    b = open_issue("Issue B", "doc[a]" => "two", "doc[b]" => "two")
-    c = open_issue("Issue C", "doc[a]" => "one", "doc[b]" => "two")
+    a = open_issue("Issue A", "doc[tags]" => "one")
+    b = open_issue("Issue B", "doc[tags]" => "two")
+    close_issue(b)
+    c = open_issue("Issue C", "doc[tags]" => "two")
     
     repo.commit "created fixture"
     
@@ -83,21 +84,21 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue B/
     assert last_response.body =~ /Issue C/
     
-    get("/issue", "a" => "one")
+    get("/issue", "state" => "open")
     assert last_response.ok?
     
     assert last_response.body =~ /Issue A/
     assert last_response.body !~ /Issue B/
     assert last_response.body =~ /Issue C/
     
-    get("/issue", "a" => "one", "b" => "one")
+    get("/issue", "state" => "open", "tags" => "one")
     assert last_response.ok?
     
     assert last_response.body =~ /Issue A/
     assert last_response.body !~ /Issue B/
     assert last_response.body !~ /Issue C/
     
-    get("/issue", "a" => ["one", "two"], "b" => "two")
+    get("/issue", "state" => ["open", "closed"], "tags" => "two")
     assert last_response.ok?
     
     assert last_response.body !~ /Issue A/

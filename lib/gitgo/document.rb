@@ -53,7 +53,7 @@ module Gitgo
     TAGS = 'tags'
     
     # An array of keys that will be indexed if present (author is automatic)
-    INDEX_KEYS = %w{type state}
+    INDEX_KEYS = %w{type state tags}
     
     # The sha for self, set by the repo when convenient (for example by read).
     attr_accessor :sha
@@ -148,7 +148,7 @@ module Gitgo
     # Yields each indexed key-value pair to the block.
     def each_index
       INDEX_KEYS.each do |key|
-        value = attributes[key]
+        next unless value = attributes[key]
         
         if value.respond_to?(:each)
           value.each {|val| yield(key, val) }

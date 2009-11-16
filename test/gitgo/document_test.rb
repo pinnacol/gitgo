@@ -181,7 +181,7 @@ content
     doc = Document.new(
       'author' => author,
       'date' => date,
-      'key' => 'value',
+      'state' => 'open',
       'n' => 1,
       'tags' => ['a', 'b', 'c'],
       'attachments' => ['not', 'indexed']
@@ -194,8 +194,7 @@ content
     
     assert_equal({
       'author' => [author.email],
-      'key' => ['value'],
-      'n' => [1],
+      'state' => ['open'],
       'tags' => ['a', 'b', 'c'],
     }, results)
   end
