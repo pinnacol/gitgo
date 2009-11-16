@@ -470,6 +470,23 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # cache test
+  #
+  
+  def test_cache_documentation
+    repo = Repo.new
+    id = repo.create("new doc")
+  
+    docs = repo.cache
+    assert_equal "new doc", docs[id].content
+    assert_equal true, docs[id].equal?(docs[id])
+  
+    alts = repo.cache
+    assert_equal "new doc", alts[id].content
+    assert_equal false, alts[id].equal?(docs[id])
+  end
+  
+  #
   # each test
   #
   

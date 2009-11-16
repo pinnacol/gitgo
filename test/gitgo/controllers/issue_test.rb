@@ -55,7 +55,7 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue C/
     
     get("/issue?state=open")
-    assert last_response.ok?
+    assert last_response.ok?, last_response.body
     
     assert last_response.body =~ /Issue A/
     assert last_response.body =~ /Issue B/

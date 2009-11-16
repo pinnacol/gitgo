@@ -45,7 +45,7 @@ module Gitgo
       
         unless filters.empty?
           issues.delete_if do |issue|
-            selected = opinions(issue)
+            selected = repo.tails(issue)
             filters.each do |filter|
               selected = selected & filter
             end
@@ -80,27 +80,14 @@ module Gitgo
         end
       
         # get children and resolve to docs
-        ancestry = {}
-        tails = []
-        children(issue).each_key do |id|
-          doc = docs[id]
-          doc[:active] ||= active?(doc)
-        end.each_pair do |parent_id, child_ids|
-          parent_doc = docs[parent_id]
-          child_docs = child_ids.collect {|id| docs[id] }.sort_by {|doc| doc.date }
-          ancestry[parent_doc] = child_docs
-          tails << parent_doc if child_docs.empty?
-        end
-      
-        comments = flatten(ancestry)[issue_doc]
-        comments = collapse(comments)
-        comments.shift
-      
+        comments = repo.comments(issue, docs)
+        tails = comments.select {|doc| doc[:tail] }
+        
         merge_state = 'closed'
         merge_tags = []
-        tails.each do |tail|
+        tails.each do |doc|
           # state = tail.state if 
-          merge_tags.concat tail.tags
+          merge_tags.concat doc.tags
         end
         merge_tags.uniq!
       
@@ -158,23 +145,6 @@ module Gitgo
     
       def refs
         grit.refs
-      end
-    
-      # Returns an array of children for the issue; cached per-request
-      def children(issue)
-        repo.children(issue, :recursive => true)
-      end
-    
-      def opinions(issue)
-        opinions = []
-        children(issue).each_pair do |key, value|
-          opinions << key if value.empty?
-        end
-        opinions
-      end
-    
-      def active?(doc)
-        true  # for now...
       end
     
       # Returns an array of issues

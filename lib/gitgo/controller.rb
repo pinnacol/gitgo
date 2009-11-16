@@ -155,13 +155,8 @@ module Gitgo
       request ? request.env['rack.session'] : nil
     end
     
-    # A self-filling per-request cache of documents that ensures a document will
-    # only be read once within a given request.  Use like:
-    #
-    #   doc = docs[id]
-    #
     def docs
-      @docs ||= Hash.new {|hash, id| hash[id] = repo.read(id) }
+      @docs ||= repo.cache
     end
     
     # Renders template as erb, then formats using RedCloth.

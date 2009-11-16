@@ -574,6 +574,26 @@ module Gitgo
       doc
     end
     
+    # A self-filling cache of documents that only reads a document once.  The
+    # cache is intended to be set to a variable and re-used like this:
+    #
+    #   repo = Repo.new
+    #   id = repo.create("new doc")
+    #
+    #   docs = repo.cache
+    #   docs[id].content           # => "new doc"
+    #   docs[id].equal?(docs[id])  # => true
+    #
+    # Call cache again to generate a new cache:
+    #
+    #   alts = repo.cache
+    #   alts[id].content           # => "new doc"
+    #   alts[id].equal?(docs[id])  # => false
+    #
+    def cache
+      Hash.new {|hash, id| hash[id] = read(id) }
+    end
+    
     # Yields each document in the repo, ordered by date (with day resolution).
     def each
       years = self[[]] || []
@@ -717,6 +737,38 @@ module Gitgo
       end
 
       self
+    end
+    
+    def tails(sha)
+      tails = []
+      children(sha, :recursive => true).each_pair do |key, value|
+        tails << key if value.empty?
+      end
+      tails
+    end
+    
+    def comments(sha, docs=cache)
+      ancestry = {}
+      children(sha, :recursive => true).each_pair do |id, children|
+        doc = docs[id]
+        doc[:active] ||= active?(doc)
+        doc[:tail]   ||= children.empty?
+        
+      end.each_pair do |parent_id, child_ids|
+        parent_doc = docs[parent_id]
+        child_docs = child_ids.collect {|id| docs[id] }.sort_by {|doc| doc.date }
+        ancestry[parent_doc] = child_docs
+      end
+    
+      comments = flatten(ancestry)[docs[sha]]
+      comments = collapse(comments)
+      comments.shift
+      
+      comments
+    end
+    
+    def active?(doc)
+      true  # for now...
     end
     
     def reindex!(full=false)

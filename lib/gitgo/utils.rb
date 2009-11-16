@@ -101,27 +101,5 @@ module Gitgo
       ref = grit.refs.find {|ref| ref.name == name }
       ref ? ref.commit : nil
     end
-    
-    def flatten(ancestry)
-      ancestry.each_pair do |parent, children|
-        children.collect! {|child| ancestry[child] }
-        children.unshift(parent)
-      end
-      ancestry
-    end
-    
-    def collapse(array, result=[])
-      result << array.at(0)
-      
-      if (length = array.length) == 2
-        collapse(array.at(1), result)
-      else
-        1.upto(length-1) do |i|
-          result << collapse(array.at(i))
-        end
-      end
-      
-      result
-    end
   end
 end
