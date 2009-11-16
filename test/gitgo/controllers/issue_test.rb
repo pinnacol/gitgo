@@ -230,6 +230,6 @@ class IssueTest < Test::Unit::TestCase
     put("/issue/unknown", "content" => "Comment on the Issue", "commit" => "true")
     assert_equal 500, last_response.status
     
-    assert last_response.body =~ /unknown issue: "unknown"/
+    assert last_response.body =~ /unknown issue: &quot;unknown&quot;/
   end
 end

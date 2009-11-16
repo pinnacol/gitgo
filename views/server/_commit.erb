@@ -1,7 +1,7 @@
 <div class="commit">
   <dl class="commit">
   <dt class="message">message</dt>
-  <dd class="message"><%= commit.message %></dd>
+  <dd class="message"><%= gformat commit.message %></dd>
   <dt class="author">author</dt>
   <dd class="author">
 <%= erb :_user, :locals => {:user => commit.author}, :views => 'views/server', :layout => false %>

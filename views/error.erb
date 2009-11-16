@@ -1,7 +1,7 @@
 <h1><%= err.class %>:</h1>
 
 <h2>Message</h2>
-<pre><%= err.message %></pre>
+<pre><%= escape_html err.message %></pre>
 
 <h2>Backtrace</h2>
-<pre><%= err.backtrace.join("\n") %></pre>
+<pre><%= escape_html err.backtrace.join("\n") %></pre>

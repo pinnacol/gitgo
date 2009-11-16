@@ -7,7 +7,7 @@
 <dd><%= repo.branch %></dd>
 <dt>Commit</dt>
 <dd><%= erb :_commit, :locals => {:commit => repo.current }, :views => 'views/server', :layout => false %></dd>
-<dt>Indexes</dt>
+<dt>Index</dt>
 <dd>
   <ul><% keys.each do |key| %>
   <li><a href="<%= url "idx/#{key}" %>"><%= key %></a></li><% end %>

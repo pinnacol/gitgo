@@ -6,7 +6,7 @@
 
 <ul>
 <li><a href="/activity">All Authors</a></li><% emails.each do |email| %>
-<li><a href="/activity/<%= email %>"><%= email %></a></li><% end %>
+<li><a href="/activity/<%= email %>"><%= escape_html email %></a></li><% end %>
 </ul>
 
 <ul class="timeline"><% timeline.each do |doc| %>

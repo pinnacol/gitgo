@@ -28,6 +28,6 @@
 <tr>
 <td><%= commit.author %><%= commit.committer.to_s != commit.author.to_s ? " (#{commit.committer})" : "" %></td>
 <td><a href="/commit/<%= commit.id %>"><%= commit.id %></a></td>
-<td><%= commit.message %></td>
+<td><%= gformat commit.message %></td>
 </tr><% end %>
 </table>

@@ -1,10 +1,10 @@
     <dl class="comment">
     <dt class="content">Comment</dt>
-    <dd class="content"><%= comment.content %></dd>
+    <dd class="content"><%= gformat comment.content %></dd>
     <dt class="author">Author</dt>
     <dd class="author"><%= comment.author %></dd>
     <dt class="date">Date</dt>
     <dd class="date"><abbr title="<%= comment.date.iso8601 %>"><%= comment.date.strftime('%Y/%m/%d %H:%M %p') %></abbr></dd><% comment.diff(parent, 'title', 'date', 'author', 'type', 're').each_pair do |key, value| %>
-    <dt><%= key %></dt>
-    <dd><%= value %></dd><% end %>
+    <dt><%= escape_html key %></dt>
+    <dd><%= escape_html value %></dd><% end %>
     </dl>

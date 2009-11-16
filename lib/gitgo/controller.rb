@@ -61,7 +61,6 @@ module Gitgo
     end
     
     helpers do
-      include Rack::Utils
       include Utils
     end
     

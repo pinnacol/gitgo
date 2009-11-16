@@ -1,8 +1,17 @@
+require 'rack/utils'
+
 module Gitgo
   module Utils
+    include Rack::Utils
     
     def grit
       repo.grit
+    end
+    
+    def gformat(str)
+      str = escape_html(str)
+      str.gsub!(/[a-f0-9]{40}/) {|sha| sha_link(sha) }
+      str
     end
     
     def commit_link(commit)
