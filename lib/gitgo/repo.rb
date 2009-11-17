@@ -517,14 +517,9 @@ module Gitgo
       id
     end
 
-    def index(key, value, n=10, start=0)
+    def index(key, value)
       idx_file = index_path(key, value)
-      
-      if File.exists?(idx_file)
-        Index.open(idx_file) {|idx| idx.read(n, start) }
-      else
-        []
-      end
+      File.exists?(idx_file) ? Index.read(idx_file) : []
     end
     
     # Returns a list of possible values for the specified index key.

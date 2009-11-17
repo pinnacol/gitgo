@@ -37,7 +37,7 @@ module Gitgo
         filters = []
         criteria.each_pair do |key, values|
           filter = values.collect do |value|
-            repo.index(key, value, nil)
+            repo.index(key, value)
           end.flatten
         
           filters << filter
