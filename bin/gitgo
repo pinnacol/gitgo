@@ -46,4 +46,3 @@ OptionParser.new do |opts|
 end.parse!
 
 Gitgo::Server.run!(options)
-puts Gitgo::Server.prototype.repo.path
