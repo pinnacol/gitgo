@@ -537,25 +537,23 @@ module Gitgo
       blob.data.empty? ? nil : Document.parse(blob.data, id)
     end
     
-    # Updates the content of the specified document and reassigns all links
-    # to the document.
-    def update(id, content, attrs={})
+    # Updates the specified document with the document, reassigning all links.
+    def update(id, doc)
       return nil unless old_doc = read(id)
 
       parents = self.parents(id)
       children = self.children(id)
-      new_doc = old_doc.merge(attrs, content)
-
+      
       parents.each {|parent| unlink(parent, id) }
       children.each {|child| unlink(id, child) }
       rm timestamp(old_doc.date, id)
 
-      id = store(new_doc)
+      id = store(doc)
       parents.each {|parent| link(parent, id) }
       children.each {|child| link(id, child) }
 
-      new_doc.sha = id
-      new_doc
+      doc.sha = id
+      doc
     end
 
     # Removes the document from the repo by deleting it from the timeline.

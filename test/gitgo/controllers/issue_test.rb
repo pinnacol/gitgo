@@ -127,7 +127,7 @@ class IssueTest < Test::Unit::TestCase
   def test_post_links_issue_at_commit_referencing_issue
     commit = repo.set(:blob, "")
     
-    post("/issue", "at" => commit, "commit" => "true")
+    post("/issue", "doc[at]" => commit, "commit" => "true")
     assert last_response.redirect?, last_response.body
     
     issue = last_response_location
@@ -217,7 +217,7 @@ class IssueTest < Test::Unit::TestCase
     issue = repo.create("New Issue")
     commit = repo.create("")
     
-    put("/issue/#{issue}", "at" => commit, "commit" => "true")
+    put("/issue/#{issue}", "doc[at]" => commit, "commit" => "true")
     assert last_response.redirect?, last_response.body
     id, comment = last_response_location
     

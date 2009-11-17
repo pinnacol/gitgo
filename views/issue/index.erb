@@ -22,12 +22,11 @@
   <dd><input id="title" type="text" name="doc[title]" value="" /></dd>
   <dt><label for="content">Description</label></dt>
   <dd><textarea id="content" name="content"></textarea></dd>
+  <dt><label for="tags">Tags</label></dt>
+  <dd><input type="text" id="tags" name="doc[tags]" value="" /></dd>
   <dt><label for="at">At</label></dt>
   <dd>
-    <select id="at" name="at"><% refs.each do |ref| %>
-    <option value="<%= ref.commit %>"><%= ref.name %></option><% end %>
-    <option value="">(none)</option>
-    </select>
+<%= erb :_at, :layout => false %>
   </dd>
   <dt><label for="commit">Commit</label></dt>
   <dd><input id="commit" type="checkbox" name="commit" value="true" checked="true"/></dd>

@@ -39,7 +39,7 @@ module Gitgo
       end
     
       def create(parent)
-        id = repo.create(content, attrs)
+        id = repo.store(document)
         repo.link(parent, id) if parent
       
         repo.commit("added document #{id}") if commit?
@@ -49,7 +49,7 @@ module Gitgo
       end
     
       def update(parent, child)
-        if doc = repo.update(child, content, attrs)
+        if doc = repo.update(child, document)
           new_child = doc.sha
           repo.commit("updated document #{child} to #{new_child}") if commit?
           response["Sha"] = new_child

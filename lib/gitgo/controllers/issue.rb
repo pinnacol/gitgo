@@ -20,11 +20,9 @@ module Gitgo
       end
       put('/:id')    {|id| update(id) }
       delete('/:id') {|id| destroy(id) }
-    
-      COMMIT = "at"
-      REGARDING = "re"
+      
       INHERIT = %w{state tags}
-      STATES = %w{open closed}
+      DEFAULT_STATES = %w{open closed}
     
       def index
         issues = repo.index("type", "issue")
@@ -63,10 +61,11 @@ module Gitgo
       end
     
       def create
-        issue = repo.create(content, attrs('type' => 'issue', 'state' => 'open'))
+        doc = document('type' => 'issue', 'state' => 'open')
+        issue = repo.store(doc)
       
-        # if specified, link the issue to an object (should be a commit)
-        if commit = at_commit
+        # if specified, link the issue to a commit
+        if commit = doc['at']
           repo.link(commit, issue, :ref => issue)
         end
       
@@ -83,21 +82,21 @@ module Gitgo
         comments = repo.comments(issue, docs)
         tails = comments.select {|doc| doc[:tail] }
         
-        merge_state = 'closed'
-        merge_tags = []
+        merge = {:states => [issue_doc['state']], :tags => issue_doc.tags}
         tails.each do |doc|
-          # state = tail.state if 
-          merge_tags.concat doc.tags
+          merge[:states] << doc['state']
+          merge[:tags].concat doc.tags
         end
-        merge_tags.uniq!
+        merge.each_value do |value|
+          value.uniq!
+        end
       
         erb :show, :locals => {
           :id => issue,
           :doc => issue_doc,
           :comments => comments,
           :tails => tails,
-          :merge_tags => merge_state,
-          :merge_tags => merge_tags,
+          :merge => merge,
           :selected => comment,
         }
       end
@@ -108,48 +107,47 @@ module Gitgo
           raise "unknown issue: #{issue.inspect}"
         end
       
-        # note the comment is always in regards to the issue internally, but it
-        # will be linked to comments as specified by the REGARDING parameter
-        comment = repo.create(content, inherit(doc, 'type' => 'update', 're' => issue))
+        # the comment is always in regards to the issue internally (ie re => issue)
+        doc = inherit(doc, 'type' => 'update', 're' => issue)
+        update = repo.store(doc)
 
         # link the comment to each parent and update the index
-        parents = request[REGARDING] || [issue]
+        parents = request['re'] || [issue]
         parents = [parents] unless parents.kind_of?(Array)
-        parents.each {|parent| repo.link(parent, comment) }
+        parents.each {|parent| repo.link(parent, update) }
       
-        # if specified, link the issue to an object (should be a commit)
-        if commit = at_commit
-          repo.link(commit, comment, :ref => issue)
+        # if specified, link the issue to a commit
+        if commit = doc['at']
+          repo.link(commit, update, :ref => issue)
         end
       
         repo.commit!("updated issue #{issue}") if commit?
-        redirect url("#{issue}/#{comment}")
+        redirect url("#{issue}/#{update}")
       end
     
       #
       # helpers
-      #
+      # 
     
-      def at_commit
-        commit = request[COMMIT]
-        commit && !commit.empty? ? commit : nil
-      end
-    
-      # Same as attrs, but ensures each of the INHERIT attributes is inherited
-      # from doc if it is not specified in the request.
+      # Same as document, but ensures each of the INHERIT attributes is
+      # inherited from doc if it is not specified in the request.
       def inherit(doc, overrides=nil)
-        base = attrs(overrides)
+        base = document(overrides)
         INHERIT.each {|key| base[key] ||= doc[key] }
         base
       end
-    
+      
       def refs
         grit.refs
       end
       
+      def head
+        @head ||= grit.head.name
+      end
+      
       # Returns an array of states currently in use
       def states
-        (STATES + repo.list("states")).uniq
+        (DEFAULT_STATES + repo.list("states")).uniq
       end
     
       # Returns an array of tags currently in use

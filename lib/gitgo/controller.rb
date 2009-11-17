@@ -125,13 +125,8 @@ module Gitgo
       set?('commit')
     end
     
-    # Returns the document content specified in the request
-    def content
-      request[CONTENT]
-    end
-    
-    # Returns a hash of document attributes specified in the request.
-    def attrs(overrides=nil)
+    # Returns the document specified in the request.
+    def document(overrides=nil)
       attrs = request[ATTRIBUTES] || {}
       
       if admin?
@@ -143,7 +138,7 @@ module Gitgo
       end
       
       attrs.merge!(overrides) if overrides
-      attrs
+      Document.new(attrs, request[CONTENT])
     end
     
     def admin?
