@@ -1,4 +1,5 @@
 require 'rack/utils'
+require 'redcloth'
 
 module Gitgo
   module Utils
@@ -12,6 +13,10 @@ module Gitgo
       str = escape_html(str)
       str.gsub!(/[a-f0-9]{40}/) {|sha| sha_link(sha) }
       str
+    end
+    
+    def tformat(str)
+      ::RedCloth.new(gformat(str)).to_html
     end
     
     def commit_link(commit)

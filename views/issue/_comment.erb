@@ -1,6 +1,6 @@
     <dl class="comment"><% unless comment.content.empty? %>
     <dt class="content">Comment</dt>
-    <dd class="content"><%= gformat comment.content %></dd><% end %><% if tags = diff['tags'] %>
+    <dd class="content"><%= tformat comment.content %></dd><% end %><% if tags = diff['tags'] %>
     <dt class="tags">Added Tags</dt>
     <dd class="tags"><%= tags.join(', ') %></dd><% end %><% if tags = diff[:tags] %>
     <dt class="tags">Removed Tags</dt>

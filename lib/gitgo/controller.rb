@@ -1,5 +1,4 @@
 require 'erb'
-require 'redcloth'
 require 'sinatra/base'
 require 'gitgo/utils'
 require 'gitgo/repo'
