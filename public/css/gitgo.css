@@ -1,0 +1,16 @@
+.content {
+  width: 80%;
+}
+
+input[type=text] {
+  width: 600px;
+  border: 1px solid #cccccc;
+  padding: 0.3em;
+}
+
+textarea {
+  width: 600px;
+  height: 120px;
+  border: 1px solid #cccccc;
+  padding: 0.3em;
+}

@@ -4,8 +4,8 @@
   <dl class="description">
   <dt class="title">Title</dt>
   <dd class="title"><%= doc['title'] %></dd>
-  <dt class="desc">Description</dt>
-  <dd class="desc"><%= tformat doc.content %></dd><% unless merge[:tags].empty? %>
+  <dt class="content">Description</dt>
+  <dd class="content"><%= tformat doc.content %></dd><% unless merge[:tags].empty? %>
   <dt class="tags">Tags</dt>
   <dd class="tags"><%= merge[:tags].join(', ') %></dd><% end %>
   <dt class="state">State</dt>
