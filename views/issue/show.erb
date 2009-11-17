@@ -34,7 +34,7 @@
     <dt><label for="state">State</label></dt>
     <dd>
       <select id="state" name="doc[state]"><% states.each do |state| %>
-      <option value="<%= state %>"><%= state %></option><% end %>
+      <option value="<%= state %>" <% if state == merge[:states][-1] %> selected="true"<% end %>><%= state %></option><% end %>
       </select>
     </dd>
     <dt><label for="at">At</label></dt>
