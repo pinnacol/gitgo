@@ -163,6 +163,32 @@ content
     assert_equal ["a", "b c", "'de'"], doc["tags"]
   end
   
+  def test_ASET_nilifies_nil_and_empty_values
+    doc['key'] =  ""
+    assert_equal nil, doc["key"]
+    
+    doc['key'] =  []
+    assert_equal nil, doc["key"]
+    
+    doc['key'] =  nil
+    assert_equal nil, doc["key"]
+    
+    doc = Document.new(
+      "author" => author, 
+      "date" => date, 
+      'nil' => nil, 
+      'empty' => [], 
+      'empty_str' => '', 
+      'key' => 'value',
+      'int' => 0)
+      
+    assert_equal nil, doc["nil"]
+    assert_equal nil, doc["empty"]
+    assert_equal nil, doc["empty_str"]
+    assert_equal 'value', doc["key"]
+    assert_equal 0, doc["int"]
+  end
+  
   #
   # each_index test
   #

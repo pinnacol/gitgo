@@ -85,20 +85,23 @@ module Gitgo
     #
     def initialize(attrs={}, content=nil, sha=nil)
       @attributes = attrs
-      @attributes[AUTHOR] = parse_author attrs[AUTHOR]
-      @attributes[DATE]   = parse_date attrs[DATE]
-      self[TAGS] = attrs[TAGS]
+      @attributes.delete_if {|key, value| empty?(value) }
+      
+      self[AUTHOR] = attrs[AUTHOR]
+      self[DATE]   = attrs[DATE]
+      self[TAGS]   = attrs[TAGS]
       
       @content = content
       @sha = sha
     end
- 
+    
     # Gets an attribute.
     def [](key)
       attributes[key]
     end
     
     # Sets an attribute.  Author and date attributes are parsed and validated.
+    # Nil and empty values remove the attribute.
     # 
     # ==== Author and Date
     #
@@ -115,7 +118,7 @@ module Gitgo
       else value
       end
       
-      if value.nil?
+      if empty?(value)
         attributes.delete(key)
       else
         attributes[key] = value
@@ -206,6 +209,10 @@ module Gitgo
     end
     
     protected
+    
+    def empty?(value) # :nodoc:
+      value.nil? || (value.respond_to?(:empty?) && value.empty?)
+    end
     
     # helper to parse/validate an author
     def parse_author(author) # :nodoc:
