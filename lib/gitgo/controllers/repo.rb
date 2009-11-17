@@ -10,7 +10,7 @@ module Gitgo
       get("/idx")       { idx }
       get("/idx/:key")  {|key| idx(key) }
       get("/idx/:k/:v") {|key, value| idx(key, value) }
-      get("/status")    { status }
+      get("/status")    { repo_status }
       get("/fsck")      { fsck }
       get("/*")         {|path| template(path) }
       
@@ -43,7 +43,8 @@ module Gitgo
         }
       end
       
-      def status
+      # (note status is taken as a method by Sinatra)
+      def repo_status
         erb :status, :locals => {:status => repo.status}
       end
       

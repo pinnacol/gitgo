@@ -9,15 +9,24 @@
 /tag           # list of tags, search by [id, tag]
 /tag/id        # show tag
 /issue         # show list of issues, search by [id, issue]
+               # (grep, filtered by type: issue|update)
 /issue/id      # show issue
-/comment       # show list of comments, search by [id, comment]
-/comment/id    # show comment
-
+/issue/new     # new issue
 /issues        # main issues search page... params dictate criteria
 /issues/id     # issues, at commit
 
-/comments      # comments history listing commit
-/comments/id   # comments, for commit
+/comment       # show list of comments, search by [id, comment]
+               # (grep, filtered by type: comment)
+
+/comment/id    # show comment
+               - put to update
+               - delete to destory
+
+/comments                # comments history listing commit
+/comments/parent         # comments for commit
+                         - post to create
+/comments/parent/child   # comments for commit, highlight child
+
 
 # GENERAL RULES
 /singular              # list of objects, search by [id, type]

@@ -12,16 +12,16 @@
 <ul class="timeline"><% timeline.reverse_each do |doc| %>
 <li>
   <ul>
-  <li><%= doc.date.strftime('%Y/%m/%d') %></li>
-  <li><%= doc['type'] %></li>
   <li><%= 
   case doc['type']
   when 'comment'  then obj_link(doc['re'])
   when 'issue'    then issue_link(doc)
   when 'update'   then "#{issue_link(docs[doc['re']])} (state: #{doc['state']})"
-  else "Added #{doc.sha}"
-  end %></li>
+  else "Added #{sha_link doc.sha}"
+  end %></li><% if type = doc['type'] %>
+  <li><%= type %></li><% end %>
   <li><%= activity_link(doc.author) %></li>
+  <li><%= doc.date.strftime('%Y/%m/%d') %></li>
   </ul>
 </li><% end %>
 </ul>

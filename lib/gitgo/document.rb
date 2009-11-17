@@ -176,6 +176,8 @@ module Gitgo
     # Added and modified attributes will be keyed by strings and removes are
     # keyed by symbols.  Keys to skip can be specified by exclude.
     def diff(parent, *exclude)
+      return attributes.dup unless parent
+      
       current = attributes
       previous = parent.attributes
       keys = (current.keys + previous.keys - exclude).uniq
