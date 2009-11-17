@@ -12,6 +12,8 @@ module Gitgo
       get("/idx/:k/:v") {|key, value| idx(key, value) }
       get("/status")    { status }
       get("/fsck")      { fsck }
+      get("/*")         {|path| template(path) }
+      
       post("/commit")   { commit }
       post("/reindex")  { reindex }
       post("/reset")    { reset }
@@ -21,6 +23,14 @@ module Gitgo
           :stats => repo.stats,
           :keys => repo.list
         }
+      end
+      
+      def template(path)
+        begin
+          textile path.to_sym
+        rescue(Errno::ENOENT)
+          $!.message.include?(path) ? not_found : raise
+        end
       end
       
       def idx(key=nil, value=nil)

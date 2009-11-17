@@ -1,0 +1,91 @@
+h1. Gitgo Repository Design
+
+Gitgo tracks issues and other project metadata on a dedicated branch in a git repository.  The format of this branch is designed to prevent merge conflicts so that multiple users can merge divergent issues without manual intervention.
+
+The gitgo branch stores two types of information, gitgo documents and linkages between git objects.  As an example, a document could represent a comment and a linkage could assign the comment to a commit.  Beyond this static storage, Gitgo creates local, disposable indexes that improve data access.
+
+h2. Documents
+
+Documents consist of an attributes section and a content section, joined as a YAML document plus a string:
+
+<pre>
+  [example]
+  --- 
+  author: John Doe <john.doe@email.com>
+  date: 1252508400.123
+  --- 
+  content...
+</pre>
+
+The author and date fields are mandatory, and must be formatted as shown. Specifically the author must consist of a user name and email in the git format and the date must be a number. The content consists of everything following the break.
+
+Specific document types add additional attributes. Gitgo defines four document types: issue, update, comment, and page.
+
+h3. Issue
+
+Issues represent the original description of an issue.
+
+|attribute|use|indexed|
+|title|the issue title|false|
+|state|the state of the issue (always open at first)|true|
+|tags|tags for the issue|true|
+|at|the commit at which the issue becomes active|false|
+
+h3. Update
+
+Updates are updates to an issue.
+
+|attribute|use|indexed|
+|state|the state of the issue|true|
+|tags|tags for the issue|true|
+|at|the commit at which the update becomes active|false|
+|re|the updated issue|false|
+
+h3. Comment
+
+A comment on a git object.
+
+|attribute|use|indexed|
+|re|the object receiving the comment|false|
+
+h3. Page
+
+A wiki page.
+
+|attribute|use|indexed|
+|title|the page title|false|
+|tags|tags for the page|true|
+
+h2. Links and Storage
+
+Links between objects are represented by files in the branch directory structure.  Specifically an file named after the child sha is placed under a directory named using the parent sha.
+
+<pre>
+  /00
+    /5ffb20addfcb819d843331a950c666ed52bf5a     (parent)
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (child)
+</pre>
+
+Or in a more succinct notation:
+
+<pre>
+  /ab
+    /xyz 
+      /sha
+</pre>
+
+The ab-xyz directory is used as a kind of optimization that ends up limiting the size of an individual unpacked commit.  The details are beyond the scope of this document. Note that the link file is always empty; the actual documents are stored in a related filing system by date and sha.
+
+<pre>
+  /2009
+    /0909
+      /c2ca4a564a9da73dbc04b20a921d0a6dbda82e77 (doc)
+</pre>
+
+Storing links and documents in this manner prevents merge conflicts because no unequal files can have the same file name.  Content is never modified; it can only be added and removed.
+
+h2. Indexing
+
+Gitgo creates local, disposable indexes of documents according to the indexed attributes identified for each document type.  Each existing document is read and indexed when a server is first started, and new documents are automatically added to the index.  Partial updates are performed whenever new documents are pulled in via a merge.
+
+Indexes are stored in files like '.git/gitgo/idx/key/value' and consist of a string of hex-packed shas for documents that have a particular key-value attribute pair.
