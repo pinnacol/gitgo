@@ -46,7 +46,7 @@ module Gitgo
     end
     
     def activity_link(author)
-      %Q{#{author.name} (<a href="/activity/#{author.email}">#{author.email}</a>)}
+      %Q{#{author.name} (<a href="/timeline?author=#{author.email}">#{author.email}</a>)}
     end
     
     def commits_link(ref)

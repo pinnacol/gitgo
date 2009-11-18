@@ -6,9 +6,6 @@ module Gitgo
       set :views, "views/code"
       
       get("/code")            { index }
-      get('/activity')        { timeline }
-      get('/activity/:email') {|email| timeline(email) }
-
       get('/blob')            { blob_grep }
       get('/tree')            { tree_grep }
       get('/commit')          { commit_grep }
@@ -29,24 +26,6 @@ module Gitgo
         erb :index, :locals => {
           :branches => grit.branches,
           :tags => grit.tags
-        }
-      end
-
-      def timeline(email=nil)
-        page = (request[:page] || 0).to_i
-        per_page = (request[:per_page] || 10).to_i
-
-        timeline = repo.timeline(:n => per_page, :offset => page * per_page) do |sha|
-          email == nil || docs[sha].author.email == email
-        end
-        timeline = timeline.collect {|sha| docs[sha] }.sort_by {|doc| doc.date }
-
-        erb :timeline, :locals => {
-          :page => page,
-          :per_page => per_page,
-          :email => email,
-          :timeline => timeline,
-          :emails => repo.list('author')
         }
       end
 
