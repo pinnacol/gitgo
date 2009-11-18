@@ -4,13 +4,13 @@
   <dd class="message"><%= gformat commit.message %></dd>
   <dt class="author">author</dt>
   <dd class="author">
-<%= erb :_user, :locals => {:user => commit.author}, :layout => false %>
+<%= erb :_user, :locals => {:user => commit.author}, :views => 'views/code', :layout => false %>
   </dd>
   <dt class="author-date">authored date</dt>
   <dd class="author-date"><%= commit.authored_date %></dd><% if commit.author.to_s != commit.committer.to_s %>
   <dt class="committer">author</dt>
   <dd class="committer">
-<%= erb :_user, :locals => {:user => commit.committer}, :layout => false %>
+<%= erb :_user, :locals => {:user => commit.committer}, :views => 'views/code', :layout => false %>
   </dd>
   <dt class="committed-date">committed date</dt>
   <dd class="committed-date"><%= commit.committed_date %></dd><% end %>

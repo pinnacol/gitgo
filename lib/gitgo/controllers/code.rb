@@ -195,15 +195,15 @@ module Gitgo
           "%s %d\0" % [raw_object.type, raw_object.content.length] + raw_object.content
 
         else
-          type = repo.type(id).to_sym
+          type = repo.type(id)
           obj = case type
-          when :blob, :tree, :commit # tag
+          when 'blob', 'tree', 'commit' # tag
             grit.send(type, id)
           else
             not_found
           end
           
-          erb type, :locals => {:id => id, :obj => obj}, :views => 'views/code/obj'
+          erb type.to_sym, :locals => {:id => id, :obj => obj}, :views => 'views/code/obj'
         end
       end
       
