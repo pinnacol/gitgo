@@ -3,10 +3,9 @@ require 'gitgo/controller'
 module Gitgo
   module Controllers
     class Wiki < Controller
-      set :resource_name, "wiki"
-      set :views, "views/wiki"
+      set :views, File.expand_path("views/wiki", ROOT)
       
-      get("/") { index }
+      get("/wiki") { index }
       
       def index
         erb :index

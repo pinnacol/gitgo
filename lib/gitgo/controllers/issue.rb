@@ -3,14 +3,13 @@ require 'gitgo/controller'
 module Gitgo
   module Controllers
     class Issue < Controller
-      set :resource_name, "issue"
-      set :views, "views/issue"
+      set :views, File.expand_path("views/issue", ROOT)
 
-      get('/')       { index }
-      get('/:id')    {|id| show(id) }
-      get('/:id/:comment') {|id, comment| show(id, comment) }
-      post('/')      { create }
-      post('/:id') do |id|
+      get('/issue')        { index }
+      get('/issue/:id')    {|id| show(id) }
+      get('/issue/:id/:comment') {|id, comment| show(id, comment) }
+      post('/issue')       { create }
+      post('/issue/:id') do |id|
         _method = request[:_method]
         case _method
         when /\Aupdate\z/i then update(id)
@@ -18,8 +17,8 @@ module Gitgo
         else raise("unknown post method: #{_method}")
         end
       end
-      put('/:id')    {|id| update(id) }
-      delete('/:id') {|id| destroy(id) }
+      put('/issue/:id')    {|id| update(id) }
+      delete('/issue/:id') {|id| destroy(id) }
       
       INHERIT = %w{state tags}
       DEFAULT_STATES = %w{open closed}
@@ -70,7 +69,7 @@ module Gitgo
         end
       
         repo.commit!("issue #{issue}") if commit?
-        redirect url(issue)
+        redirect url("/issue/#{issue}")
       end
     
       def show(issue, comment=nil)
@@ -123,7 +122,7 @@ module Gitgo
         end
       
         repo.commit!("update #{update} re #{issue}") if commit?
-        redirect url("#{issue}/#{update}")
+        redirect url("/issue/#{issue}/#{update}")
       end
     
       #

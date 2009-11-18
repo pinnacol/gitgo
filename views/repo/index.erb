@@ -6,7 +6,7 @@
 <dt>Branch</dt>
 <dd><%= repo.branch %></dd>
 <dt>Commit</dt>
-<dd><%= erb :_commit, :locals => {:commit => repo.current }, :views => 'views/code', :layout => false %></dd>
+<dd><%= erb :_commit, :locals => {:commit => repo.current }, :views => path('views/code'), :layout => false %></dd>
 <dt>Index</dt>
 <dd>
   <ul><% keys.each do |key| %>

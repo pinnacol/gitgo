@@ -1,8 +1,8 @@
-require 'rack/utils'
 require 'redcloth'
+require 'rack/utils'
 
 module Gitgo
-  module Utils
+  module Helpers
     include Rack::Utils
     
     def grit
@@ -93,6 +93,38 @@ module Gitgo
     def commit_by_ref(name)
       ref = grit.refs.find {|ref| ref.name == name }
       ref ? ref.commit : nil
+    end
+    
+    # Returns a title for pages served from this controller; either the
+    # capitalized resource name or the class basename.
+    def title
+      self.class.to_s.split("::").last.capitalize
+    end
+    
+    # Renders template as erb, then formats using RedCloth.
+    def textile(template, options={}, locals={})
+      require_warn('RedCloth') unless defined?(::RedCloth)
+      
+      # extract generic options
+      layout = options.delete(:layout)
+      layout = :layout if layout.nil? || layout == true
+      views = options.delete(:views) || self.class.views || "./views"
+      locals = options.delete(:locals) || locals || {}
+
+      # render template
+      data, options[:filename], options[:line] = lookup_template(:textile, template, views)
+      output = render_erb(template, data, options, locals)
+      output = ::RedCloth.new(output).to_html
+      
+      # render layout
+      if layout
+        data, options[:filename], options[:line] = lookup_layout(:erb, layout, views)
+        if data
+          output = render_erb(layout, data, options, locals) { output }
+        end
+      end
+
+      output
     end
   end
 end

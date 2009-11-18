@@ -3,7 +3,7 @@ require 'gitgo/controller'
 module Gitgo
   module Controllers
     class Code < Controller
-      set :views, "views/code"
+      set :views, File.expand_path("views/code", ROOT)
       
       get("/code")            { index }
       get('/blob')            { blob_grep }
@@ -190,7 +190,7 @@ module Gitgo
             not_found
           end
           
-          erb type.to_sym, :locals => {:id => id, :obj => obj}, :views => 'views/code/obj'
+          erb type.to_sym, :locals => {:id => id, :obj => obj}, :views => path('views/code/obj')
         end
       end
       

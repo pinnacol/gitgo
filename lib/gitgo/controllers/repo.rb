@@ -3,20 +3,19 @@ require 'gitgo/controller'
 module Gitgo
   module Controllers
     class Repo < Controller
-      set :resource_name, "repo"
-      set :views, "views/repo"
+      set :views, File.expand_path("views/repo", ROOT)
       
-      get("/")          { index }
-      get("/idx")       { idx }
-      get("/idx/:key")  {|key| idx(key) }
-      get("/idx/:k/:v") {|key, value| idx(key, value) }
-      get("/status")    { repo_status }
-      get("/fsck")      { fsck }
-      get("/*")         {|path| template(path) }
+      get("/repo")          { index }
+      get("/repo/idx")       { idx }
+      get("/repo/idx/:key")  {|key| idx(key) }
+      get("/repo/idx/:k/:v") {|key, value| idx(key, value) }
+      get("/repo/status")    { repo_status }
+      get("/repo/fsck")      { fsck }
+      get("/repo/*")         {|path| template(path) }
       
-      post("/commit")   { commit }
-      post("/reindex")  { reindex }
-      post("/reset")    { reset }
+      post("/repo/commit")   { commit }
+      post("/repo/reindex")  { reindex }
+      post("/repo/reset")    { reset }
       
       def index
         erb :index, :locals => {

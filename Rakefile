@@ -33,7 +33,7 @@ task :print_manifest do
   # included already (marking by the absence
   # of a label)
   Dir.glob("**/*").each do |file|
-    next if file =~ /^(rdoc|pkg|backup|vendor)/ || File.directory?(file)
+    next if file =~ /^(rdoc|pkg|backup|test|fixtures|design|vendor)/ || File.directory?(file)
     
     path = File.expand_path(file)
     files[path] = ["", file] unless files.has_key?(path)
