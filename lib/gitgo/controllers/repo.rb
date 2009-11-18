@@ -5,7 +5,7 @@ module Gitgo
     class Repo < Controller
       set :views, File.expand_path("views/repo", ROOT)
       
-      get("/repo")          { index }
+      get("/repo")           { index }
       get("/repo/idx")       { idx }
       get("/repo/idx/:key")  {|key| idx(key) }
       get("/repo/idx/:k/:v") {|key, value| idx(key, value) }
@@ -53,17 +53,17 @@ module Gitgo
       
       def commit
         repo.commit request['message']
-        redirect url("status")
+        redirect url("/repo/status")
       end
       
       def reindex
         repo.reindex! set?('full')
-        redirect url
+        redirect url("/repo")
       end
       
       def reset
         repo.reset
-        redirect url("status")
+        redirect url("/repo/status")
       end
     end
   end
