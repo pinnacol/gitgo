@@ -531,10 +531,14 @@ module Gitgo
       Dir.glob(index_path(*paths)).collect! {|path| path[start..-1] }
     end
 
-    # Gets the document indicated by id, or nil if no such document exists.
+    # Gets the document indicated by id, or nil if no such document exists, or
+    # if the id points to something other than a document.
     def read(id)
-      blob = grit.blob(id)
-      blob.data.empty? ? nil : Document.parse(blob.data, id)
+      begin
+        Document.parse(grit.blob(id).data, id)
+      rescue Document::InvalidDocumentError
+        nil
+      end
     end
     
     # Updates the specified document with the document, reassigning all links.
@@ -557,7 +561,7 @@ module Gitgo
     end
 
     # Removes the document from the repo by deleting it from the timeline.
-    def destroy(id)
+    def destroy(id, unlink=true)
 
       # Destroying a doc with children is a bad idea because there is no one
       # good way of removing the children.  Children with multiple parents
@@ -567,15 +571,17 @@ module Gitgo
       #
       # Note the same is not true for parents; a doc can simply remove itself
       # from the parents, each of which will remain valid afterwards.
-      unless children(id).empty?
+      if unlink && !children(id).empty?
         raise "cannot destroy a document with children"
       end
 
       return nil unless doc = read(id)
-
-      parents(id).each {|parent| unlink(parent, id) }
+      
+      if unlink
+        parents(id).each {|parent| unlink(parent, id) }
+      end
+      
       rm timestamp(doc.date, id)
-
       doc
     end
     

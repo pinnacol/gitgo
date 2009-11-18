@@ -29,17 +29,24 @@ module Gitgo
       # Parses a Document from the string.
       def parse(str, sha=nil)
         attrs, content = str.split(/\n--- \n/m, 2)
-        attrs = attrs.nil? || attrs.empty? ? nil : YAML.load(attrs)
-        attrs ||= {}
         
-        unless attrs.kind_of?(Hash)
-          raise "no attributes specified"
+        if attrs.nil? || attrs.empty?
+          raise InvalidDocumentError, "no attributes specified:\n#{str}"
         end
-
+        
+        attrs = YAML.load(attrs)
+        unless attrs.kind_of?(Hash)
+          raise InvalidDocumentError, "no attributes specified:\n#{str}"
+        end
+        
+        if content.nil?
+          raise InvalidDocumentError, "no content specified:\n#{str}"
+        end
+        
         new(attrs, content, sha)
       rescue
-        raise if $DEBUG
-        raise "invalid document: (#{$!.message})\n#{str}"
+        raise if $DEBUG || $!.kind_of?(InvalidDocumentError)
+        raise InvalidDocumentError, "invalid document: (#{$!.message})\n#{str}"
       end
     end
     
@@ -249,6 +256,10 @@ module Gitgo
       end
       
       tags.empty? ? nil : tags
+    end
+    
+    # Raised by Document.parse for an invalid document.
+    class InvalidDocumentError < StandardError
     end
     
     # From: http://snippets.dzone.com/posts/show/5811

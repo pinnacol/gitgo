@@ -21,20 +21,9 @@ module Gitgo
       get('/obj/:sha')        {|sha| show_object(sha) }
       get("/commits/:commit") {|commit| show_commits(commit) }
       
-      post('/comment/:child') do |child|
-        _method = request[:_method]
-        case _method
-        when /\Aupdate\z/i then update(nil, child)
-        when /\Adelete\z/i then destroy(nil, child)
-        else raise("unknown post method: #{_method}")
-        end
-      end
-      put('/comment/:child')      {|child| update(nil, child) }
-      delete('/comment/:child')   {|child| destroy(nil, child) }
-      
-      post('/comments/:parent')            {|parent| create(parent) }
-      put('/comments/:parent/:child')      {|parent, child| update(parent, child) }
-      delete('/comments/:parent/:child')   {|parent, child| destroy(parent, child) }
+      post('/comments/:obj')            {|obj| create(obj) }
+      put('/comments/:obj/:comment')    {|obj, comment| update(obj, comment) }
+      delete('/comments/:obj/:comment') {|obj, comment| destroy(obj, comment) }
       
       def index
         erb :index, :locals => {
@@ -206,17 +195,15 @@ module Gitgo
           "%s %d\0" % [raw_object.type, raw_object.content.length] + raw_object.content
 
         else
-          case repo.type(id)
-          when "blob"
-            erb :blob, :locals => {:id => id, :blob => grit.blob(id)}, :views => "views/obj"
-          when "tree"
-            erb :tree, :locals => {:id => id, :tree => grit.tree(id)}, :views => "views/obj"
-          when "commit"
-            erb :commit, :locals => {:id => id, :commit => grit.commit(id)}, :views => "views/obj"
-          # when "tag"
-          #   erb :tag, :locals => {:id => id, :tag => }, :views => "views/obj"
-          else not_found
+          type = repo.type(id).to_sym
+          obj = case type
+          when :blob, :tree, :commit # tag
+            grit.send(type, id)
+          else
+            not_found
           end
+          
+          erb type, :locals => {:id => id, :obj => obj}, :views => 'views/code/obj'
         end
       end
       
@@ -233,38 +220,88 @@ module Gitgo
         }
       end
       
-      def create(parent)
-        id = repo.store(document)
-        repo.link(parent, id) if parent
-      
-        repo.commit("added document #{id}") if commit?
-        response["Sha"] = id
-      
-        redirect(request['redirect'] || url)
-      end
-    
-      def update(parent, child)
-        if doc = repo.update(child, document)
-          new_child = doc.sha
-          repo.commit("updated document #{child} to #{new_child}") if commit?
-          response["Sha"] = new_child
+      def create(obj)
+        # determine and validate comment parent
+        if parent = request['parent']
+          parent_doc = repo.read(parent)
+          unless parent_doc && parent_doc['re'] == obj
+            raise "invalid parent for comment on #{obj}: #{parent}"
+          end
+        end
+        parent ||= obj
         
-          redirect(request['redirect'] || url)
+        # create the new comment
+        comment = repo.store(document('type' => 'comment', 're' => obj))
+        repo.link(parent, comment)
+        
+        repo.commit("comment #{comment} re #{obj}") if commit?
+        redirect_to(comment)
+      end
+    
+      def update(obj, comment)
+        if doc = repo.read(comment)
+          unless doc['type'] == 'comment'
+            raise "not a comment: #{comment}"
+          end
+          
+          unless doc['re'] == obj
+            raise "not a comment on #{obj}: #{comment}"
+          end
+          
+          # update the comment
+          new_comment = repo.store(document('type' => 'comment', 're' => obj))
+          
+          # reassign links
+          ancestry = repo.children(obj, :recursive => true)
+          
+          ancestry.each_pair do |parent, children|
+            next unless children.include?(comment)
+            
+            repo.unlink(parent, comment)
+            repo.link(parent, new_comment)
+          end
+          
+          ancestry[comment].each do |child|
+            repo.unlink(comment, child)
+            repo.link(new_comment, child)
+          end
+          
+          repo.commit("update #{comment} with #{new_comment}") if commit?
+          redirect_to(new_comment)
         else
-          raise("unknown document: #{child}")
+          raise("unknown comment: #{comment}")
         end
       end
     
-      def destroy(parent, child)
-        if parent
-          repo.unlink(parent, child, :recursive => set?('recursive'))
+      def destroy(obj, comment)
+        if repo.destroy(comment, false)
+          
+          # reassign children to comment parent
+          ancestry = repo.children(obj, :recursive => true)
+          ancestry.each_pair do |parent, children|
+            if children.include?(comment)
+              repo.unlink(parent, comment)
+            
+              ancestry[comment].each do |child|
+                repo.link(parent, child)
+              end
+            end
+          end
+          
+          # unlink children
+          ancestry[comment].each do |child|
+            repo.unlink(comment, child)
+          end
+          
+          repo.commit("remove #{comment}") if commit?
+          redirect_to(obj)
+        else
+          raise("unknown comment: #{comment}")
         end
+      end
       
-        if doc = repo.destroy(child)
-          repo.commit("removed document: #{child}") if commit?
-        end
-      
-        redirect(request['redirect'] || url)
+      def redirect_to(sha)
+        redirect(request['redirect'] || "obj/#{sha}")
       end
     end
   end

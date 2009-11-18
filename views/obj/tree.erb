@@ -1,6 +1,0 @@
-<h2>Tree <%= tree.id %></h2>
-<div class="tree">
-  <ul class="contents"><% tree.contents.each do |obj| %>
-    <li class="<%= obj.kind_of?(Grit::Blob) ? 'blob' : 'tree' %>"><%= show_link(obj) %></li><% end %>
-  </ul>
-</div><%= render_comments(id) %>

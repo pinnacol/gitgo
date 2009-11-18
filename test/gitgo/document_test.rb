@@ -3,6 +3,7 @@ require 'gitgo/document'
 
 class DocumentTest < Test::Unit::TestCase
   Document = Gitgo::Document
+  InvalidDocumentError = Document::InvalidDocumentError
   Actor = Grit::Actor
   
   attr_accessor :author, :date, :doc
@@ -37,22 +38,46 @@ content
     assert_equal "1234", doc.sha
   end
   
+  def test_parsed_document_content_may_be_empty
+    str = %q{--- 
+author: John Doe <john.doe@email.com>
+date: 1252508400 -0600
+key: value
+--- 
+}
+
+    doc = Document.parse(str, "1234")
+    assert_equal "", doc.content
+  end
+  
   def test_parse_raises_error_for_invalid_docs
     doc = ""
-    err = assert_raises(RuntimeError) { Document.parse(doc) }
+    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
+    assert_equal "no attributes specified:\n#{doc}", err.message
+    
+    doc = "just some string"
+    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
+    assert_equal "no attributes specified:\n#{doc}", err.message
+    
+    doc = "--- \n--- \ncontent"
+    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
+    assert_equal "no attributes specified:\n#{doc}", err.message
+    
+    doc = "\n--- \ncontent"
+    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
+    assert_equal "no attributes specified:\n#{doc}", err.message
+    
+    doc = "key: value"
+    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
+    assert_equal "no content specified:\n#{doc}", err.message
+    
+    doc = "date: 1252508400 -0600\n--- \n"
+    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
     assert_equal "invalid document: (author cannot be nil)\n#{doc}", err.message
     
-    doc = "date: 1252508400 -0600"
-    err = assert_raises(RuntimeError) { Document.parse(doc) }
-    assert_equal "invalid document: (author cannot be nil)\n#{doc}", err.message
-    
-    doc = "author: John Doe <john.doe@email.com>"
-    err = assert_raises(RuntimeError) { Document.parse(doc) }
+    doc = "author: John Doe <john.doe@email.com>\n--- \n"
+    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
     assert_equal "invalid document: (date cannot be nil)\n#{doc}", err.message
-    
-    doc = "--- \ncontent"
-    err = assert_raises(RuntimeError) { Document.parse(doc) }
-    assert_equal "invalid document: (no attributes specified)\n#{doc}", err.message
   end
   
   #
