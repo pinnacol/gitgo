@@ -264,7 +264,7 @@ tag of project with one, two, three only
     assert last_response.redirect?
     a = File.basename(last_response['Location'])
     
-    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "content" => "comment b", "parent" => a, "commit" => "true")
+    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "content" => "comment b", "commit" => "true")
     assert last_response.redirect?
     b = File.basename(last_response['Location'])
     
@@ -277,7 +277,7 @@ tag of project with one, two, three only
     assert last_response.redirect?
     a = File.basename(last_response['Location'])
     
-    post("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1", "content" => "comment b", "parent" => a, "commit" => "true")
+    post("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "comment b", "commit" => "true")
     assert !last_response.ok?
     assert last_response.body.include?("invalid parent for comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}")
   end
@@ -287,10 +287,9 @@ tag of project with one, two, three only
   #
   
   def new_comment(content, parent=nil, obj='ee9a1ca4441ab2bf937808b26eab784f3d041643')
-    params = {"content" => content, "commit" => "true"}
-    params['parent'] = parent if parent
+    path = parent ? File.join(obj, parent) : obj
     
-    post("/comments/#{obj}", params)
+    post("/comments/#{path}", "content" => content, "commit" => "true")
     assert last_response.redirect?
     File.basename(last_response['Location'])
   end

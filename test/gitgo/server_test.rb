@@ -31,7 +31,7 @@ class ServerTest < Test::Unit::TestCase
     assert last_response.redirect?
     comment = File.basename(last_response['Location'])
     
-    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "content" => "Comment on a comment", "parent" => comment, "commit" => "true")
+    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{comment}", "content" => "Comment on a comment", "commit" => "true")
     assert last_response.redirect?
     
     put("/issue/#{issue}", "content" => "Comment on the Issue", "commit" => "true")

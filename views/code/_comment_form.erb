@@ -1,0 +1,11 @@
+  <form class="comment" action="/comments/<%= obj %><%= parent ? "/#{parent}" : "" %>" method="post">
+    <input type="hidden" name="redirect" value="<%= request.env['REQUEST_URI'] %>" />
+
+    <dl class="form">
+    <dt><label for="content">Comment</label></dt>
+    <dd><textarea id="content" name="content"></textarea></dd>
+    <dt><label for="commit">Commit</label></dt>
+    <dd><input id="commit" type="checkbox" name="commit" value="true" checked="true"/></dd>
+    <dt><input type="submit" value="Add Comment" /></dt>
+    <dd></dd>
+  </form>

@@ -24,7 +24,7 @@ module Gitgo
         case _method
         when /\Aupdate\z/i then update(obj, comment)
         when /\Adelete\z/i then destroy(obj, comment)
-        else raise("unknown post method: #{_method}")
+        else create(obj, comment)
         end
       end
       put('/comments/:obj/:comment')    {|obj, comment| update(obj, comment) }
@@ -159,14 +159,14 @@ module Gitgo
           obj.trees.find {|obj| obj.name == name }
         end
 
-        erb :tree, :locals => {:commit => commit, :tree => tree, :id => id, :path => path}
+        erb :tree, :locals => {:commit => commit, :id => id, :tree => tree, :path => path}
       end
 
       def show_blob(id, path)
         commit = self.commit(id)  || not_found
         blob = commit.tree / path || not_found
 
-        erb :blob, :locals => {:commit => commit, :blob => blob, :id => id, :path => path }
+        erb :blob, :locals => {:commit => commit, :id => id, :blob => blob, :path => path}
       end
 
       def show_object(id)
@@ -207,15 +207,14 @@ module Gitgo
         }
       end
       
-      def create(obj)
+      def create(obj, parent=obj)
         # determine and validate comment parent
-        if parent = request['parent']
+        if parent != obj
           parent_doc = repo.read(parent)
           unless parent_doc && parent_doc['re'] == obj
             raise "invalid parent for comment on #{obj}: #{parent}"
           end
         end
-        parent ||= obj
         
         # create the new comment
         comment = repo.store(document('type' => 'comment', 're' => obj))
@@ -290,6 +289,17 @@ module Gitgo
       def redirect_to(sha)
         redirect(request['redirect'] || "obj/#{sha}")
       end
+      
+      def render_comments(id)
+         comments = repo.comments(id, docs)
+         
+         if comments.empty?
+           erb(:_comment_form, :locals => {:obj => id, :parent => nil}, :layout => false)
+         else
+           erb(:_comments, :locals => {:obj => id, :comments => comments}, :layout => false)
+         end
+       end
+      
     end
   end
 end

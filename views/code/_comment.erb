@@ -1,0 +1,11 @@
+    <dl class="comment"><% unless comment.content.empty? %>
+    <dt class="content">Comment</dt>
+    <dd class="content"><%= tformat comment.content %></dd><% end %>
+    <dt class="author">Author</dt>
+    <dd class="author"><%= activity_link(comment.author) %></dd>
+    <dt class="date">Date</dt>
+    <dd class="date"><abbr title="<%= comment.date.iso8601 %>"><%= comment.date.strftime('%Y/%m/%d %H:%M %p') %></abbr></dd><% if at = comment['at'] %>
+    <dt class="at">At</dt>
+    <dd class="at"><%= sha_link(at) %></dd><% end %>
+    </dl>
+    
