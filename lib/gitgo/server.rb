@@ -6,7 +6,7 @@ require 'gitgo/controllers/wiki'
 
 module Gitgo
   class Server < Controller
-    set :views, "views/server"
+    set :views, File.expand_path("views/server", ROOT)
     
     set :static, true
     get('/')         { timeline }
