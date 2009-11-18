@@ -337,7 +337,7 @@ tag of project with one, two, three only
   # destroy test
   #
   
-  def test_destroy_removes_comment_and_reassignas_children_to_parent
+  def test_destroy_removes_comment_and_reassigns_children_to_parent
     a = new_comment("comment a")
     b = new_comment("comment b", a)
     c = new_comment("comment c", b)

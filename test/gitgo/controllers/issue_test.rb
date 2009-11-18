@@ -112,7 +112,7 @@ class IssueTest < Test::Unit::TestCase
   
   def test_post_creates_a_new_doc
     post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
-    assert last_response.redirect?, last_response.body
+    assert last_response.redirect?
     
     id = last_response_location
     issue = repo.read(id)
@@ -144,7 +144,7 @@ class IssueTest < Test::Unit::TestCase
     assert_equal [], repo.children(issue)
     
     put("/issue/#{issue}", "content" => "Comment on the Issue", "commit" => "true")
-    assert last_response.redirect?, last_response.body
+    assert last_response.redirect?
     id, comment = last_response_location
     
     assert_equal issue, id

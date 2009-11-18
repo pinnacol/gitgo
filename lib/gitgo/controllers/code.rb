@@ -19,6 +19,14 @@ module Gitgo
       get("/commits/:commit") {|commit| show_commits(commit) }
       
       post('/comments/:obj')            {|obj| create(obj) }
+      post('/comments/:obj/:comment') do |obj, comment|
+        _method = request[:_method]
+        case _method
+        when /\Aupdate\z/i then update(obj, comment)
+        when /\Adelete\z/i then destroy(obj, comment)
+        else raise("unknown post method: #{_method}")
+        end
+      end
       put('/comments/:obj/:comment')    {|obj, comment| update(obj, comment) }
       delete('/comments/:obj/:comment') {|obj, comment| destroy(obj, comment) }
       
