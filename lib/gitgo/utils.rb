@@ -75,24 +75,24 @@ module Gitgo
     end
     
     def render_comments(id)
-      comments = repo.children(id).collect! {|sha| repo.read(sha) }
-      
-      if comments.empty?
-        erb :_comment_form, :locals => {
-          :id => id
-        }, :views => "views/comment", :layout => false
-        
-      else
-        @nesting_depth ||= 0
-        @nesting_depth += 1
-        result = erb :_comments, :locals => {
-          :comments => comments, 
-          :nesting_depth => @nesting_depth
-        }, :views => "views/comment", :layout => false
-        @nesting_depth -= 1
-    
-        result
-      end
+      # comments = repo.children(id).collect! {|sha| repo.read(sha) }
+      # 
+      # if comments.empty?
+      #   erb :_comment_form, :locals => {
+      #     :id => id
+      #   }, :views => "views/comment", :layout => false
+      #   
+      # else
+      #   @nesting_depth ||= 0
+      #   @nesting_depth += 1
+      #   result = erb :_comments, :locals => {
+      #     :comments => comments, 
+      #     :nesting_depth => @nesting_depth
+      #   }, :views => "views/comment", :layout => false
+      #   @nesting_depth -= 1
+      #     
+      #   result
+      # end
     end
     
     def head

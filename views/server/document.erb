@@ -1,9 +1,0 @@
-<h2><%= document.sha %></h2>
-<div class="document">
-  <dl class="document"><% document.each_pair do |key, value| %>
-  <dt class="<%= key %>"><%= escape_html key %></dt>
-  <dd class="<%= key %>"><%= escape_html value %></dd><% end %>
-  <dt class="content">content</dt>
-  <dd class="content"><%= escape_html document.content %></dd>
-  </dl>
-</div><%= render_comments(document.sha) %>
