@@ -11,7 +11,8 @@ require 'gitgo/server'
 options = {
   :host => '127.0.0.1', 
   :port => 8080,
-  :repo_path => "."
+  :repo => ".",
+  :branch => "gitgo"
 }
 
 OptionParser.new do |opts|
@@ -30,6 +31,10 @@ OptionParser.new do |opts|
     options[:repo] = repo
   end
   
+  opts.on("-b", "--branch=BRANCH", "The gitgo branch (#{options[:branch]})") do |branch|
+    options[:branch] = branch
+  end
+  
   opts.on("-h", "--help", "Prints this help") do |ports|
     lines = File.readlines(__FILE__)
     lines.shift                             # skip shebang
@@ -45,4 +50,5 @@ OptionParser.new do |opts|
   end
 end.parse!
 
+options[:repo] = Gitgo::Repo.init(options[:repo], options)
 Gitgo::Server.run!(options)
