@@ -135,13 +135,18 @@ class CodeTest < Test::Unit::TestCase
   end
 
   def test_get_commit_greps_commits
-    get("/commit", :grep => 'added')
-    assert last_response.body.include?('added files x, y, and z')
-    assert !last_response.body.include?('removed files a, b, and c')
+    if repo.version_ok?
+      get("/commit", :grep => 'added')
+      assert last_response.body.include?('added files x, y, and z')
+      assert !last_response.body.include?('removed files a, b, and c')
 
-    get("/commit", :grep => 'removed')
-    assert !last_response.body.include?('added files x, y, and z')
-    assert last_response.body.include?('removed files a, b, and c')
+      get("/commit", :grep => 'removed')
+      assert !last_response.body.include?('added files x, y, and z')
+      assert last_response.body.include?('removed files a, b, and c')
+    else
+      get("/commit", :grep => 'added')
+      assert last_response.body.include?("warning the version of git on the server is insufficient for this action")
+    end
   end
 
   #

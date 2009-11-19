@@ -113,6 +113,44 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # version test
+  #
+  
+  def version_ok?(required, actual)
+    (required <=> actual) <= 0
+  end
+  
+  def test_version_documentation
+    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2])
+    assert_equal true, version_ok?([1,6,4,2], [1,6,4,3])
+    assert_equal false, version_ok?([1,6,4,2], [1,6,4,1])
+  end
+  
+  def test_version_ok
+    # equal
+    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2])
+    
+    # last slot
+    assert_equal true, version_ok?([1,6,4,2], [1,6,4,3])
+    assert_equal false, version_ok?([1,6,4,2], [1,6,4,1])
+    
+    # middle slot
+    assert_equal true, version_ok?([1,6,4,2], [1,7,4,2])
+    assert_equal false, version_ok?([1,6,4,2], [1,5,4,2])
+    
+    # unequal slots
+    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2,1])
+    assert_equal false, version_ok?([1,6,4,2], [1,6])
+    assert_equal true, version_ok?([1,6,4,2], [1,7])
+  end
+  
+  def test_version_returns_an_array_of_integers
+    version = repo.version
+    assert_equal Array, version.class
+    assert_equal true, version.all? {|item| item.kind_of?(Integer) }
+  end
+  
+  #
   # author test
   #
   

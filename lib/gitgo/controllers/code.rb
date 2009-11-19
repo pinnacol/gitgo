@@ -298,15 +298,14 @@ module Gitgo
       end
       
       def render_comments(id)
-         comments = repo.comments(id, docs)
+        comments = repo.comments(id, docs)
          
-         if comments.empty?
-           erb(:_comment_form, :locals => {:obj => id, :parent => nil}, :layout => false)
-         else
-           erb(:_comments, :locals => {:obj => id, :comments => comments}, :layout => false)
-         end
-       end
-      
+        if comments.empty?
+          erb(:_comment_form, :locals => {:obj => id, :parent => nil}, :layout => false)
+        else
+          erb(:_comments, :locals => {:obj => id, :comments => comments}, :layout => false)
+        end
+      end
     end
   end
 end

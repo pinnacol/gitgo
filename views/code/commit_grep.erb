@@ -1,5 +1,7 @@
 <h1>Search Commits</h1>
-
+<% unless repo.version_ok? %>
+<em>warning the version of git on the server is insufficient for this action (must be <%= Gitgo::Repo::GIT_VERSION.join('.') %>, but is <%= repo.version.join('.') %>)</em>
+<% end %>
 <%=  erb :_grepnav, :layout => false %>
 
 <form class="grep" action="/commit" method="get">
