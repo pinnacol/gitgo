@@ -31,7 +31,7 @@ unless Object.const_defined?(:RepoTestHelper)
     
     def setup
       super
-      Grit.debug = false
+      Grit.debug = false if Object.const_defined?(:Grit)
     end
 
     def debug!
@@ -42,10 +42,15 @@ unless Object.const_defined?(:RepoTestHelper)
     # returns the repo_path.  Note the repo is cleaned up upon teardown.
     def setup_repo(repo, repo_path=nil) # :yields: repo_path
       src = File.expand_path(repo, FIXTURE_DIR)
-      repo_path ||= method_root.prepare(:tmp, ".git")
+      repo_path ||= method_root.path(:tmp, ".git")
       
       if File.exists?(repo_path)
         flunk("repo already exists: #{repo_path}")
+      end
+      
+      dir = File.dirname(repo_path)
+      unless File.exists?(dir)
+        FileUtils.mkdir_p(dir)
       end
       
       FileUtils.cp_r(src, repo_path)
