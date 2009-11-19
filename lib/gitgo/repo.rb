@@ -825,7 +825,7 @@ module Gitgo
       
       indexes.each_pair do |path, shas|
         shas.uniq!
-        Index.append(path, shas.join, "w")
+        Index.write(path, shas.join)
       end
       
       self
