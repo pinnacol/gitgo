@@ -1,14 +1,14 @@
 <h1>Index</h1>
 
 <ul><% keys.each do |key| %>
-<li><a href="<%= url "idx/#{key}" %>"><%= escape_html key %></a></li><% end %>
+<li><a href="<%= url "/repo/idx/#{key}" %>"><%= escape_html key %></a></li><% end %>
 </ul>
 
 <% if current_key %>
 <h2>Key: <%= escape_html current_key %></h2>
 <ul><% if values.empty? %>
 <li>None</li><% end %><% values.each do |value| %>
-<li><a href="<%= url "idx/#{current_key}/#{value}" %>"><%= escape_html value %></a></li><% end %>
+<li><a href="<%= url "/repo/idx/#{current_key}/#{value}" %>"><%= escape_html value %></a></li><% end %>
 </ul>
 <% end %>
 

@@ -12,6 +12,33 @@
   <dd class="date"><abbr title="<%= comment.date.iso8601 %>"><%= comment.date.strftime('%Y/%m/%d %H:%M %p') %></abbr></dd><% if at = comment['at'] %>
   <dt class="at">At</dt>
   <dd class="at"><%= sha_link(at) %></dd><% end %>
+  <dt class="controls">Controls</dt>
+  <dd>
+    <ul>
+    <li>
+    <form action="<%= url "/comments/#{comment['re']}/#{comment.sha}" %>" method="post">
+      <input type="hidden" name="_method" value="update" />
+      <input type="hidden" name="redirect" value="<%= request.env['REQUEST_URI'] %>" />
+    
+      <dl>
+      <dt><label for="content">Comment</label></dt>
+      <dd><textarea id="content" name="content"></textarea></dd>
+      <dt><label for="commit">Commit</label></dt>
+      <dd><input id="commit" type="checkbox" name="commit" value="true" checked="true"/></dd>
+      <dt><input type="submit" value="Update" /></dt>
+      <dd></dd>
+      </dl>
+    </form>
+    </li>
+    <li>
+    <form action="<%= url "/comments/#{comment['re']}/#{comment.sha}" %>" method="post">
+      <input type="hidden" name="_method" value="delete" />
+      <input type="hidden" name="redirect" value="<%= request.env['REQUEST_URI'] %>" />
+      <input type="submit" value="Delete" />
+    </form>
+    </li>
+    </ul>
+  </dd>
   </dl><% if comment[:tail] %>
 <%= erb(:_comment_form, :locals => {:obj => comment['re'], :parent => comment.sha}, :layout => false) %><% end %>
   </li><% end %><% end %>
