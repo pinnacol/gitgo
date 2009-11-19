@@ -22,16 +22,32 @@ module Gitgo
           end
         end
         
-        # Reads the index file and returns an array of shas.  
+        # Reads the index file and returns an array of shas.
         def read(path)
           open(path) {|idx| idx.read(nil) }
         end
         
-        # Opens the index file and writes the sha.
-        def write(path, sha, mode="a")
+        # Opens the index file and writes the sha; previous contents
+        # are replaced.
+        def write(path, sha)
           dir = File.dirname(path)
           FileUtils.mkdir_p(dir) unless File.exists?(dir)
-          open(path, mode) {|idx| idx.write(sha) }
+          open(path, "w") {|idx| idx.write(sha) }
+        end
+        
+        # Opens the index file and appends the sha.
+        def append(path, sha)
+          dir = File.dirname(path)
+          FileUtils.mkdir_p(dir) unless File.exists?(dir)
+          open(path, "a") {|idx| idx.write(sha) }
+        end
+        
+        # Opens the index file and removes the shas.
+        def rm(path, *shas)
+          return unless File.exists?(path)
+          
+          current = read(path)
+          write(path, (current-shas).join)
         end
       end
       

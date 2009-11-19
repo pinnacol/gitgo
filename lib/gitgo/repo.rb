@@ -511,7 +511,7 @@ module Gitgo
       add(timestamp(doc.date, id) => [mode, id])
       
       each_index(doc) do |path|
-        Index.write(path, id)
+        Index.append(path, id)
       end
       
       id
@@ -550,6 +550,8 @@ module Gitgo
       
       parents.each {|parent| unlink(parent, id) }
       children.each {|child| unlink(id, child) }
+      
+      each_index(old_doc) {|path| Index.rm(path, id)}
       rm timestamp(old_doc.date, id)
 
       id = store(doc)
@@ -581,6 +583,7 @@ module Gitgo
         parents(id).each {|parent| unlink(parent, id) }
       end
       
+      each_index(doc) {|path| Index.rm(path, id)}
       rm timestamp(doc.date, id)
       doc
     end
@@ -603,6 +606,11 @@ module Gitgo
     #
     def cache
       Hash.new {|hash, id| hash[id] = read(id) }
+    end
+    
+    def documents
+      reindex!(false) unless File.exists?(@index_all)
+      Index.read(@index_all)
     end
     
     # Yields each document in the repo, ordered by date (with day resolution).
@@ -817,7 +825,7 @@ module Gitgo
       
       indexes.each_pair do |path, shas|
         shas.uniq!
-        Index.write(path, shas.join, "w")
+        Index.append(path, shas.join, "w")
       end
       
       self

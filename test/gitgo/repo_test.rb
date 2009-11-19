@@ -492,6 +492,36 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # update test
+  #
+  
+  def test_update_updates_the_index
+    john = Grit::Actor.new("John Doe", "john.doe@email.com")
+    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
+    
+    a = repo.create("new content", "author" => john, "state" => "one")
+    b = repo.create("new content", "author" => jane, "state" => "two")
+    c = repo.create("new content", "author" => jane, "state" => "one")
+   
+    doc = repo.read(c).merge("state" => "one")
+    d = repo.set(:blob, doc.to_s)
+    
+    assert_equal [a,c].sort, repo.index('state', 'one').sort
+    assert_equal [b],        repo.index('state', 'two')
+    
+    assert_equal [a],        repo.index('author', john.email)
+    assert_equal [b,c].sort, repo.index('author', jane.email).sort
+    
+    repo.update(b, doc)
+    
+    assert_equal [a,c,d].sort, repo.index('state', 'one').sort
+    assert_equal [],           repo.index('state', 'two')
+    
+    assert_equal [a],        repo.index('author', john.email)
+    assert_equal [c,d].sort, repo.index('author', jane.email)
+  end
+  
+  #
   # destroy test
   #
   
@@ -504,6 +534,29 @@ class RepoTest < Test::Unit::TestCase
     repo.commit("removed the new doc")
     
     assert_equal [], repo["2009/0909"]
+  end
+  
+  def test_destroy_removes_the_doc_from_the_index
+    john = Grit::Actor.new("John Doe", "john.doe@email.com")
+    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
+    
+    a = repo.create("new content", "author" => john, "state" => "one")
+    b = repo.create("new content", "author" => jane, "state" => "two")
+    c = repo.create("new content", "author" => jane, "state" => "one")
+    
+    assert_equal [a,c].sort, repo.index('state', 'one').sort
+    assert_equal [b],        repo.index('state', 'two')
+    
+    assert_equal [a],        repo.index('author', john.email)
+    assert_equal [b,c].sort, repo.index('author', jane.email).sort
+    
+    repo.destroy(b)
+    
+    assert_equal [a,c].sort, repo.index('state', 'one').sort
+    assert_equal [],         repo.index('state', 'two')
+    
+    assert_equal [a],        repo.index('author', john.email)
+    assert_equal [c],        repo.index('author', jane.email)
   end
   
   #

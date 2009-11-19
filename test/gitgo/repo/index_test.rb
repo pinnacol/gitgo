@@ -23,12 +23,45 @@ class RepoIndexTest < Test::Unit::TestCase
   end
   
   #
-  # class.read test
+  # Index.read test
   #
   
   def test_read_reads_all_entries
     path = method_root.prepare(:tmp, "example") {|io| io << PACKED_SHAS.join }
     assert_equal SHAS, Index.read(path)
+  end
+  
+  #
+  # Index.write test
+  #
+  
+  def test_write_replaces_with_entries
+    path = method_root.prepare(:tmp, "example") {|io| io << PACKED_SHAS.join }
+    
+    Index.write(path, SHAS[0,2].join)
+    assert_equal SHAS[0,2], Index.read(path)
+  end
+  
+  #
+  # Index.append test
+  #
+  
+  def test_append_appends_entries
+    path = method_root.prepare(:tmp, "example") {|io| io << PACKED_SHAS.join }
+    
+    Index.append(path, SHAS[0,2].join)
+    assert_equal SHAS + SHAS[0,2], Index.read(path)
+  end
+  
+  #
+  # Index.rm test
+  #
+  
+  def test_rm_removes_entries
+    path = method_root.prepare(:tmp, "example") {|io| io << PACKED_SHAS.join }
+    
+    Index.rm(path, *SHAS[0,2])
+    assert_equal SHAS[2,3], Index.read(path)
   end
   
   #
