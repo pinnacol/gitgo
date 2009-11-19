@@ -114,14 +114,19 @@ module Gitgo
       # Initializes a Git adapter for path, creating the repo if necessary.
       def init(path=Dir.pwd, options={})
         unless File.exists?(path)
-          unless options[:is_bare] || path =~ /\.git$/
-            path = File.join(path, ".git")
+          FileUtils.mkdir_p(path)
+          
+          Dir.chdir(path) do
+            bare = options[:is_bare] ? true : false
+            gitdir = bare || path =~ /\.git$/ ? path : File.join(path, ".git")
+            
+            Utils.with_env('GIT_DIR' => gitdir) do
+              git = Grit::Git.new(gitdir)
+              git.init({:bare => bare})
+            end
           end
-
-          git = Grit::Git.new(path)
-          git.init({})
         end
-
+        
         new(path, options)
       end
     end

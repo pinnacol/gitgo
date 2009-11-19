@@ -13,7 +13,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def repo
-    @repo ||= Repo.init(method_root[:tmp], :bare => true)
+    @repo ||= Repo.init(method_root[:tmp])
   end
   
   def setup_repo(repo)
@@ -89,6 +89,7 @@ class RepoTest < Test::Unit::TestCase
     git_path = method_root.path(:tmp, ".git")
     assert File.exists?(git_path)
     assert_equal git_path, repo.grit.path
+    assert_equal false, repo.grit.bare
     
     repo.add("path" => "content").commit("initial commit")
     
@@ -105,6 +106,7 @@ class RepoTest < Test::Unit::TestCase
     assert !File.exists?(method_root.path(:tmp, ".git"))
     assert File.exists?(path)
     assert_equal path, repo.grit.path
+    assert_equal true, repo.grit.bare
     
     repo.add("path" => "content").commit("initial commit")
     
@@ -344,6 +346,8 @@ class RepoTest < Test::Unit::TestCase
     assert_equal a.branch, b.branch
     assert_equal method_root.path(:tmp, "a/.git"), a.path
     assert_equal method_root.path(:tmp, "b/.git"), b.path
+    assert_equal false, a.grit.bare
+    assert_equal false, b.grit.bare
     
     assert_equal "a content", a["a"]
     assert_equal nil, a["b"]
@@ -361,6 +365,8 @@ class RepoTest < Test::Unit::TestCase
     assert_equal a.branch, b.branch
     assert_equal method_root.path(:tmp, "a.git"), a.path
     assert_equal method_root.path(:tmp, "b.git"), b.path
+    assert_equal true, a.grit.bare
+    assert_equal true, b.grit.bare
     
     assert_equal "a content", a["a"]
     assert_equal nil, a["b"]

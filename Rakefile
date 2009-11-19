@@ -147,11 +147,11 @@ bundled.  Use these commands and try again:
 end
 
 desc 'Run the tests'
-task :test => ['test:gitgo']
+task :test => ['test:gitgo', 'test:model']
 
 namespace :test do
   desc 'Run all the tests'
-  task :all => ['test:gitgo', 'test:model', 'test:benchmark']
+  task :all => ['test:gitgo', 'test:benchmark']
   
   desc 'Run gitgo tests'
   task :gitgo => :check_bundle do

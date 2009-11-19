@@ -58,16 +58,19 @@ class ModelTest < Test::Unit::TestCase
   # will all have the same commit date.  Hence the log assertions simply
   # ensure the correct messages are somewhere in the log.
   def assert_log_equal(expected, repo)
-    assert_equal expected.sort, repo.repo.commits('gitgo').collect {|c| c.message }.sort
+    assert_equal expected.sort, repo.grit.commits('gitgo').collect {|c| c.message }.sort
   end
   
   # Executes the command, capturing output to a tmp file.  Returns the command
   # output.
   def sh(cmd)
-    puts cmd if ENV['VERBOSE'] == 'true'
+    puts "% #{cmd}" if Grit.debug
     path = method_root.prepare(:tmp, 'stdout')
     system("#{cmd} > '#{path}' 2>&1")
-    File.exists?(path) ? File.read(path) : nil
+    
+    output = File.exists?(path) ? File.read(path) : nil
+    puts output if Grit.debug
+    output
   end
   
   # For reference, these were the objects after this method (only replicable
@@ -96,6 +99,7 @@ class ModelTest < Test::Unit::TestCase
   #
   def test_manual_commit_and_merge
     Dir.chdir(a_path) do 
+      sh "git status"
       sh "git checkout gitgo"
       method_root.prepare(:tmp, 'a/two') {|io| io << "two content" }
       
@@ -103,6 +107,8 @@ class ModelTest < Test::Unit::TestCase
       sh "git commit -m 'message'"
     end
     
+    a.reset
+    b.reset
     assert_equal "two content", a['two']
     assert_equal nil, b['two']
     
@@ -111,6 +117,8 @@ class ModelTest < Test::Unit::TestCase
       sh "git pull"
     end
     
+    a.reset
+    b.reset
     assert_equal "two content", a['two']
     assert_equal "two content", b['two']
   end
@@ -246,167 +254,6 @@ class ModelTest < Test::Unit::TestCase
       "a added two",
       "a removed two",
       "b added two"
-    ], b
-  end
-  
-  #
-  # specific scenario tests
-  #
-  
-  # add an issue:
-  # * adds    issues/_issue
-  # * adds    _issue/_index.i
-  def test_a_adds_an_issue
-    issue = a.sha_add("issues", "issue")
-    index = a.sha_add(issue, "index", "i")
-    
-    a.commit("added an issue")
-    
-    assert_equal "issue", a["issues/#{issue}"]
-    assert_equal "index", a["#{issue}/#{index}i"]
-
-    b.pull
-    
-    assert_equal "issue", b["issues/#{issue}"]
-    assert_equal "index", b["#{issue}/#{index}i"]
-  end
-  
-  def test_a_and_b_add_an_issue
-    issue = a.sha_add("issues", "issue")
-    index = a.sha_add(issue, "index", "i")
-    
-    a.commit("a added an issue")
-    
-    issue = b.sha_add("issues", "issue")
-    index = b.sha_add(issue, "index", "i")
-    
-    b.commit("b added an issue")
-    
-    b.pull
-    
-    assert_equal "issue", b["issues/#{issue}"]
-    assert_equal "index", b["#{issue}/#{index}i"]
-    
-    assert_log_equal [
-      "a added one",
-      "a added an issue"
-    ], b
-  end
-  
-  # modify an issue:
-  # * adds    _parent_comment/_comment
-  # * removes _issue/_current.i
-  # * adds    _issue/_index.i
-  def test_a_modifies_an_issue
-    issue = a.sha_add("issues", "issue")
-    old_index = a.sha_add(issue, "old index", "i")
-    
-    a.commit("added an issue")
-    
-    comment = a.sha_add(issue, "comment")
-    a.sha_rm(issue, old_index, "i")
-    new_index = a.sha_add(issue, "new index", "i")
-    
-    a.commit("modified an issue")
-    
-    assert_equal "issue",       a["issues/#{issue}"]
-    assert_equal "comment",     a["#{issue}/#{comment}"]
-    assert_equal nil,           a["#{issue}/#{old_index}i"]
-    assert_equal "new index",   a["#{issue}/#{new_index}i"]
-
-    b.pull
-    
-    assert_equal "issue",       b["issues/#{issue}"]
-    assert_equal "comment",     b["#{issue}/#{comment}"]
-    assert_equal nil,           b["#{issue}/#{old_index}i"]
-    assert_equal "new index",   b["#{issue}/#{new_index}i"]
-  end
-  
-  def test_a_and_b_modifies_an_issue
-    issue = a.sha_add("issues", "issue")
-    old_index = a.sha_add(issue, "old index", "i")
-    
-    a.commit("a added an issue")
-    
-    comment_a = a.sha_add(issue, "a comment")
-    a.sha_rm(issue, old_index, "i")
-    new_a_index = a.sha_add(issue, "new a index", "i")
-    
-    a.commit("a modified an issue")
-    
-    comment_b = b.sha_add(issue, "b comment")
-    b.sha_rm(issue, old_index, "i")
-    new_b_index = b.sha_add(issue, "new b index", "i")
-    
-    b.commit("b modified an issue")
-    
-    b.pull
-    
-    assert_equal "issue",       b["issues/#{issue}"]
-    assert_equal "a comment",   b["#{issue}/#{comment_a}"]
-    assert_equal "b comment",   b["#{issue}/#{comment_b}"]
-    assert_equal nil,           b["#{issue}/#{old_index}i"]
-    assert_equal "new a index", b["#{issue}/#{new_a_index}i"]
-    assert_equal "new b index", b["#{issue}/#{new_b_index}i"]
-    
-    assert_log_equal [
-      "a added one",
-      "a added an issue",
-      "a modified an issue",
-      "b modified an issue"
-    ], b
-  end
-  
-  # remove an issue:
-  # * removes issues/_issue
-  # * removes _issue/* (recursive)
-  def test_a_removes_an_issue
-    issue = a.sha_add("issues", "issue")
-    index = a.sha_add(issue, "index", "i")
-    
-    a.commit("added an issue")
-    
-    a.sha_rm("issues", issue)
-    a.sha_rm(issue, index, "i")
-    
-    a.commit("removed an issue")
-    
-    assert_equal nil, a["issues/#{issue}"]
-    assert_equal nil, a["issues/#{issue}i"]
-
-    b.pull
-    
-    assert_equal nil, b["issues/#{issue}"]
-    assert_equal nil, b["issues/#{issue}i"]
-  end
-  
-  def test_a_and_b_remove_an_issue
-    issue = a.sha_add("issues", "issue")
-    index = a.sha_add(issue, "index", "i")
-    
-    a.commit("a added an issue")
-    
-    b.pull
-    
-    a.sha_rm("issues", issue)
-    a.sha_rm(issue, index, "i")
-    
-    a.commit("a removed an issue")
-    
-    b.sha_rm("issues", issue)
-    b.sha_rm(issue, index, "i")
-    
-    b.commit("b removed an issue")
-    
-    b.pull
-    
-    assert_equal nil, b["issues/#{issue}"]
-    assert_equal nil, b["issues/#{issue}i"]
-    
-    assert_log_equal [
-      "a added one",
-      "a added an issue",
-      "b removed an issue"
     ], b
   end
 end

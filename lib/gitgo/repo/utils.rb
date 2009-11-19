@@ -1,7 +1,7 @@
 module Gitgo
   class Repo
     module Utils
-      private
+      module_function
       
       def with_env(env={})
         overrides = {}
