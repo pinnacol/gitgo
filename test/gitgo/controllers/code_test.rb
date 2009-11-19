@@ -332,6 +332,16 @@ tag of project with one, two, three only
     assert last_response.body.include?("not a comment: #{b}")
   end
   
+  def test_put_deletes_old_comment
+    a = new_comment("comment a")
+    assert_equal true, repo.documents.include?(a)
+    
+    put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "content" => "update", "commit" => "true")
+    assert last_response.redirect?, last_response.body
+    
+    assert_equal false, repo.documents.include?(a)
+  end
+  
   #
   # destroy test
   #
@@ -345,8 +355,24 @@ tag of project with one, two, three only
     assert_equal [c], repo.children(b)
   
     delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "commit" => "true")
-    assert last_response.redirect?, last_response.body
+    assert last_response.redirect?
   
     assert_equal [c], repo.children(a)
+  end
+  
+  def test_destroy_validates_it_is_destroying_a_comment_on_the_obj
+    delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/d0ad2534e98f0a2b9573af0355d7371468eb77f1", "content" => "update", "commit" => "true")
+    assert !last_response.ok?
+    assert last_response.body.include?("unknown comment: d0ad2534e98f0a2b9573af0355d7371468eb77f1")
+    
+    a = new_comment("comment a")
+    delete("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "update", "commit" => "true")
+    assert !last_response.ok?
+    assert last_response.body.include?("not a comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}"), last_response.body
+    
+    b = repo.create("not a comment")
+    delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "content" => "update", "commit" => "true")
+    assert !last_response.ok?
+    assert last_response.body.include?("not a comment: #{b}")
   end
 end

@@ -225,6 +225,61 @@ module Gitgo
       end
     
       def update(obj, comment)
+        check_valid_comment(obj, comment)
+        
+        # update the comment
+        new_comment = repo.store(document('type' => 'comment', 're' => obj))
+        
+        # reassign links
+        ancestry = repo.children(obj, :recursive => true)
+        
+        ancestry.each_pair do |parent, children|
+          next unless children.include?(comment)
+          
+          repo.unlink(parent, comment)
+          repo.link(parent, new_comment)
+        end
+        
+        ancestry[comment].each do |child|
+          repo.unlink(comment, child)
+          repo.link(new_comment, child)
+        end
+        
+        # remove the current comment
+        repo.destroy(comment, false)
+        
+        repo.commit("update #{comment} with #{new_comment}") if commit?
+        redirect_to(new_comment)
+      end
+    
+      def destroy(obj, comment)
+        check_valid_comment(obj, comment)
+        
+        # reassign children to comment parent
+        ancestry = repo.children(obj, :recursive => true)
+        ancestry.each_pair do |parent, children|
+          if children.include?(comment)
+            repo.unlink(parent, comment)
+          
+            ancestry[comment].each do |child|
+              repo.link(parent, child)
+            end
+          end
+        end
+        
+        # unlink children
+        ancestry[comment].each do |child|
+          repo.unlink(comment, child)
+        end
+        
+        # remove the comment
+        repo.destroy(comment, false)
+        
+        repo.commit("remove #{comment}") if commit?
+        redirect_to(obj)
+      end
+      
+      def check_valid_comment(obj, comment)
         if doc = repo.read(comment)
           unless doc['type'] == 'comment'
             raise "not a comment: #{comment}"
@@ -233,54 +288,6 @@ module Gitgo
           unless doc['re'] == obj
             raise "not a comment on #{obj}: #{comment}"
           end
-          
-          # update the comment
-          new_comment = repo.store(document('type' => 'comment', 're' => obj))
-          
-          # reassign links
-          ancestry = repo.children(obj, :recursive => true)
-          
-          ancestry.each_pair do |parent, children|
-            next unless children.include?(comment)
-            
-            repo.unlink(parent, comment)
-            repo.link(parent, new_comment)
-          end
-          
-          ancestry[comment].each do |child|
-            repo.unlink(comment, child)
-            repo.link(new_comment, child)
-          end
-          
-          repo.commit("update #{comment} with #{new_comment}") if commit?
-          redirect_to(new_comment)
-        else
-          raise("unknown comment: #{comment}")
-        end
-      end
-    
-      def destroy(obj, comment)
-        if repo.destroy(comment, false)
-          
-          # reassign children to comment parent
-          ancestry = repo.children(obj, :recursive => true)
-          ancestry.each_pair do |parent, children|
-            if children.include?(comment)
-              repo.unlink(parent, comment)
-            
-              ancestry[comment].each do |child|
-                repo.link(parent, child)
-              end
-            end
-          end
-          
-          # unlink children
-          ancestry[comment].each do |child|
-            repo.unlink(comment, child)
-          end
-          
-          repo.commit("remove #{comment}") if commit?
-          redirect_to(obj)
         else
           raise("unknown comment: #{comment}")
         end
