@@ -283,6 +283,16 @@ module Gitgo
       grit.git.put_raw_object(content, type.to_s)
     end
     
+    def ref(type, name)
+      ref_path = path("refs/#{type}/#{name}")
+      
+      if File.exists?(ref_path)
+        File.open(ref_path) {|io| io.read(40) }
+      else
+        nil
+      end
+    end
+    
     # Gets the content for path; either the blob data or an array of content
     # names for a tree.  Returns nil if path doesn't exist.
     def [](path, committed=false)
@@ -463,6 +473,38 @@ module Gitgo
     def fetch(remote="origin")
       sandbox do |git, work_tree, index_file|
         git.fetch({}, remote)
+      end
+      
+      self
+    end
+    
+    # Returns true if a merge update is available for branch.
+    def merge?
+      sandbox do |git, work_tree, index_file|
+        remote = ref(:remotes, track)
+        return false if remote.nil? 
+        
+        local = ref(:head, branch)
+        local.nil? || (local != remote && git.merge_base({}, local, remote) != remote)
+      end
+    end
+    
+    def merge(remote=track)
+      sandbox do |git, work_tree, index_file|
+        base = git.merge_base({}, branch, remote).chomp("\n")
+        git.read_tree({
+          :m => true,          # merge
+          :i => true,          # without a working tree
+          :trivial => true,    # only merge if no file-level merges are required
+          :aggressive => true, # allow resolution of removes
+          :index_output => index_file
+        }, base, branch, remote)
+        
+        tree_id = git.write_tree.chomp("\n")
+        commit!("gitgo merge of #{remote} into #{branch}", :tree => tree_id)
+        
+        reset
+        reindex!(true)
       end
       
       self
@@ -784,7 +826,7 @@ module Gitgo
     
     # Returns the sha of the object the linked child refers to, ie the :ref
     # option used when making a link. 
-    def ref(parent, child, options={})
+    def reference(parent, child, options={})
       self[sha_path(options, parent, child)]
     end
 

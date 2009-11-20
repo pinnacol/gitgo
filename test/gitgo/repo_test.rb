@@ -386,6 +386,60 @@ class RepoTest < Test::Unit::TestCase
     assert_equal original_index, File.read("#{a}/.git/index")
   end
   
+  #
+  # fetch test
+  #
+  
+  def test_fetch_fetches_updates_from_remote
+    simple = File.expand_path('simple.git', FIXTURE_DIR)
+    a = Repo.init method_root.path(:tmp, 'a')
+    
+    assert_equal [], a.grit.remotes
+    
+    a.sandbox do |git, work_tree, index_file|
+      git.remote({}, 'add', 'simple', simple)
+    end
+    
+    a.fetch('simple')
+    assert_equal true, File.exists?(a.path("FETCH_HEAD"))
+    
+    remotes = a.grit.remotes.collect {|remote| remote.name }
+    assert_equal ['simple/caps', 'simple/diff', 'simple/master', 'simple/xyz'], remotes
+  end
+  
+  #
+  # merge? test
+  #
+  
+  def test_merge_returns_true_if_there_is_an_update_available_for_branch
+    a = Repo.init(method_root.path(:tmp, "a"))
+    a.add("one" => "a one").commit("added a file")
+    b = a.clone(method_root.path(:tmp, "b"))
+    
+    assert_equal false, b.merge?
+    b.fetch
+    assert_equal false, b.merge?
+
+    a.add("two" => "a two").commit("added a file")
+    
+    assert_equal false, b.merge?
+    b.fetch
+    assert_equal true, b.merge?
+    
+    #
+    c = a.clone(method_root.path(:tmp, "c"))
+    
+    assert_equal false, c.merge?
+    c.fetch
+    assert_equal false, c.merge?
+
+    a.add("three" => "a three").commit("added a file")
+    c.add("four"  => "b four").commit("added a file")
+    
+    assert_equal false, c.merge?
+    c.fetch
+    assert_equal true, c.merge?
+  end
   
   #
   # clone test
@@ -756,31 +810,31 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # ref test
+  # reference test
   #
 
-  def test_ref_returns_the_ref_attribute_in_a_link
+  def test_reference_returns_the_ref_attribute_in_a_link
     a = repo.set("blob", "a")
     b = repo.set("blob", "b")
     c = repo.set("blob", "c")
 
     repo.link(a, b, :ref => c).commit("linked a file")
-    assert_equal c, repo.ref(a, b)
+    assert_equal c, repo.reference(a, b)
 
     repo.link(a, c).commit("linked a file")
-    assert_equal "", repo.ref(a, c)
+    assert_equal "", repo.reference(a, c)
   end
 
-  def test_ref_works_with_link_options
+  def test_reference_works_with_link_options
     a = repo.set("blob", "a")
     b = repo.set("blob", "b")
     c = repo.set("blob", "c")
 
     repo.link(a, b, :ref => c, :dir => "path/to/dir").commit("linked a file")
-    assert_equal c, repo.ref(a, b, :dir => "path/to/dir")
+    assert_equal c, repo.reference(a, b, :dir => "path/to/dir")
 
     repo.link(a, c, :dir => "path/to/dir").commit("linked a file")
-    assert_equal "", repo.ref(a, c, :dir => "path/to/dir")
+    assert_equal "", repo.reference(a, c, :dir => "path/to/dir")
   end
 
   #

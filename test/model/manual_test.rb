@@ -147,11 +147,16 @@ class ManualTest < Test::Unit::TestCase
     assert original != a_master
     assert original == b_master
     
+    assert_equal a_master, File.read(method_root.path(a, ".git/refs/heads/master")).chomp("\n")
+    assert_equal false, File.exists?(method_root.path(b, ".git/refs/remotes/origin/master"))
+    
     sh(b, 'git fetch origin')
     
-    expected = "#{beta}\t\tbranch 'master' of /Users/Simon/Documents/Gems/gitgo/test/model/manual/#{method_name}/tmp/a\n"
+    expected = "#{beta}\t\tbranch 'master' of #{a}\n"
     assert_equal expected, File.read(method_root.path(b, ".git/FETCH_HEAD"))
     assert_equal "ref: refs/heads/master\n", File.read(method_root.path(b, ".git/HEAD"))
+    
+    assert_equal a_master, File.read(method_root.path(b, ".git/refs/remotes/origin/master")).chomp("\n")
     
     assert_equal "+ #{alpha}\n+ #{beta}", sh(b, "git cherry #{b_master} #{a_master}")
     assert_equal original, sh(b, "git merge-base #{b_master} #{a_master}")

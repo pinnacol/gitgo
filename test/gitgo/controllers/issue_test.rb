@@ -132,7 +132,7 @@ class IssueTest < Test::Unit::TestCase
     
     issue = last_response_location
     assert_equal [issue], repo.children(commit)
-    assert_equal issue, repo.ref(commit, issue)
+    assert_equal issue, repo.reference(commit, issue)
   end
   
   #
@@ -223,7 +223,7 @@ class IssueTest < Test::Unit::TestCase
     
     assert_equal issue, id
     assert_equal [comment], repo.children(commit)
-    assert_equal issue, repo.ref(commit, comment)
+    assert_equal issue, repo.reference(commit, comment)
   end
   
   def test_put_raises_error_for_unknown_issue
