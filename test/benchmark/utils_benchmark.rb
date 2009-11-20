@@ -1,9 +1,9 @@
 require File.dirname(__FILE__) + "/../test_helper"
-require 'gitgo/utils'
+require 'gitgo/repo/utils'
 require 'benchmark'
 
 class UtilsBenchmark < Test::Unit::TestCase
-  include Gitgo::Utils
+  include Gitgo::Repo::Utils
   acts_as_subset_test
   
   def test_flatten_speed

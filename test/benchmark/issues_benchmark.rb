@@ -1,5 +1,5 @@
 require File.dirname(__FILE__) + "/../test_helper"
-require 'gitgo/issues'
+require 'gitgo/controllers/issue'
 require 'benchmark'
 
 class IssuesBenchmark < Test::Unit::TestCase
@@ -18,7 +18,7 @@ class IssuesBenchmark < Test::Unit::TestCase
   end
   
   def app
-    Gitgo::Issues
+    Gitgo::Controllers::Issue
   end
   
   def tick(n=100)
