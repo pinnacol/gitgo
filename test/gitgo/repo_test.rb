@@ -115,6 +115,48 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # author test
+  #
+  
+  def test_author_determines_a_default_author_from_the_repo_config
+    setup_repo("simple.git")
+    
+    author = repo.author
+    assert_equal "John Doe", author.name
+    assert_equal "john.doe@email.com", author.email
+  end
+  
+  #
+  # track test
+  #
+  
+  def test_track_returns_the_tracking_branch
+    setup_repo("simple.git")
+    
+    assert_equal nil, repo.grit.config['branch.master.remote']
+    assert_equal nil, repo.grit.config['branch.master.merge']
+    assert_equal nil, repo.track
+    
+    clone = repo.clone(method_root.path(:tmp, 'a'))
+    
+    assert_equal "origin", clone.grit.config['branch.master.remote']
+    assert_equal "refs/heads/master", clone.grit.config['branch.master.merge']
+    assert_equal "origin/master", clone.track
+    
+    clone.sandbox do |git, work_tree, index_file|
+      git.branch({:track => true}, "abc", "origin/xyz")
+    end
+    
+    # reset grit to capture the new configs
+    clone.reset(true)
+    clone.checkout("abc")
+    
+    assert_equal "origin", clone.grit.config['branch.abc.remote']
+    assert_equal "refs/heads/xyz", clone.grit.config['branch.abc.merge']
+    assert_equal "origin/xyz", clone.track
+  end
+  
+  #
   # version test
   #
   
@@ -150,18 +192,6 @@ class RepoTest < Test::Unit::TestCase
     version = repo.version
     assert_equal Array, version.class
     assert_equal true, version.all? {|item| item.kind_of?(Integer) }
-  end
-  
-  #
-  # author test
-  #
-  
-  def test_author_determines_a_default_author_from_the_repo_config
-    setup_repo("simple.git")
-    
-    author = repo.author
-    assert_equal "John Doe", author.name
-    assert_equal "john.doe@email.com", author.email
   end
   
   #

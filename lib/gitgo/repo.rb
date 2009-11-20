@@ -184,28 +184,6 @@ module Gitgo
       reset
     end
     
-    # Returns the git version as an array of integers like [1,6,4,2]. The
-    # version array is intended to be compared with other versions in this
-    # way:
-    #
-    #   def version_ok?(required, actual)
-    #     (required <=> actual) <= 0
-    #   end
-    #
-    #   version_ok?([1,6,4,2], [1,6,4,2])     # => true
-    #   version_ok?([1,6,4,2], [1,6,4,3])     # => true
-    #   version_ok?([1,6,4,2], [1,6,4,1])    # => false
-    #
-    def version
-      grit.git.version.split(/\s/).last.split(".").collect {|i| i.to_i}
-    end
-    
-    # Checks if the git version is compatible with GIT_VERSION.  This check is
-    # performed once and then cached.
-    def version_ok?
-      @version_ok ||= ((GIT_VERSION <=> version) <= 0)
-    end
-      
     # Returns the current commit for branch.
     def current
       grit.commits(branch, 1).first
@@ -243,6 +221,42 @@ module Gitgo
       when String then Grit::Actor.from_string(*input)
       else raise "could not convert to Grit::Actor: #{input.class}"
       end
+    end
+    
+    # Returns the remote that the current branch tracks.
+    def track(validate=false)
+      remote = grit.config["branch.#{branch}.remote"]
+      merge  = grit.config["branch.#{branch}.merge"]
+      
+      # No configs, no tracking.
+      if remote.nil? && merge.nil?
+        return nil 
+      end
+      
+      merge =~ /^refs\/heads\/(.*)$/
+      "#{remote}/#{$1}"
+    end
+    
+    # Returns the git version as an array of integers like [1,6,4,2]. The
+    # version array is intended to be compared with other versions in this
+    # way:
+    #
+    #   def version_ok?(required, actual)
+    #     (required <=> actual) <= 0
+    #   end
+    #
+    #   version_ok?([1,6,4,2], [1,6,4,2])     # => true
+    #   version_ok?([1,6,4,2], [1,6,4,3])     # => true
+    #   version_ok?([1,6,4,2], [1,6,4,1])    # => false
+    #
+    def version
+      grit.git.version.split(/\s/).last.split(".").collect {|i| i.to_i}
+    end
+    
+    # Checks if the git version is compatible with GIT_VERSION.  This check is
+    # performed once and then cached.
+    def version_ok?
+      @version_ok ||= ((GIT_VERSION <=> version) <= 0)
     end
     
     # Returns the type of the object identified by sha; the output of:
@@ -380,7 +394,11 @@ module Gitgo
     end
     
     # Resets the working tree.
-    def reset
+    #
+    # If full is specified, grit will also be reinitialized; this can be
+    # useful because grit caches information like configs and packs.
+    def reset(full=false)
+      @grit = Grit::Repo.new(path, :is_bare => grit.bare) if full
       @tree = commit_tree
     end
 
@@ -434,8 +452,8 @@ module Gitgo
       
       return nil unless block_given?
       
-      sandbox do |work_tree, index_file|
-        grit.git.checkout({}, branch)
+      sandbox do |git, work_tree, index_file|
+        git.checkout({}, branch)
         Dir.chdir(work_tree) do
           yield(work_tree)
         end
@@ -480,20 +498,19 @@ module Gitgo
       # apparently caches the packs... once you gc the packs change and
       # Grit::GitRuby bombs.  Maybe something more succinct could be done with
       # GitRuby#file_index and GitRuby#ruby_git ?
-      @grit = Grit::Repo.new(path, :is_bare => grit.bare)
-      reset
+      reset(true)
     end
     
     def fsck
-      sandbox do |work_tree, index_file|
-        stdout, stderr = grit.git.sh("#{Grit::Git.git_binary} fsck")
+      sandbox do |git, work_tree, index_file|
+        stdout, stderr = git.sh("#{Grit::Git.git_binary} fsck")
         stderr.split("\n") + stdout.split("\n")
       end
     end
     
     def stats
-      with_env do
-        stdout, stderr = grit.git.sh("#{Grit::Git.git_binary} count-objects --verbose")
+      sandbox do |git, work_tree, index_file|
+        stdout, stderr = git.sh("#{Grit::Git.git_binary} count-objects --verbose")
         YAML.load(stdout)
       end
     end
@@ -511,7 +528,7 @@ module Gitgo
           'GIT_INDEX_FILE' => @index_file
         ) do
           
-          yield(@work_tree, @index_file)
+          yield(grit.git, @work_tree, @index_file)
         end
       ensure
         FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)

@@ -58,9 +58,9 @@ module Gitgo
             :full_name => true
           )
 
-          repo.sandbox do |work_tree, index_file|
-            grit.git.read_tree({:index_output => index_file}, commit.tree.id)
-            grit.git.grep(pattern).split("\n").each do |path|
+          repo.sandbox do |git, work_tree, index_file|
+            git.read_tree({:index_output => index_file}, commit.tree.id)
+            git.grep(pattern).split("\n").each do |path|
               selected << [path, commit.tree / path]
             end
           end
@@ -89,13 +89,13 @@ module Gitgo
         selected = []
 
         unless pattern.nil?
-          repo.sandbox do |work_tree, index_file|
+          repo.sandbox do |git, work_tree, index_file|
             postfix = pattern.empty? ? '' : begin
-              grep_options = grit.git.transform_options(options)
+              grep_options = git.transform_options(options)
               " | grep #{grep_options.join(' ')} #{grit.git.e(pattern)}"
             end
 
-            results = grit.git.run('', :ls_tree, postfix, {:name_only => true, :r => true}, [commit.tree.id])
+            results = git.run('', :ls_tree, postfix, {:name_only => true, :r => true}, [commit.tree.id])
             results.split("\n").each do |path|
               selected << [path, commit.tree / path]
             end
@@ -136,8 +136,8 @@ module Gitgo
           options.merge!(filters)
           options[:format] = "%H"
 
-          repo.sandbox do |work_tree, index_file|
-            grit.git.log(options).split("\n").each do |sha|
+          repo.sandbox do |git, work_tree, index_file|
+            git.log(options).split("\n").each do |sha|
               selected << grit.commit(sha)
             end
           end
