@@ -224,7 +224,7 @@ module Gitgo
     end
     
     # Returns the remote that the current branch tracks.
-    def track(validate=false)
+    def track
       remote = grit.config["branch.#{branch}.remote"]
       merge  = grit.config["branch.#{branch}.merge"]
       
@@ -453,17 +453,28 @@ module Gitgo
       return nil unless block_given?
       
       sandbox do |git, work_tree, index_file|
-        git.checkout({}, branch)
-        Dir.chdir(work_tree) do
-          yield(work_tree)
-        end
+        git.read_tree({:index_output => index_file}, branch)
+        git.checkout_index({:a => true})
+        yield(work_tree)
       end
     end
+    
+    # Fetches from the remote.
+    def fetch(remote="origin")
+      sandbox do |git, work_tree, index_file|
+        git.fetch({}, remote)
+      end
       
+      self
+    end
+    
     # Pulls from the remote into the work tree.
     def pull(remote="origin", rebase=true)
-      checkout do
-        grit.git.pull({:rebase => rebase}, remote)
+      sandbox do |git, work_tree, index_file|
+        git.checkout({}, branch)
+        Dir.chdir(work_tree) do
+          git.pull({:rebase => rebase}, remote)
+        end
       end
       reset
     end

@@ -19,35 +19,21 @@ class ManualTest < Test::Unit::TestCase
     
     puts "\n#{method_name}" if ENV['DEBUG'] == 'true'
   end
-  
-  def with_env(env={})
-    overrides = {}
+
+  def sh(dir, cmd, env={})
+    current = {}
     begin
       ENV.keys.each do |key|
         if key =~ /^GIT_/
-          overrides[key] = ENV.delete(key)
+          current[key] = ENV.delete(key)
         end
       end
 
       env.each_pair do |key, value|
-        overrides[key] ||= nil
+        current[key] ||= nil
         ENV[key] = value
       end
 
-      yield
-    ensure
-      overrides.each_pair do |key, value|
-        if value
-          ENV[key] = value
-        else
-          ENV.delete(key)
-        end
-      end
-    end
-  end
-  
-  def sh(dir, cmd)
-    with_env do
       Dir.chdir(dir) do
         puts "% #{cmd}" if ENV['DEBUG'] == 'true'
         path = method_root.prepare(:tmp, 'stdout')
@@ -56,6 +42,15 @@ class ManualTest < Test::Unit::TestCase
         output = File.exists?(path) ? File.read(path) : nil
         puts output if ENV['DEBUG'] == 'true'
         output.chomp
+      end
+      
+    ensure
+      current.each_pair do |key, value|
+        if value
+          ENV[key] = value
+        else
+          ENV.delete(key)
+        end
       end
     end
   end
@@ -71,6 +66,67 @@ class ManualTest < Test::Unit::TestCase
     assert_equal output, sh(c, 'git status')
     
     assert_equal "a1aafafbb5f74fb48312afedb658569b00f4a796", sh(a, 'git rev-parse master')
+  end
+  
+  def test_setup_tracking_on_existing_branch
+    # a has access to the simple.git branches
+    assert sh(a, 'git branch -a').include?("remotes/origin/xyz")
+    assert !sh(a, 'git branch -a').include?("remotes/origin/abc")
+    
+    # b does not
+    assert !sh(b, 'git branch -a').include?("remotes/origin/xyz")
+    assert !sh(b, 'git branch -a').include?("remotes/origin/abc")
+    
+    # make a tracking branch on a
+    sh(a, 'git branch xyz --track origin/xyz')
+    assert sh(a, 'cat .git/config').include?(%Q{[branch "xyz"]\n\tremote = origin\n\tmerge = refs/heads/xyz})
+    
+    # make a branch on a... it is NOT tracking it's remote, as can be seen in the config
+    sh(a, 'git branch abc')
+    assert !sh(a, 'cat .git/config').include?('[branch "abc"]')
+    
+    # now fetch the new branch
+    assert !sh(b, 'git branch -a').include?("remotes/origin/abc")
+    sh(b, 'git fetch')
+    assert sh(b, 'git branch -a').include?("remotes/origin/abc")
+    
+    # now setup tracking
+    sh(b, 'git branch abc --track origin/abc')
+    assert sh(b, 'cat .git/config').include?(%Q{[branch "abc"]\n\tremote = origin\n\tmerge = refs/heads/abc})
+    
+    assert_equal sh(a, 'git rev-parse abc'), sh(b, 'git rev-parse abc')
+  end
+  
+  def test_setup_tracking_on_a_non_existant_branch_fails
+    # no branch yet
+    assert !sh(a, 'git branch -a').include?("remotes/origin/abc")
+    assert !sh(b, 'git branch -a').include?("remotes/origin/abc")
+    
+    # make a tracking branch on b... fails
+    assert_equal "fatal: Not a valid object name: 'origin/abc'.", sh(a, 'git branch abc --track origin/abc')
+  end
+  
+  def path_in(dir)
+    Dir.glob("#{dir}/*").collect {|path| File.basename(path) }.sort
+  end
+  
+  def test_checkout_into_an_alternative_working_dir
+    index_file = method_root.path(:tmp, "idx")
+    work = method_root.path(:tmp, "work")
+    FileUtils.mkdir_p(work)
+    
+    assert_equal ["one", "one.txt", "x", "x.txt"], path_in(a)
+    assert_equal [], path_in(work)
+    assert sh(a, "git ls-files --stage").include?("x.txt")
+    
+    sh(a, "git read-tree --index-output='#{index_file}' c6746dd1882d772e540342f8e180d3125a9364ad")
+    sh(a, "git checkout-index -a", 'GIT_INDEX_FILE' => index_file, 'GIT_WORK_TREE' => work)
+    
+    assert_equal ["one", "one.txt", "x", "x.txt"], path_in(a)
+    assert_equal ["one", "one.txt"], path_in(work)
+    
+    assert sh(a, "git ls-files --stage").include?("x.txt")
+    assert !sh(a, "git ls-files --stage", 'GIT_INDEX_FILE' => index_file).include?("x.txt")
   end
   
   def test_fetch_and_manually_merge_changes
@@ -122,7 +178,7 @@ class ManualTest < Test::Unit::TestCase
     method_root.prepare(b, "alpha.txt") {|io| io << "alpha content" }
     sh(b, 'git add alpha.txt')
     sh(b, 'git commit -m "added alpha"')
-
+  
     method_root.prepare(b, "alpha/beta.txt") {|io| io << "beta content" }
     sh(b, 'git add alpha/beta.txt')
     sh(b, 'git commit -m "added beta"')

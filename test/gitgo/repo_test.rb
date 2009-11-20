@@ -362,6 +362,31 @@ class RepoTest < Test::Unit::TestCase
     assert !File.exists?(expected_work_tree)
   end
   
+  def paths_in(dir)
+    Dir.glob("#{dir}/*").collect {|path| File.basename(path) }.sort
+  end
+  
+  def test_checkout_does_not_mess_with_current_index_and_work_tree
+    simple = File.expand_path('simple.git', FIXTURE_DIR)
+    a = method_root.path(:tmp, 'a')
+    
+    `git clone '#{simple}' '#{a}'`
+    
+    original_index = File.read("#{a}/.git/index")
+    assert_equal ["one", "one.txt", "x", "x.txt"], paths_in(a)
+    
+    repo = Repo.new(a, :branch => 'c6746dd1882d772e540342f8e180d3125a9364ad')
+    repo.checkout do |work_tree|
+      assert_equal ["one", "one.txt"], paths_in(work_tree)
+      assert_equal ["one", "one.txt", "x", "x.txt"], paths_in(a)
+      assert_equal original_index, File.read("#{a}/.git/index")
+    end
+    
+    assert_equal ["one", "one.txt", "x", "x.txt"], paths_in(a)
+    assert_equal original_index, File.read("#{a}/.git/index")
+  end
+  
+  
   #
   # clone test
   #
