@@ -369,9 +369,14 @@ module Gitgo
     # Commits the current tree to branch with the specified message.  The
     # branch is created if it doesn't already exist.
     def commit!(message, options={})
-      mode, tree_id = write_tree(tree)
       now = Time.now
-      parent = self.current
+      
+      tree_id = options.delete(:tree) || write_tree(tree)[1]
+      parents = options.delete(:parents) || begin
+        parent = current
+        parent ? [parent.id] : []
+      end
+      
       author = options[:author] || self.author
       authored_date = options[:authored_date] || now
       committer = options[:committer] || author
@@ -391,16 +396,16 @@ module Gitgo
       #
       lines = []
       lines << "tree #{tree_id}"
-      lines << "parent #{parent.id}" if parent
+      parents.each do |parent|
+        lines << "parent #{parent}"
+      end
       lines << "author #{author.name} <#{author.email}> #{authored_date.strftime("%s %z")}"
       lines << "committer #{committer.name} <#{committer.email}> #{committed_date.strftime("%s %z")}"
       lines << ""
       lines << message
       lines << ""
 
-      id = set(:commit, lines.join("\n"))
-      File.open(path("refs/heads/#{branch}"), "w") {|io| io << "#{id}\n" }
-      id
+      grit.update_ref(branch, set(:commit, lines.join("\n")))  
     end
     
     # Resets the working tree.
@@ -479,29 +484,42 @@ module Gitgo
     end
     
     # Returns true if a merge update is available for branch.
-    def merge?
+    def merge?(remote=track)
       sandbox do |git, work_tree, index_file|
-        remote = ref(:remotes, track)
+        remote = ref(:remotes, remote)
         return false if remote.nil? 
         
-        local = ref(:head, branch)
+        local = ref(:heads, branch)
         local.nil? || (local != remote && git.merge_base({}, local, remote) != remote)
       end
     end
     
-    def merge(remote=track)
+    def merge(remote_branch=track, rebase=false)
       sandbox do |git, work_tree, index_file|
-        base = git.merge_base({}, branch, remote).chomp("\n")
-        git.read_tree({
-          :m => true,          # merge
-          :i => true,          # without a working tree
-          :trivial => true,    # only merge if no file-level merges are required
-          :aggressive => true, # allow resolution of removes
-          :index_output => index_file
-        }, base, branch, remote)
+        local = ref(:heads, branch)
+        remote = ref(:remotes, remote_branch)
+        base = local.nil? ? nil : git.merge_base({}, local, remote).chomp("\n")
         
-        tree_id = git.write_tree.chomp("\n")
-        commit!("gitgo merge of #{remote} into #{branch}", :tree => tree_id)
+        if base == local
+          grit.update_ref(branch, remote)   
+        else
+          if rebase
+            raise "no rebase yet!"
+          else
+            git.read_tree({
+              :m => true,          # merge
+              :i => true,          # without a working tree
+              :trivial => true,    # only merge if no file-level merges are required
+              :aggressive => true, # allow resolution of removes
+              :index_output => index_file
+            }, base, branch, remote)
+          end
+            
+          commit!("gitgo merge of #{remote_branch} into #{branch}", 
+            :tree => git.write_tree.chomp("\n"),
+            :parents => [local, remote]
+          )
+        end
         
         reset
         reindex!(true)
@@ -511,12 +529,10 @@ module Gitgo
     end
     
     # Pulls from the remote into the work tree.
-    def pull(remote="origin", rebase=true)
+    def pull(remote="origin")
       sandbox do |git, work_tree, index_file|
-        git.checkout({}, branch)
-        Dir.chdir(work_tree) do
-          git.pull({:rebase => rebase}, remote)
-        end
+        fetch(remote)
+        merge
       end
       reset
     end
@@ -690,7 +706,7 @@ module Gitgo
     # A self-filling cache of documents that only reads a document once.  The
     # cache is intended to be set to a variable and re-used like this:
     #
-    #   repo = Repo.new
+    #   repo = Repo.init("path/to/git_dir")
     #   id = repo.create("new doc")
     #
     #   docs = repo.cache

@@ -124,7 +124,7 @@ class ModelTest < Test::Unit::TestCase
   end
   
   #
-  # pull tests
+  # pull(merge) tests
   #
   
   # example: a adds an issue and b pulls
@@ -146,7 +146,7 @@ class ModelTest < Test::Unit::TestCase
   end
   
   # example: a modifies an issue, b modifies the same issue and pulls
-  def test_pull_a_new_file_into_an_existing_tree
+  def test_pull_a_new_file_into_a_modified_tree
     b.add("dir/three" => "three content").commit("b added three")
     a.add("dir/two"   => "two content").commit("a added two")
     
@@ -163,7 +163,8 @@ class ModelTest < Test::Unit::TestCase
     assert_log_equal [
       "a added one",
       "a added two",
-      "b added three"
+      "b added three", 
+      "gitgo merge of origin/gitgo into gitgo"
     ], b
   end
   
@@ -173,7 +174,7 @@ class ModelTest < Test::Unit::TestCase
   # but remember all true content MUST be kept in the files themselves; the
   # commit history should be entirely expendable and in fact should be
   # designed to have the same message in both cases anyhow.
-  def test_add_a_file_in_both_repos
+  def test_add_the_same_file_in_both_repos
     a.add("two" => "two content").commit("a added two")
     b.add("two" => "two content").commit("b added two")
     
@@ -187,7 +188,9 @@ class ModelTest < Test::Unit::TestCase
     
     assert_log_equal [
       "a added one",
-      "a added two"      
+      "a added two", 
+      "b added two",
+      "gitgo merge of origin/gitgo into gitgo"
     ], b
   end
   
@@ -211,7 +214,7 @@ class ModelTest < Test::Unit::TestCase
   
   # example: a updates an issue, b updates an issue, and as a result the index
   # file for the issue is removed in both.  note the commit log loss as above
-  def test_remove_a_file_in_both_repos
+  def test_remove_the_same_file_in_both_repos
     a.rm("one").commit("a removed one")
     b.rm("one").commit("b removed one")
     
@@ -225,17 +228,13 @@ class ModelTest < Test::Unit::TestCase
     
     assert_log_equal [
       "a added one",
-      "a removed one"
+      "a removed one",
+      "b removed one",
+      "gitgo merge of origin/gitgo into gitgo"
     ], b
   end
   
-  # * a updates an issue resulting in an index file
-  # * a updates the issue again, removing the index file
-  # * b updates the issue the same as a, resulting in the same index file 
-  # * b pulls
-  #
-  # In this case I think the index file should exist at the end... it's the
-  # conclusion of b.
+  # Unlikely/impossible scenario, but for completeness...
   def test_add_back_a_remotely_removed_file
     a.add("two" => "two content").commit("a added two")
     a.rm("two").commit("a removed two")
@@ -253,7 +252,8 @@ class ModelTest < Test::Unit::TestCase
       "a added one",
       "a added two",
       "a removed two",
-      "b added two"
+      "b added two", 
+      "gitgo merge of origin/gitgo into gitgo"
     ], b
   end
 end

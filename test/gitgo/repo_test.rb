@@ -717,7 +717,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_cache_documentation
-    repo = Repo.new
+    repo = Repo.init method_root.path(:tmp)
     id = repo.create("new doc")
   
     docs = repo.cache
