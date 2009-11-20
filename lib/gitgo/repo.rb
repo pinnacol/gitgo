@@ -179,6 +179,7 @@ module Gitgo
       @work_tree = path(WORK_TREE).freeze
       @index_file = path(INDEX_FILE).freeze
       @index_all = path(INDEX_ALL).freeze
+      @sandbox = false
       
       self.author = options[:author]
       reset
@@ -415,6 +416,7 @@ module Gitgo
     def reset(full=false)
       @grit = Grit::Repo.new(path, :is_bare => grit.bare) if full
       @tree = commit_tree
+      self
     end
 
     # Returns a hash of (path, state) pairs indicating paths that have been
@@ -476,10 +478,7 @@ module Gitgo
     
     # Fetches from the remote.
     def fetch(remote="origin")
-      sandbox do |git, work_tree, index_file|
-        git.fetch({}, remote)
-      end
-      
+      sandbox {|git,w,i| git.fetch({}, remote) }
       self
     end
     
@@ -494,14 +493,13 @@ module Gitgo
       end
     end
     
-    def merge(remote_branch=track, rebase=false)
+    def merge(remote=track, rebase=false)
       sandbox do |git, work_tree, index_file|
         local = ref(:heads, branch)
-        remote = ref(:remotes, remote_branch)
         base = local.nil? ? nil : git.merge_base({}, local, remote).chomp("\n")
         
         if base == local
-          grit.update_ref(branch, remote)   
+          grit.update_ref(branch, rev_parse(remote))
         else
           if rebase
             raise "no rebase yet!"
@@ -515,9 +513,9 @@ module Gitgo
             }, base, branch, remote)
           end
             
-          commit!("gitgo merge of #{remote_branch} into #{branch}", 
+          commit!("gitgo merge of #{remote} into #{branch}", 
             :tree => git.write_tree.chomp("\n"),
-            :parents => [local, remote]
+            :parents => [local, rev_parse(remote)]
           )
         end
         
@@ -560,13 +558,20 @@ module Gitgo
       end
     end
     
+    def rev_parse(treeish)
+      sandbox {|git,w,i| git.rev_parse({}, treeish) }
+    end
+    
+    def prune
+      sandbox {|git,w,i| git.prune }
+      self
+    end
+    
     def gc
-      with_env { grit.git.gc }
+      sandbox {|git,w,i| git.gc }
       
-      # this nasty reinitialization is required at this point because grit
-      # apparently caches the packs... once you gc the packs change and
-      # Grit::GitRuby bombs.  Maybe something more succinct could be done with
-      # GitRuby#file_index and GitRuby#ruby_git ?
+      # reinitialization is required at this point because grit packs; once
+      # you gc the packs change and Grit::GitRuby bombs.
       reset(true)
     end
     
@@ -585,12 +590,17 @@ module Gitgo
     end
     
     def sandbox
+      if @sandbox
+        return yield(grit.git, @work_tree, @index_file)
+      end
+      
       FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
       FileUtils.rm(@index_file)  if File.exists?(@index_file)
     
       begin
         FileUtils.mkdir_p(@work_tree)
-      
+        @sandbox = true
+        
         with_env(
           'GIT_DIR' => grit.path, 
           'GIT_WORK_TREE' => @work_tree,
@@ -602,6 +612,7 @@ module Gitgo
       ensure
         FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
         FileUtils.rm(@index_file)  if File.exists?(@index_file)
+        @sandbox = false
       end
     end
     
