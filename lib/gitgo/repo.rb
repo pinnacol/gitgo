@@ -342,13 +342,13 @@ module Gitgo
           raise "invalid path: #{path.inspect}"
         end
         
-        content = paths[path]
-        content = [DEFAULT_BLOB_MODE, set(:blob, content)] if content.kind_of?(String)
+        entry = paths[path]
+        entry = [DEFAULT_BLOB_MODE, set(:blob, entry)] if entry.kind_of?(String)
         
         tree = @tree.subtree(segments, true)
-        tree[basename] = content
         
-        paths[path] = content if update
+        paths[path] = entry.nil? ? tree[basename] : entry if update
+        tree[basename] = entry
       end
 
       self
@@ -421,23 +421,26 @@ module Gitgo
 
     # Returns a hash of (path, state) pairs indicating paths that have been
     # added or removed.  State must be :add or :rm.
-    def status
+    def status(full=false)
       a = commit_tree.flatten
       b = tree.flatten
       
       diff = {}
-      (a.keys | b.keys).each do |key|
-        in_a = a.has_key?(key)
-        in_b = b.has_key?(key)
+      (a.keys | b.keys).collect do |key|
+        a_entry = a.has_key?(key) ? a[key] : nil
+        b_entry = b.has_key?(key) ? b[key] : nil
         
-        case
-        when in_a && in_b
-          diff[key] = :mod if a[key] != b[key]
-        when in_a
-          diff[key] = :rm
-        when in_b
-          diff[key] = :add
+        change = case
+        when a_entry && b_entry
+          next unless a_entry != b_entry
+          :mod
+        when a_entry
+          :rm
+        when b_entry
+          :add
         end
+        
+        diff[key] = full ? [change, a_entry || [], b_entry || []] : change
       end
       diff
     end
@@ -585,7 +588,13 @@ module Gitgo
     def stats
       sandbox do |git, work_tree, index_file|
         stdout, stderr = git.sh("#{Grit::Git.git_binary} count-objects --verbose")
-        YAML.load(stdout)
+        stats = YAML.load(stdout)
+        
+        unless stats.kind_of?(Hash)
+          raise stderr
+        end
+        
+        stats
       end
     end
     

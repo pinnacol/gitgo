@@ -15,25 +15,15 @@
 </dd>
 </dl>
 
-<h2>Maintenance</h2>
+
 <ul>
 <li>
   <form class="update" action="<%= url('/repo/reindex') %>" method="post">
-  <input type="checkbox" name="full" value="true" /> Full
-  <input type="submit" value="Reindex" />
+    <input type="hidden" name="full" value="true" />
+    <input type="submit" value="Reindex" />
   </form>
 </li>
-<li><a href="<%= url('/repo/status') %>">status</a></li>
-<li><a href="<%= url('/repo/fsck') %>">fsck</a></li>
-</ul>
-
-<h2>Stats</h2>
-<dl><% stats.keys.sort.each do |key| %>
-<dt><%= key %></dt>
-<dd><%= stats[key] %></dd><% end %>
-</dl>
-
-<h2>Reference</h2>
-<ul>
-<li><a href="<%= url('/repo/design') %>">Design</a></li>
+<li><a href="<%= url('/repo/status') %>">Status</a></li>
+<li><a href="<%= url('/repo/maintenance') %>">Maintenance</a></li>
+<li><a href="<%= url('/repo/design') %>">Reference</a></li>
 </ul>

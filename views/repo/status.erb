@@ -1,8 +1,8 @@
 <h1>Status (<%= repo.branch %>)</h1>
 
 <ul><% if status.empty? %>
-<li>No changes</li><% end %><% status.keys.sort.each do |key| %>
-<li><%= status[key] %> <%= key %></li><% end %>
+<li>No changes</li><% end %><% status.keys.sort.each do |key| %><% change, a, b = status[key] %>
+<li class="<%= change %>"><%= key %> (<%= gformat "#{a[1] || '()'}...#{b[1] || '()'}" %>)</li><% end %>
 </ul>
 
 <form class="update" action="<%= url 'commit' %>" method="post">

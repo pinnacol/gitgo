@@ -1,0 +1,22 @@
+<h1>Maintenance</h1>
+
+<h2>Fsck</h2>
+
+<ul><% if issues.empty? %>
+<li>No issues found</li><% end %><% issues.each do |issue| %>
+<li><%= gformat issue %></li><% end %>
+</ul>
+
+<form action="<%= url '/repo/prune' %>" method="post">
+<input type="submit" value="Prune" /></dt>
+</form>
+
+<h2>Stats</h2>
+<dl><% stats.keys.sort.each do |key| %>
+<dt class="stat"><%= key %></dt>
+<dd class="<%= key %>-stat"><%= stats[key] %></dd><% end %>
+</dl>
+
+<form action="<%= url '/repo/gc' %>" method="post">
+<input type="submit" value="GC" /></dt>
+</form>

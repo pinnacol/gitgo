@@ -19,41 +19,6 @@ class ManualTest < Test::Unit::TestCase
     
     puts "\n#{method_name}" if ENV['DEBUG'] == 'true'
   end
-
-  def sh(dir, cmd, env={})
-    current = {}
-    begin
-      ENV.keys.each do |key|
-        if key =~ /^GIT_/
-          current[key] = ENV.delete(key)
-        end
-      end
-
-      env.each_pair do |key, value|
-        current[key] ||= nil
-        ENV[key] = value
-      end
-
-      Dir.chdir(dir) do
-        puts "% #{cmd}" if ENV['DEBUG'] == 'true'
-        path = method_root.prepare(:tmp, 'stdout')
-        system("#{cmd} > '#{path}' 2>&1")
-
-        output = File.exists?(path) ? File.read(path) : nil
-        puts output if ENV['DEBUG'] == 'true'
-        output.chomp
-      end
-      
-    ensure
-      current.each_pair do |key, value|
-        if value
-          ENV[key] = value
-        else
-          ENV.delete(key)
-        end
-      end
-    end
-  end
   
   #
   # manual tests

@@ -61,18 +61,6 @@ class ModelTest < Test::Unit::TestCase
     assert_equal expected.sort, repo.grit.commits('gitgo').collect {|c| c.message }.sort
   end
   
-  # Executes the command, capturing output to a tmp file.  Returns the command
-  # output.
-  def sh(cmd)
-    puts "% #{cmd}" if Grit.debug
-    path = method_root.prepare(:tmp, 'stdout')
-    system("#{cmd} > '#{path}' 2>&1")
-    
-    output = File.exists?(path) ? File.read(path) : nil
-    puts output if Grit.debug
-    output
-  end
-  
   # For reference, these were the objects after this method (only replicable
   # with my user.name and user.email of course course):
   #
@@ -98,24 +86,21 @@ class ModelTest < Test::Unit::TestCase
   # <simon.chiang@pinnacol.com> 1255708078 -0600\n\nmessage\n"
   #
   def test_manual_commit_and_merge
-    Dir.chdir(a_path) do 
-      sh "git status"
-      sh "git checkout gitgo"
-      method_root.prepare(:tmp, 'a/two') {|io| io << "two content" }
-      
-      sh "git add ."
-      sh "git commit -m 'message'"
-    end
+    sh(a_path, "git status")
+    sh(a_path, "git checkout gitgo")
     
+    method_root.prepare(:tmp, 'a/two') {|io| io << "two content" }
+    
+    sh(a_path, "git add .")
+    sh(a_path, "git commit -m 'message'")
+
     a.reset
     b.reset
     assert_equal "two content", a['two']
     assert_equal nil, b['two']
     
-    Dir.chdir(b_path) do
-      sh "git checkout gitgo"
-      sh "git pull"
-    end
+    sh(b_path, "git checkout gitgo")
+    sh(b_path, "git pull")
     
     a.reset
     b.reset

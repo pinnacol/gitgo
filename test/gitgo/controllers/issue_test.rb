@@ -9,7 +9,7 @@ class IssueTest < Test::Unit::TestCase
   
   def setup
     super
-    @repo = Gitgo::Repo.init(method_root[:tmp], :bare => true)
+    @repo = Gitgo::Repo.init(method_root[:tmp], :is_bare => true)
     app.set :repo, @repo
     app.instance_variable_set :@prototype, nil
   end
