@@ -13,6 +13,7 @@ module Gitgo
       get("/repo/maintenance") { maintenance }
       get("/repo/*")         {|path| template(path) }
       
+      post("/repo/setup")    { setup }
       post("/repo/commit")   { commit }
       post("/repo/update")   { update }
       post("/repo/reindex")  { reindex }
@@ -21,12 +22,11 @@ module Gitgo
       post("/repo/gc")       { gc }
       
       def index
-        remotes = repo.grit.remotes.collect {|remote| remote.name }.sort
-        
         erb :index, :locals => {
           :keys => repo.list, 
-          :remotes => remotes,
-          :track => repo.track
+          :remotes => repo.grit.remotes.collect {|remote| remote.name }.sort,
+          :track => repo.track,
+          :current => repo.current
         }
       end
       
@@ -61,17 +61,41 @@ module Gitgo
         }
       end
       
+      def setup
+        raise "#{repo.branch} already exists" if repo.current
+        
+        remote = request['remote']
+        if remote.empty?
+          repo.create("initialized gitgo")
+          repo.commit!("initial commit")
+        else
+          repo.sandbox do |git, w, i|
+            git.branch({:track => true}, repo.branch, remote)
+          end
+          repo.reindex!(true)
+        end
+        
+        redirect url("/repo")
+      end
+      
       def commit
         repo.commit request['message']
         redirect url("/repo/status")
       end
       
       def update
+        unless repo.status.empty?
+          raise "local changes; cannot update"
+        end
+        
         ref = request['remote'] || repo.track
         remote, remote_branch = ref.split("/", 2)
         
-        repo.pull(remote, ref)
+        repo.pull(remote, ref) if set?("pull")
         repo.push(remote) if set?("push")
+        
+        repo.reset
+        repo.reindex!(true)
         
         redirect url("/repo")
       end

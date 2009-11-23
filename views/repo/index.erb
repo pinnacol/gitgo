@@ -6,8 +6,26 @@
 <dt>Branch</dt>
 <dd><%= repo.branch %></dd>
 <dt>Commit</dt>
-<dd><%= erb :_commit, :locals => {:commit => repo.current }, :views => path('views/code'), :layout => false %></dd>
-<dt>Pull</dt>
+<dd><% if current %>
+<%= erb :_commit, :locals => {:commit => repo.current }, :views => path('views/code'), :layout => false %><% else %>
+  <em>The branch doesn't exist.  Click setup to initialize the branch.</em>
+  
+  <form action="<%= url('/repo/setup') %>" method="post">
+    <dl>
+    <dt><label for="remote">Track</label></dt>
+    <dd>
+      <select id="remote" name="remote">
+      <option value="">None</option><% remotes.each do |remote| %>
+      <option value="<%= remote %>" <% if track == remote || remote == "origin/gitgo" %> selected="true"<% end %>><%= remote %></option><% end %>
+      </select>
+    </dd>
+    <dt><input type="submit" value="Setup" /></dt>
+    <dd></dd>
+    </dl>
+  </form>
+<% end %>
+</dd>
+<dt>Update</dt>
 <dd>
   <form action="<%= url('/repo/update') %>" method="post">
     <dl>
@@ -17,8 +35,10 @@
       <option value="<%= remote %>" <% if track == remote || remote == "origin/gitgo" %> selected="true"<% end %>><%= remote %></option><% end %>
       </select>
     </dd>
-    <dt><label for="push">Push Also</label></dt>
-    <dd><input id="push" type="checkbox" name="push" value="true" checked="true" /></dd>
+    <dt><label for="pull">Pull</label></dt>
+    <dd><input id="pull" type="checkbox" name="pull" value="true" /></dd>
+    <dt><label for="push">Push</label></dt>
+    <dd><input id="push" type="checkbox" name="push" value="true" /></dd>
     <dt><input type="submit" value="Update" /></dt>
     <dd></dd>
     </dl>

@@ -919,7 +919,7 @@ module Gitgo
       end.each_pair do |parent, children|
         parent = docs[parent] unless parent == sha
         
-        children.collect! {|id| docs[id] }.sort_by {|doc| doc.date }
+        children.collect! {|id| docs[id] }.sort_by {|doc| doc.date }.reverse!
         ancestry[parent] = children
       end
     

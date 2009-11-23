@@ -127,9 +127,9 @@ class RepoControllerTest < Test::Unit::TestCase
     assert_equal nil, clone.read(two)
     assert_equal "three document", clone.read(three).content
     
-    post("/repo/update")
+    post("/repo/update", :pull => true)
     assert last_response.redirect?
-    assert_equal "/repo/status", last_response['Location']
+    assert_equal "/repo", last_response['Location']
     
     assert_equal "one document", repo.read(one).content
     assert_equal "two document", repo.read(two).content
@@ -167,9 +167,9 @@ class RepoControllerTest < Test::Unit::TestCase
     assert_equal nil, clone.read(two)
     assert_equal "three document", clone.read(three).content
     
-    post("/repo/update", :push => true)
-    assert last_response.redirect?, last_response.body
-    assert_equal "/repo/status", last_response['Location']
+    post("/repo/update", :pull => true, :push => true)
+    assert last_response.redirect?
+    assert_equal "/repo", last_response['Location']
     
     assert_equal "one document", repo.read(one).content
     assert_equal "two document", repo.read(two).content
