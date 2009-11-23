@@ -21,7 +21,7 @@ class ManualTest < Test::Unit::TestCase
   end
   
   #
-  # manual tests
+  # setup test
   #
   
   def test_status
@@ -32,6 +32,10 @@ class ManualTest < Test::Unit::TestCase
     
     assert_equal "a1aafafbb5f74fb48312afedb658569b00f4a796", sh(a, 'git rev-parse master')
   end
+  
+  #
+  # tracking test
+  #
   
   def test_setup_tracking_on_existing_branch
     # a has access to the simple.git branches
@@ -70,6 +74,10 @@ class ManualTest < Test::Unit::TestCase
     # make a tracking branch on b... fails
     assert_equal "fatal: Not a valid object name: 'origin/abc'.", sh(a, 'git branch abc --track origin/abc')
   end
+  
+  #
+  # checkout test
+  #
   
   def path_in(dir)
     Dir.glob("#{dir}/*").collect {|path| File.basename(path) }.sort
@@ -206,5 +214,139 @@ class ManualTest < Test::Unit::TestCase
     
     assert_equal "beta content", File.read(method_root.path(c, "alpha/beta.txt"))
     assert_equal "gamma content", File.read(method_root.path(c, "alpha/beta/gamma.txt"))
+  end
+  
+  #
+  # stories
+  #
+  
+  # * clone a repo without a gitgo branch
+  # * create gitgo branch
+  # * commit to branch
+  # * push local branch back to remote
+  # 
+  # Remote should now have a local gitgo branch with the same content
+  def test_no_gitgo_no_remote_gitgo
+    assert !sh(b, 'git branch -a').include?('gitgo')
+    
+    sh(b, 'git branch gitgo')
+    sh(b, 'git checkout gitgo')
+    method_root.prepare(b, "shasum") {|io| io << "content" }
+    sh(b, 'git add shasum')
+    sh(b, 'git commit -m "added document"')
+    
+    sh(b, 'git checkout master')
+    sh(b, 'git push origin gitgo')
+    
+    assert sh(b, 'git branch').include?('gitgo') 
+    assert sh(a, 'git branch').include?('gitgo')
+    
+    sh(a, 'git checkout gitgo')
+    assert_equal "content", File.read(method_root.path(a, "shasum"))
+  end
+  
+  # * clone a repo without a gitgo branch (b)
+  # * create gitgo branch
+  # * commit to branch
+  # * meanwhile remote branch gets a gitgo branch (c)
+  # * push local branch back to remote fails
+  # * fetch changes
+  # * merge
+  # * push changes back to remote
+  # 
+  # Remote should now have a local gitgo branch with content from both b,c
+  def test_gitgo_different_from_remote_gitgo
+    assert !sh(a, 'git branch -a').include?('gitgo')
+    assert !sh(b, 'git branch -a').include?('gitgo')
+    assert !sh(c, 'git branch -a').include?('gitgo')
+    
+    sh(b, 'git branch gitgo')
+    sh(b, 'git checkout gitgo')
+    method_root.prepare(b, "bshasum") {|io| io << "b content" }
+    sh(b, 'git add bshasum')
+    sh(b, 'git commit -m "added document"')
+    
+    # setup remote from c
+    sh(c, 'git branch gitgo')
+    sh(c, 'git checkout gitgo')
+    method_root.prepare(c, "cshasum") {|io| io << "c content" }
+    sh(c, 'git add cshasum')
+    sh(c, 'git commit -m "added document"')
+    sh(c, 'git push origin gitgo')
+    
+    # now try to push back, fails
+    assert sh(b, 'git push origin gitgo').include?("! [rejected]        gitgo -> gitgo (non-fast forward)")
+    
+    sh(a, 'git checkout -f gitgo')
+    assert_equal false, File.exists?(method_root.path(a, "bshasum"))
+    assert_equal "c content", File.read(method_root.path(a, "cshasum"))
+    
+    # merge
+    sh(b, 'git fetch')
+    assert sh(b, 'git branch').include?('gitgo')
+    assert sh(b, 'git branch -a').include?('origin/gitgo')
+    sh(b, 'git merge origin/gitgo')
+    
+    # now push works
+    sh(b, 'git push origin gitgo')
+    sh(a, 'git checkout -f gitgo')
+    assert_equal "b content", File.read(method_root.path(a, "bshasum"))
+    assert_equal "c content", File.read(method_root.path(a, "cshasum"))
+    
+    # fetch for c leaves changes unmerged
+    sh(c, 'git fetch')
+    sh(c, 'git checkout -f gitgo')
+    assert_equal false, File.exists?(method_root.path(c, "bshasum"))
+    assert_equal "c content", File.read(method_root.path(c, "cshasum"))
+    
+    # manual merge fixes
+    sh(c, 'git merge gitgo origin/gitgo')
+    sh(c, 'git checkout -f gitgo')
+    assert_equal "b content", File.read(method_root.path(c, "bshasum"))
+    assert_equal "c content", File.read(method_root.path(c, "cshasum"))
+  end
+  
+  # * clone a repo without a gitgo branch (b)
+  # * fetch a remotely gitgo branch
+  # * setup tracking
+  # * pull does not merge remote branch when on master
+  #
+  def test_gitgo_tracking_a_remote_branch
+    # setup remote from c
+    sh(c, 'git branch gitgo')
+    sh(c, 'git checkout gitgo')
+    method_root.prepare(c, "cshasum1") {|io| io << "c content" }
+    sh(c, 'git add cshasum1')
+    sh(c, 'git commit -m "added document"')
+    sh(c, 'git push origin gitgo')
+    
+    # fetch gitgo
+    sh(b, 'git fetch')
+    assert !sh(b, 'git branch').include?('gitgo')
+    assert sh(b, 'git branch -a').include?('origin/gitgo')
+    
+    sh(b, 'git branch gitgo --track origin/gitgo')
+    sh(b, 'git checkout master')
+    
+    # make changes from c
+    method_root.prepare(c, "cshasum2") {|io| io << "C content" }
+    sh(c, 'git add cshasum2')
+    sh(c, 'git commit -m "added document"')
+    sh(c, 'git push origin gitgo')
+    
+    # pull changes
+    sh(b, 'git pull')
+    assert_equal false, File.exists?(method_root.path(b, "cshasum1"))
+    assert_equal false, File.exists?(method_root.path(b, "cshasum2"))
+    
+    # not fast-forwarded
+    sh(b, 'git checkout gitgo')
+    assert_equal "c content", File.read(method_root.path(b, "cshasum1"))
+    assert_equal false, File.exists?(method_root.path(b, "cshasum2"))
+    
+    # fast forward
+    sh(b, 'git merge origin/gitgo')
+    assert_equal "c content", File.read(method_root.path(b, "cshasum1"))
+    assert_equal "C content", File.read(method_root.path(b, "cshasum2"))
   end
 end

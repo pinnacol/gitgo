@@ -1,0 +1,32 @@
+# check 'git branch -a'
+# if gitgo exists
+#   check 'git config branch.gitgo.remote'  (tracking)
+#
+#   if set
+#     nothing
+#   else
+#     B)
+#   end
+# else
+#   A)
+# end
+#
+
+
+h1. Setup
+
+Gitgo tracks issues, comments, and wiki pages on a dedicated branch ('gitgo') separate from your development branches. Gitgo sets this branch up for local use, but needs your help to share updates with a remote repository.
+
+h2. Push Changes
+
+  % git push origin gitgo
+
+
+
+  
+
+ You will have to push this branch to your origin to share it from a central location.  Once you've added content:
+
+  % git push origin gitgo
+
+Now the origin will have your gitgo branch.  
