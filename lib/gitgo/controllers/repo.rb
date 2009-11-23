@@ -84,6 +84,11 @@ module Gitgo
       end
       
       def update
+        if set?("reset")
+          repo.reset
+          repo.reindex!(true)
+        end
+        
         unless repo.status.empty?
           raise "local changes; cannot update"
         end
@@ -93,9 +98,6 @@ module Gitgo
         
         repo.pull(remote, ref) if set?("pull")
         repo.push(remote) if set?("push")
-        
-        repo.reset
-        repo.reindex!(true)
         
         redirect url("/repo")
       end
