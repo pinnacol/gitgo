@@ -14,6 +14,7 @@ module Gitgo
       get("/repo/*")         {|path| template(path) }
       
       post("/repo/commit")   { commit }
+      post("/repo/update")   { update }
       post("/repo/reindex")  { reindex }
       post("/repo/reset")    { reset }
       post("/repo/prune")    { prune }
@@ -56,6 +57,13 @@ module Gitgo
       
       def commit
         repo.commit request['message']
+        redirect url("/repo/status")
+      end
+      
+      def update
+        repo.pull(request['remote'] || "origin")
+        repo.push(request['remote'] || "origin") if set?("push")
+        
         redirect url("/repo/status")
       end
       

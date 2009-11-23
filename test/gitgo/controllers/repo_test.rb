@@ -95,4 +95,88 @@ class RepoControllerTest < Test::Unit::TestCase
     follow_redirect!
     assert last_response.body.include?('class="count-stat">0<')
   end
+  
+  #
+  # update test
+  #
+  
+  def test_update_pulls_changes
+    one = repo.create("one document")
+    repo.commit("added document")
+    
+    clone = repo.clone(method_root.path(:tmp, 'clone'))
+    clone.sandbox do |git, w, i|
+      git.branch({:track => true}, 'gitgo', 'origin/gitgo')
+    end
+    
+    two = repo.create("two document")
+    repo.commit("added document")
+    
+    three = clone.create("three document")
+    clone.commit("added document")
+    
+    #
+    app.set :repo, clone
+    app.instance_variable_set :@prototype, nil
+    
+    assert_equal "one document", repo.read(one).content
+    assert_equal "two document", repo.read(two).content
+    assert_equal nil, repo.read(three)
+    
+    assert_equal "one document", clone.read(one).content
+    assert_equal nil, clone.read(two)
+    assert_equal "three document", clone.read(three).content
+    
+    post("/repo/update")
+    assert last_response.redirect?
+    assert_equal "/repo/status", last_response['Location']
+    
+    assert_equal "one document", repo.read(one).content
+    assert_equal "two document", repo.read(two).content
+    assert_equal nil, repo.read(three)
+    
+    assert_equal "one document", clone.read(one).content
+    assert_equal "two document", clone.read(two).content
+    assert_equal "three document", clone.read(three).content
+  end
+  
+  def test_update_pulls_changes_then_pushes_changes_if_specified
+    one = repo.create("one document")
+    repo.commit("added document")
+    
+    clone = repo.clone(method_root.path(:tmp, 'clone'))
+    clone.sandbox do |git, w, i|
+      git.branch({:track => true}, 'gitgo', 'origin/gitgo')
+    end
+    
+    two = repo.create("two document")
+    repo.commit("added document")
+    
+    three = clone.create("three document")
+    clone.commit("added document")
+    
+    #
+    app.set :repo, clone
+    app.instance_variable_set :@prototype, nil
+    
+    assert_equal "one document", repo.read(one).content
+    assert_equal "two document", repo.read(two).content
+    assert_equal nil, repo.read(three)
+    
+    assert_equal "one document", clone.read(one).content
+    assert_equal nil, clone.read(two)
+    assert_equal "three document", clone.read(three).content
+    
+    post("/repo/update", :push => true)
+    assert last_response.redirect?
+    assert_equal "/repo/status", last_response['Location']
+    
+    assert_equal "one document", repo.read(one).content
+    assert_equal "two document", repo.read(two).content
+    assert_equal "three document", repo.read(three).content
+    
+    assert_equal "one document", clone.read(one).content
+    assert_equal "two document", clone.read(two).content
+    assert_equal "three document", clone.read(three).content
+  end
 end
