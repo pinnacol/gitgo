@@ -6,7 +6,7 @@ $:.unshift(lib_dir) unless $:.include?(lib_dir)
 # Launches a Gitgo server.
 require 'rubygems'
 require 'optparse'
-require 'gitgo/server'
+require 'gitgo'
 
 options = {
   :host => '127.0.0.1', 
