@@ -502,7 +502,11 @@ module Gitgo
         remote = rev_parse(ref)
         base = local.nil? ? nil : git.merge_base({}, local, remote).chomp("\n")
         
-        if base == local
+        case
+        when base == remote
+          break
+        when base == local
+          # fast forward situation
           grit.update_ref(branch, remote)
         else
           # todo: add rebase as an option
@@ -1013,7 +1017,7 @@ module Gitgo
     #   mode name\0[packedsha]mode name\0[packedsha]...
     #---------------------------------------------------
     # note there are no newlines separating tree entries.
-    def write_tree(tree)
+    def write_tree(tree) # :nodoc:
       tree_mode = tree.mode ||= DEFAULT_TREE_MODE
       tree_id   = tree.sha  ||= begin
         lines = []

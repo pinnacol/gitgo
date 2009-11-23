@@ -552,6 +552,44 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # pull tests
+  #
+  
+  def test_pull_fast_fowards_when_possible
+    a = Repo.init(method_root.path(:tmp, "a"))
+    a.add("a" => "a content").commit("added a file")
+    
+    b = a.clone(method_root.path(:tmp, "b"))
+    a.add("a" => "A content").commit("updated file")
+    
+    b.pull
+    assert_equal a.current.id, b.current.id
+  end
+  
+  def test_pull_does_nothing_unless_necessary
+    a = Repo.init(method_root.path(:tmp, "a"))
+    a.add("a" => "a content").commit("added a file")
+    
+    b = a.clone(method_root.path(:tmp, "b"))
+    
+    previous = b.current.id
+    b.pull
+    assert_equal previous, b.current.id
+    
+    b.add("b" => "b content").commit("added a file")
+    
+    previous = b.current.id
+    b.pull
+    assert_equal previous, b.current.id
+    
+    a.add("a" => "A content").commit("updated a file")
+    
+    previous = b.current.id
+    b.pull
+    assert previous != b.current.id
+  end
+  
+  #
   # stats test
   #
   
