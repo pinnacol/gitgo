@@ -21,7 +21,13 @@ module Gitgo
       post("/repo/gc")       { gc }
       
       def index
-        erb :index, :locals => {:keys => repo.list}
+        remotes = repo.grit.remotes.collect {|remote| remote.name }.sort
+        
+        erb :index, :locals => {
+          :keys => repo.list, 
+          :remotes => remotes,
+          :track => repo.track
+        }
       end
       
       def template(path)
@@ -61,10 +67,13 @@ module Gitgo
       end
       
       def update
-        repo.pull(request['remote'] || "origin")
-        repo.push(request['remote'] || "origin") if set?("push")
+        ref = request['remote'] || repo.track
+        remote, remote_branch = ref.split("/", 2)
         
-        redirect url("/repo/status")
+        repo.pull(remote, ref)
+        repo.push(remote) if set?("push")
+        
+        redirect url("/repo")
       end
       
       def reindex

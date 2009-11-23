@@ -168,7 +168,7 @@ class RepoControllerTest < Test::Unit::TestCase
     assert_equal "three document", clone.read(three).content
     
     post("/repo/update", :push => true)
-    assert last_response.redirect?
+    assert last_response.redirect?, last_response.body
     assert_equal "/repo/status", last_response['Location']
     
     assert_equal "one document", repo.read(one).content

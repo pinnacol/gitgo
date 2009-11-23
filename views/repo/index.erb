@@ -7,22 +7,37 @@
 <dd><%= repo.branch %></dd>
 <dt>Commit</dt>
 <dd><%= erb :_commit, :locals => {:commit => repo.current }, :views => path('views/code'), :layout => false %></dd>
+<dt>Pull</dt>
+<dd>
+  <form action="<%= url('/repo/update') %>" method="post">
+    <dl>
+    <dt><label for="remote">Remote</label></dt>
+    <dd>
+      <select id="remote" name="remote"><% remotes.each do |remote| %>
+      <option value="<%= remote %>" <% if track == remote || remote == "origin/gitgo" %> selected="true"<% end %>><%= remote %></option><% end %>
+      </select>
+    </dd>
+    <dt><label for="push">Push Also</label></dt>
+    <dd><input id="push" type="checkbox" name="push" value="true" checked="true" /></dd>
+    <dt><input type="submit" value="Update" /></dt>
+    <dd></dd>
+    </dl>
+  </form>
+</dd>
 <dt>Index</dt>
 <dd>
   <ul><% keys.each do |key| %>
   <li><a href="<%= url "/repo/idx/#{key}" %>"><%= key %></a></li><% end %>
   </ul>
-</dd>
-</dl>
-
-
-<ul>
-<li>
-  <form class="update" action="<%= url('/repo/reindex') %>" method="post">
+  
+  <form action="<%= url('/repo/reindex') %>" method="post">
     <input type="hidden" name="full" value="true" />
     <input type="submit" value="Reindex" />
   </form>
-</li>
+</dd>
+</dl>
+
+<ul>
 <li><a href="<%= url('/repo/status') %>">Status</a></li>
 <li><a href="<%= url('/repo/maintenance') %>">Maintenance</a></li>
 <li><a href="<%= url('/repo/design') %>">Reference</a></li>

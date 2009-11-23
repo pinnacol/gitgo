@@ -496,14 +496,14 @@ module Gitgo
       end
     end
     
-    def merge(remote=track)
+    def merge(ref=track)
       sandbox do |git, work_tree, index_file|
         local = ref(:heads, branch)
-        remote_sha = rev_parse(remote)
-        base = local.nil? ? nil : git.merge_base({}, local, remote_sha).chomp("\n")
+        remote = rev_parse(ref)
+        base = local.nil? ? nil : git.merge_base({}, local, remote).chomp("\n")
         
         if base == local
-          grit.update_ref(branch, remote_sha)
+          grit.update_ref(branch, remote)
         else
           # todo: add rebase as an option
           
@@ -513,11 +513,11 @@ module Gitgo
             :trivial => true,    # only merge if no file-level merges are required
             :aggressive => true, # allow resolution of removes
             :index_output => index_file
-          }, base, branch, remote_sha)
+          }, base, branch, remote)
           
-          commit!("gitgo merge of #{remote} into #{branch}", 
+          commit!("gitgo merge of #{ref} into #{branch}", 
             :tree => git.write_tree.chomp("\n"),
-            :parents => [local, rev_parse(remote)]
+            :parents => [local, remote]
           )
         end
         
@@ -536,10 +536,10 @@ module Gitgo
     end
     
     # Pulls from the remote into the work tree.
-    def pull(remote="origin")
+    def pull(remote="origin", ref=track)
       sandbox do |git, work_tree, index_file|
         fetch(remote)
-        merge
+        merge(ref)
       end
       reset
     end
