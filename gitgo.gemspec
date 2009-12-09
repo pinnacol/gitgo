@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = "gitgo"
-  s.version = "0.1.0"
+  s.version = "0.1.1"
   s.author = "Simon Chiang"
   s.email = "simon.chiang@pinnacol.com"
   s.homepage = ""
@@ -29,6 +29,7 @@ Gem::Specification.new do |s|
   
   # list the files you want to include here.
   s.files = %W{
+    lib/gitgo.rb
     lib/gitgo/controller.rb
     lib/gitgo/controllers/code.rb
     lib/gitgo/controllers/issue.rb
@@ -49,7 +50,6 @@ Gem::Specification.new do |s|
     public/spec/jspec.css
     public/spec/jspec.js
     public/tests.html
-    views/code/_comment.erb
     views/code/_comment_form.erb
     views/code/_comments.erb
     views/code/_commit.erb
@@ -76,9 +76,9 @@ Gem::Specification.new do |s|
     views/layout.erb
     views/not_found.erb
     views/repo/design.textile
-    views/repo/fsck.erb
     views/repo/idx.erb
     views/repo/index.erb
+    views/repo/maintenance.erb
     views/repo/status.erb
     views/server/timeline.erb
     views/wiki/index.erb
