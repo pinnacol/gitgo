@@ -2,7 +2,7 @@ Gem::Specification.new do |s|
   s.name = "gitgo"
   s.version = "0.1.1"
   s.author = "Simon Chiang"
-  s.email = "simon.chiang@pinnacol.com"
+  s.email = "simon.a.chiang@gmail.com"
   s.homepage = ""
   s.platform = Gem::Platform::RUBY
   s.summary = "Issues, comments, and a wiki for git projects."

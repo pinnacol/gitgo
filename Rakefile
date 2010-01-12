@@ -68,6 +68,9 @@ file "vendor/gems/environment.rb" => ["Gemfile", ENV['GEMSPEC']] do
     # failure -- missing bundler?
     puts %Q{
 Bundle fail! Are you sure bundler is installed?
+
+  % gem install bundler
+
 }
     exit(1)
   end
