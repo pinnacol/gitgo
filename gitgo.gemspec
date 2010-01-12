@@ -25,6 +25,7 @@ Gem::Specification.new do |s|
   s.extra_rdoc_files = %W{
     History
     README
+    License.txt
   }
   
   # list the files you want to include here.

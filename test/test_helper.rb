@@ -1,6 +1,8 @@
-# Filter warnings from vendored projects
+require 'vendor/gems/environment'
+
+# Filter warnings from bundled projects
 module WarnFilter
-  VENDOR_DIR = File.expand_path(File.join(File.dirname(__FILE__), "../vendor"))
+  VENDOR_DIR = File.expand_path(File.join(File.dirname(__FILE__), "../vendor/gems"))
 
   def write(obj)
     super unless obj.rindex(VENDOR_DIR) == 0

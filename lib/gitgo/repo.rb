@@ -147,8 +147,8 @@ module Gitgo
     INDEX_DIR = 'gitgo/idx'
     INDEX_ALL = 'gitgo/all'
     
-    DEFAULT_BLOB_MODE = :"100644"
-    DEFAULT_TREE_MODE = :"40000"
+    DEFAULT_BLOB_MODE = "100644".to_sym
+    DEFAULT_TREE_MODE = "40000".to_sym
 
     YEAR = /\A\d{4,}\z/
     MMDD = /\A\d{4}\z/

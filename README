@@ -1,0 +1,35 @@
+= Gitgo
+
+Gitgo -- git-driven issues, comments, and a wiki... to go.
+
+== Description
+
+Gitgo is an issue tracker that stores issue information in a git repository.
+At present gitgo is in a developmental state. While the backend and data model
+both work and appear to be robust, the front-end is highly lacking, as is
+documentation that would allow you to manually setup the repo using the
+standard git commands.
+
+Usage will be difficult without prior knowledge.
+
+== Usage
+
+In the working directory for a git repository:
+
+  % gitgo
+
+Then visit http://localhost:8080 in a web browser.
+
+== Installation
+
+Gitgo is not available as a gem yet.  To clone the project and build your own:
+
+  % git clone git://github.com/pinnacol/gitgo.git
+  % cd gitgo
+  % rake gem
+  % gem install pkg/gitgo-...
+
+== Info 
+
+Developer:: {Simon Chiang}[http://bahuvrihi.wordpress.com]
+License:: {MIT-Style}[link:License.html]

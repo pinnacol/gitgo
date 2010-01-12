@@ -3,12 +3,14 @@ require 'rake/testtask'
 require 'rake/rdoctask'
 require 'rake/gempackagetask'
 
+ENV['GEMSPEC'] = 'gitgo.gemspec'
+
 #
 # Gem specification
 #
 
 def gemspec
-  data = File.read('gitgo.gemspec')
+  data = File.read(ENV['GEMSPEC'])
   spec = nil
   Thread.new { spec = eval("$SAFE = 3\n#{data}") }.join
   spec
@@ -42,6 +44,32 @@ task :print_manifest do
   # sort and output the results
   files.values.sort_by {|exists, file| file }.each do |entry| 
     puts "%-5s %s" % entry
+  end
+end
+
+#
+# Bundler tasks
+#
+
+desc "Bundle depenencies for the current wcis_env"
+task :bundle => "vendor/gems/environment.rb"
+
+file "vendor/gems/environment.rb" => ["Gemfile", ENV['GEMSPEC']] do
+  cmd = "gem bundle"
+  
+  if system(cmd)
+    # success -- remove the circular symlink to the pwd
+    # if it exists (note this doesn't affect bundler)
+    spec = gemspec
+    pattern = File.join("vendor/gems/**/gems", spec.full_name)
+    Dir.glob(pattern).each {|install_path| FileUtils.rm_r(install_path) }
+    
+  else
+    # failure -- missing bundler?
+    puts %Q{
+Bundle fail! Are you sure bundler is installed?
+}
+    exit(1)
   end
 end
 
@@ -94,7 +122,7 @@ end
 #
 # pre-gc:  12.4 MB on disk (215,812 bytes)
 # post-gc: 360 KB on disk (284,433 bytes) 
-task :build_fixture => :check_bundle do
+task :build_fixture => :bundle do
   require 'vendor/gems/environment'
   require 'gitgo/repo'
   
@@ -131,21 +159,6 @@ end
 desc 'Default: Run tests.'
 task :default => :test
 
-task :check_bundle do
-  unless File.exists?("vendor/gems/environment.rb")
-    puts %Q{
-Tests cannot be run until the dependencies have been
-bundled.  Use these commands and try again:
-
-  % git submodule init
-  % git submodule update
-  % gem bundle
-
-}
-    exit(1)
-  end
-end
-
 desc 'Run the tests'
 task :test => ['test:gitgo', 'test:model']
 
@@ -154,7 +167,7 @@ namespace :test do
   task :all => ['test:gitgo', 'test:benchmark']
   
   desc 'Run gitgo tests'
-  task :gitgo => :check_bundle do
+  task :gitgo => :bundle do
     pattern = ENV['PATTERN'] || "**/*_test.rb"
     tests = Dir.glob("test/gitgo/#{pattern}").select {|path| File.file?(path) }
     cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
@@ -162,7 +175,7 @@ namespace :test do
   end
   
   desc 'Run data model tests'
-  task :model => :check_bundle do
+  task :model => :bundle do
     pattern = ENV['PATTERN'] || "**/*_test.rb"
     tests = Dir.glob("test/model/#{pattern}").select {|path| File.file?(path) }
     cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
@@ -170,7 +183,7 @@ namespace :test do
   end
   
   desc 'Run benchmark tests'
-  task :benchmark => :check_bundle do
+  task :benchmark => :bundle do
     ENV['BENCHMARK'] = "true"
     pattern = ENV['PATTERN'] || "**/*_benchmark.rb"
     tests = Dir.glob("test/benchmark/#{pattern}").select {|path| File.file?(path) }
@@ -178,13 +191,3 @@ namespace :test do
     sh(*cmd)
   end
 end
-
-desc "Update bundle for CruiseControl"
-task :cc_bundle do
-  FileUtils.rm_r("vendor/gems") if File.exists?("vendor/gems")
-  system("BUNDLE_CC='true' gem bundle")
-end
-
-desc 'Run the cc tests'
-task :cc => [:cc_bundle, :test]
-
