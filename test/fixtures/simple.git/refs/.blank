@@ -1,0 +1,2 @@
+# This file exists to ensure the simple.git/refs folder is created; otherwise
+# git doesn't think simple.git is a git repository.
