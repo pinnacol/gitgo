@@ -349,7 +349,7 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "master", repo.branch
     assert_equal ["one", "one.txt", "x", "x.txt"], repo["/"].sort
     
-    repo.checkout("diff")
+    assert_equal repo, repo.checkout("diff")
     
     assert_equal "diff", repo.branch
     assert_equal ["alpha.txt", "one", "x", "x.txt"], repo["/"].sort
@@ -361,11 +361,12 @@ class RepoTest < Test::Unit::TestCase
     expected_work_tree = repo.path(Repo::WORK_TREE)
     assert !File.exists?(expected_work_tree)
 
-    repo.checkout do |work_tree|
+    result = repo.checkout do |work_tree|
       assert_equal expected_work_tree, work_tree
       assert File.directory?(work_tree)
       assert_equal "Contents of file TWO.", File.read(File.join(work_tree, "/one/two.txt"))
     end
+    assert_equal repo, result
     
     assert !File.exists?(expected_work_tree)
   end

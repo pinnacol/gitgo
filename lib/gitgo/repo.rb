@@ -491,13 +491,15 @@ module Gitgo
         reset
       end
       
-      return nil unless block_given?
-      
-      sandbox do |git, work_tree, index_file|
-        git.read_tree({:index_output => index_file}, branch)
-        git.checkout_index({:a => true})
-        yield(work_tree)
+      if block_given?
+        sandbox do |git, work_tree, index_file|
+          git.read_tree({:index_output => index_file}, branch)
+          git.checkout_index({:a => true})
+          yield(work_tree)
+        end
       end
+      
+      self
     end
     
     # Fetches from the remote.
