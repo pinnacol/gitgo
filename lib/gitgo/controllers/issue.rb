@@ -20,9 +20,13 @@ module Gitgo
       put('/issue/:id')    {|id| update(id) }
       delete('/issue/:id') {|id| destroy(id) }
       
+      #
+      # actions
+      #
+      
       INHERIT = %w{state tags}
       DEFAULT_STATES = %w{open closed}
-    
+      
       def index
         issues = repo.index("type", "issue")
       

@@ -58,6 +58,10 @@ module Gitgo
       erb :error, :views => path("views"), :locals => {:err => env['sinatra.error']}
     end
     
+    #
+    # actions
+    #
+    
     # The standard document content parameter
     CONTENT = 'content'
     

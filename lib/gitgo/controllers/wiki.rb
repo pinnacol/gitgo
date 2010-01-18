@@ -7,6 +7,10 @@ module Gitgo
       
       get("/wiki") { index }
       
+      #
+      # actions
+      #
+      
       def index
         erb :index
       end

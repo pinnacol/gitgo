@@ -1,5 +1,8 @@
 module Gitgo
   class Repo
+    
+    # A variety of utility methods separated into a module to simplify
+    # testing. These methods are included into and used internally by Repo.
     module Utils
       module_function
       

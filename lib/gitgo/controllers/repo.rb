@@ -21,6 +21,10 @@ module Gitgo
       post("/repo/prune")    { prune }
       post("/repo/gc")       { gc }
       
+      #
+      # actions
+      #
+      
       def index
         erb :index, :locals => {
           :keys => repo.list, 

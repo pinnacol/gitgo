@@ -10,14 +10,14 @@ module Gitgo
     #
     # === Efficiency
     #
-    # Modes are symbolized in the internal [:mode,sha] entries because they are
-    # rarely needed as strings and are typically very redundant.  Symbolizing
-    # shas makes less sense because they are frequently used as strings.
-    # However it does make sense to use the same string instance to represent
-    # a sha that appears in multiple places.  As a result trees have an
-    # internal string_table that functions like a symbol table that maps
-    # any-old string instance to a shared instance.  The string table is
-    # managed at the class level through the string_table method.
+    # Modes are symbolized in the internal [:mode,sha] entries because they
+    # are rarely needed as strings and are typically very redundant. 
+    # Symbolizing shas makes less sense because they are frequently used as
+    # strings. However it does make sense to use the same string instance to
+    # represent a sha in multiple places.  As a result trees have an internal
+    # string_table that functions like a symbol table, ie it maps the same
+    # string content to a single shared instance.  The string table is managed
+    # at the class level through the string_table method.
     #
     # Trees only expand as needed.  This saves memory and cycles because it is
     # expensive to read, parse, and maintain the git tree data.  In general

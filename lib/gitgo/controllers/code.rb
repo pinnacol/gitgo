@@ -30,6 +30,10 @@ module Gitgo
       put('/comments/:obj/:comment')    {|obj, comment| update(obj, comment) }
       delete('/comments/:obj/:comment') {|obj, comment| destroy(obj, comment) }
       
+      #
+      # actions
+      #
+      
       def index
         erb :index, :locals => {
           :branches => grit.branches,

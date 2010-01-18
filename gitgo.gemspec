@@ -18,7 +18,7 @@ Gem::Specification.new do |s|
   s.add_dependency("RedCloth", "= 4.2.2")
   s.add_dependency("grit", "= 2.0.0")
   
-  s.add_development_dependency("rack-test", "= 0.3")
+  s.add_development_dependency("rack-test", ">= 0.5.3")
   s.add_development_dependency("tap-test", ">= 0.2.0")
   
   # list extra rdoc files here.
