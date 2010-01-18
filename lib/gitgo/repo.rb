@@ -141,11 +141,21 @@ module Gitgo
     # checkout.
     WORK_TREE = 'gitgo/work_tree'
     
-    # The index file for the repo work tree.  See checkout.
-    INDEX_FILE = 'gitgo/index_file'
+    # The index file for the repo work tree (ie a git index file, not a
+    # Gitgo::Index file).  See checkout.
+    INDEX_FILE = 'gitgo/index'
     
+    # A file containing the sha at which the last index was performed; used to
+    # determine when a partial reindex is required by comparison with
+    # refs/heads/gitgo.
+    INDEX_HEAD = 'gitgo/head'
+    
+    # The directory for key-value index files that sort document shas by their
+    # attributes.
     INDEX_DIR = 'gitgo/idx'
-    INDEX_ALL = 'gitgo/all'
+    
+    # An index file containing the shas of all indexed documents.
+    INDEX_ALL_FILE = 'gitgo/all'
     
     DEFAULT_BLOB_MODE = "100644".to_sym
     DEFAULT_TREE_MODE = "40000".to_sym
@@ -178,7 +188,8 @@ module Gitgo
       
       @work_tree = path(WORK_TREE).freeze
       @index_file = path(INDEX_FILE).freeze
-      @index_all = path(INDEX_ALL).freeze
+      @index_head = path(INDEX_HEAD).freeze
+      @index_all_file = path(INDEX_ALL_FILE).freeze
       @sandbox = false
       
       self.author = options[:author]
@@ -405,8 +416,11 @@ module Gitgo
       lines << ""
       lines << message
       lines << ""
-
-      grit.update_ref(branch, set(:commit, lines.join("\n")))  
+      
+      
+      sha = grit.update_ref(branch, set(:commit, lines.join("\n")))
+      write_index_head(sha)
+      sha
     end
     
     # Resets the working tree.
@@ -654,11 +668,9 @@ module Gitgo
       id = set(:blob, doc.to_s)
 
       add(timestamp(doc.date, id) => [mode, id])
-      
-      each_index(doc) do |path|
-        Index.append(path, id)
-      end
-      
+      each_index(doc) {|path| Index.append(path, id) }
+      write_index_head('')
+
       id
     end
 
@@ -728,8 +740,10 @@ module Gitgo
         parents(id).each {|parent| unlink(parent, id) }
       end
       
+      write_index_head('')
       each_index(doc) {|path| Index.rm(path, id)}
       rm timestamp(doc.date, id)
+      
       doc
     end
     
@@ -754,11 +768,12 @@ module Gitgo
     end
     
     def documents
-      reindex!(false) unless File.exists?(@index_all)
-      Index.read(@index_all)
+      reindex!(false) unless File.exists?(@index_all_file)
+      Index.read(@index_all_file)
     end
     
-    # Yields each document in the repo, ordered by date (with day resolution).
+    # Yields the sha of each document in the repo, ordered by date (with day
+    # resolution).
     def each
       years = self[[]] || []
       years.sort!
@@ -938,12 +953,29 @@ module Gitgo
       true  # for now...
     end
     
+    # Determines whether the repo needs reindexing.  Returns false if the
+    # index head is the same as current.sha, and true if they differ.
+    #
+    # Nil will be returned if the repo has added or removed documents that
+    # have yet to be committed -- these operations will update the index
+    # so that technically it is up-to-date, but that fact is not reflected
+    # in the index head.
+    def reindex?
+      return true if !File.exists?(@index_head)
+      
+      index_head = File.read(@index_head).strip
+      return nil  if index_head.empty?
+      
+      head = current
+      head && index_head != head.sha
+    end
+    
     def reindex!(full=false)
       indexes = Hash.new do |hash, path|
         hash[path] = File.exists?(path) ? Index.read(path) : []
       end
       
-      previous = indexes[@index_all]
+      previous = indexes[@index_all_file]
       current = collect {|sha| sha }
       
       if full
@@ -972,6 +1004,8 @@ module Gitgo
         shas.uniq!
         Index.write(path, shas.join)
       end
+      
+      write_index_head(self.current.sha)
       
       self
     end
@@ -1047,13 +1081,19 @@ module Gitgo
       [tree_mode, tree_id]
     end
     
+    def write_index_head(value) # :nodoc:
+      dir = File.dirname(@index_head)
+      FileUtils.mkdir_p(dir) unless File.exists?(dir)
+      File.open(@index_head, "w") {|io| io.write(value) }
+    end
+    
     def each_index(doc) # :nodoc:
       doc.each_index do |key, value|
         value = value.to_s
         yield(index_path(key, value)) unless value.empty?
       end
       
-      yield(@index_all)
+      yield(@index_all_file)
     end
   end
 end

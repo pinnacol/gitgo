@@ -299,6 +299,16 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "no changes to commit", err.message
   end
   
+  def test_commit_writes_index_head
+    repo['a'] = 'A'
+    
+    head = repo.path(Repo::INDEX_HEAD)
+    assert_equal false, File.exists?(head)
+    
+    repo.commit("added content")
+    assert_equal repo.current.sha, File.read(head)
+  end
+  
   #
   # status test
   #
@@ -656,6 +666,15 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [b,c].sort, repo.index('author', jane.email).sort
   end
   
+  def test_create_invalidates_index_head
+    repo['a'] = 'A'
+    repo.commit("initial commit")
+    
+    assert_equal false, repo.reindex?
+    repo.create("content")
+    assert_equal nil, repo.reindex?
+  end
+  
   #
   # list test
   #
@@ -712,6 +731,16 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [c,d].sort, repo.index('author', jane.email)
   end
   
+  def test_update_invalidates_index_head
+    a = repo.create("content")
+    repo.commit("added a document")
+    b = repo.read(a).merge("state" => "one")
+    
+    assert_equal false, repo.reindex?
+    repo.update(a, b)
+    assert_equal nil, repo.reindex?
+  end
+  
   #
   # destroy test
   #
@@ -748,6 +777,15 @@ class RepoTest < Test::Unit::TestCase
     
     assert_equal [a],        repo.index('author', john.email)
     assert_equal [c],        repo.index('author', jane.email)
+  end
+  
+  def test_destroy_invalidates_index_head
+    a = repo.create("content")
+    repo.commit("added a document")
+    
+    assert_equal false, repo.reindex?
+    repo.destroy(a)
+    assert_equal nil, repo.reindex?
   end
   
   #
@@ -1086,6 +1124,67 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [], repo.children(a)
     assert_equal [], repo.children(b)
     assert_equal [], repo.children(c)
+  end
+  
+  #
+  # reindex? test
+  #
+  
+  def test_reindex_returns_true_when_index_head_is_missing
+    assert !File.exists?(repo.path(Repo::INDEX_HEAD))
+    assert_equal true, repo.reindex?
+  end
+  
+  def test_reindex_returns_true_when_index_head_differs_from_current_sha
+    repo['a'] = "A"
+    repo.commit("added a blob")
+    
+    index_head = repo.path(Repo::INDEX_HEAD)
+    FileUtils.mkdir_p(File.dirname(index_head))
+    File.open(index_head, "w") {|io| io << "not current sha"}
+    
+    assert_equal true, repo.reindex?
+  end
+  
+  def test_reindex_returns_false_when_index_head_is_the_same_as_current_sha
+    repo['a'] = "A"
+    repo.commit("added a blob")
+    
+    index_head = repo.path(Repo::INDEX_HEAD)
+    FileUtils.mkdir_p(File.dirname(index_head))
+    File.open(index_head, "w") {|io| io << repo.current.sha }
+    
+    assert_equal false, repo.reindex?
+  end
+  
+  def test_reindex_returns_nil_when_index_head_is_empty
+    index_head = repo.path(Repo::INDEX_HEAD)
+    FileUtils.mkdir_p(File.dirname(index_head))
+    File.open(index_head, "w") {|io| }
+    
+    assert_equal nil, repo.reindex?
+  end
+  
+  #
+  # reindex! test
+  #
+  
+  def test_reindex_updates_index_head
+    repo['a'] = 'A'
+    repo.commit "added content"
+    
+    head = repo.path(Repo::INDEX_HEAD)
+    assert_equal repo.current.sha, File.read(head)
+    
+    FileUtils.rm(head)
+    
+    repo.reindex!
+    assert_equal repo.current.sha, File.read(head)
+    
+    File.open(head, 'w') {|io| }
+    
+    repo.reindex!
+    assert_equal repo.current.sha, File.read(head)
   end
   
   #
