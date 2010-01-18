@@ -88,11 +88,6 @@ module Gitgo
       end
       
       def update
-        if set?("reset")
-          repo.reset
-          repo.reindex!(true)
-        end
-        
         unless repo.status.empty?
           raise "local changes; cannot update"
         end
@@ -107,13 +102,15 @@ module Gitgo
       end
       
       def reindex
-        repo.reindex! set?('full')
+        repo.clear_index
+        repo.reindex(:full => true)
         redirect url("/repo")
       end
       
       def reset
-        repo.reset
-        redirect url("/repo/status")
+        repo.clear_index
+        repo.reset(:full => true)
+        redirect url("/repo")
       end
       
       def prune

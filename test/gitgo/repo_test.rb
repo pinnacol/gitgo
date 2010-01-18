@@ -148,7 +148,7 @@ class RepoTest < Test::Unit::TestCase
     end
     
     # reset grit to capture the new configs
-    clone.reset(true)
+    clone.reset(:full => true)
     clone.checkout("abc")
     
     assert_equal "origin", clone.grit.config['branch.abc.remote']
@@ -1188,7 +1188,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # reindex! test
+  # reindex test
   #
   
   def test_reindex_updates_index_head
@@ -1196,13 +1196,13 @@ class RepoTest < Test::Unit::TestCase
     repo.commit("added a blob")
     
     assert_equal true, repo.reindex?
-    repo.reindex!
+    repo.reindex
     assert_equal false, repo.reindex?
   end
   
   def test_reindex_does_not_update_index_head_prior_to_initial_commit
     assert_equal false, repo.reindex?
-    repo.reindex!
+    repo.reindex
     assert_equal false, repo.reindex?
   end
   
@@ -1210,7 +1210,7 @@ class RepoTest < Test::Unit::TestCase
     repo.create "content"
     assert_equal nil, repo.reindex?
     
-    repo.reindex!
+    repo.reindex
     assert_equal nil, repo.reindex?
   end
   

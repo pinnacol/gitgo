@@ -424,16 +424,19 @@ module Gitgo
     
     # Resets the working tree.
     #
-    # If full is specified, grit will also be reinitialized; this can be
-    # useful because grit caches information like configs and packs.
-    def reset(full=false)
-      @grit = Grit::Repo.new(path, :is_bare => grit.bare) if full
+    # Options:
+    #
+    #   :full:: When specified, grit will also be reinitialized; this can be
+    #           useful because grit caches information like configs and packs.
+    #
+    def reset(options={})
+      @grit = Grit::Repo.new(path, :is_bare => grit.bare) if options[:full]
       @tree = commit_tree
       
       # reindex if necessary
       case reindex?
-      when true then reindex!
-      when nil  then FileUtils.rm(@index_head); reindex!
+      when true then reindex
+      when nil  then FileUtils.rm(@index_head); reindex
       else
       end
       
@@ -607,7 +610,7 @@ module Gitgo
       
       # reinitialization is required at this point because grit packs; once
       # you gc the packs change and Grit::GitRuby bombs.
-      reset(true)
+      reset(:full => true)
     end
     
     def fsck
@@ -776,7 +779,7 @@ module Gitgo
     end
     
     def documents
-      reindex! unless File.exists?(@index_all_file)
+      reindex unless File.exists?(@index_all_file)
       Index.read(@index_all_file)
     end
     
@@ -982,8 +985,14 @@ module Gitgo
       head && index_head != head.sha
     end
     
-    # Forces a reindex of the repo.
-    def reindex!(full=false)
+    # Reindexes documents in the repo.
+    #
+    # Options:
+    #
+    #   :full:: When specified, the current index is cleared and completely
+    #           rebuilt.
+    #
+    def reindex(options={})
       indexes = Hash.new do |hash, path|
         hash[path] = File.exists?(path) ? Index.read(path) : []
       end
@@ -991,7 +1000,7 @@ module Gitgo
       previous = indexes[@index_all_file]
       current = collect {|sha| sha }
       
-      if full
+      if options[:full]
         previous.clear
         clear_index
       end
