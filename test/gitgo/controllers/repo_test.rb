@@ -41,6 +41,55 @@ class RepoControllerTest < Test::Unit::TestCase
   end
   
   #
+  # setup test
+  #
+  
+  def test_setup_sets_up_a_new_gitgo_branch
+    assert_equal 'gitgo', repo.branch
+    assert_equal nil, repo.grit.refs.find {|ref| ref.name == 'gitgo' }
+    
+    post("/repo/setup")
+    assert last_response.redirect?
+    assert_equal "/repo", last_response['Location']
+    
+    gitgo = repo.grit.refs.find {|ref| ref.name == 'gitgo' }
+    assert_equal 'initial commit', gitgo.commit.message
+    assert_equal gitgo.commit.sha, repo.current.sha
+  end
+  
+  def test_setup_sets_up_tracking_of_specified_remote
+    assert_equal 'gitgo', repo.branch
+    assert_equal nil, repo.grit.refs.find {|ref| ref.name == 'gitgo' }
+    
+    post("/repo/setup", :remote => 'caps')
+    assert last_response.redirect?
+    assert_equal "/repo", last_response['Location']
+    
+    caps = repo.grit.refs.find {|ref| ref.name == 'caps' }
+    gitgo = repo.grit.refs.find {|ref| ref.name == 'gitgo' }
+    
+    assert_equal gitgo.commit.sha, caps.commit.sha
+    assert_equal gitgo.commit.sha, repo.current.sha
+  end
+  
+  def test_remote_tracking_setup_reindexes_repo
+    repo.checkout('remote')
+    sha = repo.create("initialized gitgo", 'tags' => ['tag'])
+    repo.commit!("initial commit")
+    
+    repo.checkout('gitgo')
+    repo.clear_index
+    
+    post("/repo/setup", :remote => 'remote')
+    assert last_response.redirect?
+    assert_equal "/repo", last_response['Location']
+    
+    get("/repo/idx/tags/tag")
+    assert last_response.ok?
+    assert last_response.body.include?(sha), last_response.body
+  end
+  
+  #
   # maintenance test
   #
   

@@ -69,14 +69,14 @@ module Gitgo
         raise "#{repo.branch} already exists" if repo.current
         
         remote = request['remote']
-        if remote.empty?
+        if remote.to_s.empty?
           repo.create("initialized gitgo")
           repo.commit!("initial commit")
         else
           repo.sandbox do |git, w, i|
             git.branch({:track => true}, repo.branch, remote)
           end
-          repo.reindex!(true)
+          repo.reset
         end
         
         redirect url("/repo")

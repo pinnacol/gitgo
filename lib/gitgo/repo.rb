@@ -991,14 +991,7 @@ module Gitgo
       
       if full
         previous.clear
-        
-        Dir.glob(index_path("*")) do |path|
-          if File.directory?(path)
-            FileUtils.rm_r(path)
-          else
-            FileUtils.rm(path)
-          end
-        end
+        clear_index
       end
       
       # adds
@@ -1022,6 +1015,20 @@ module Gitgo
       end
       
       self
+    end
+    
+    def clear_index
+      if File.exists?(@index_head)
+        FileUtils.rm(@index_head)
+      end
+      
+      if File.exists?(@index_all_file)
+        FileUtils.rm(@index_all_file)
+      end
+      
+      Dir.glob(index_path("*")) do |path|
+        FileUtils.rm_r(path)
+      end
     end
     
     protected
