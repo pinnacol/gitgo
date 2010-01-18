@@ -1,12 +1,14 @@
 #!/usr/bin/env ruby
 
-lib_dir = File.expand_path(File.join(File.dirname(__FILE__), "../lib"))
-$:.unshift(lib_dir) unless $:.include?(lib_dir)
-
-# Launches a Gitgo server.
-require 'rubygems'
 require 'optparse'
-require 'gitgo'
+
+begin
+  require 'gitgo'
+rescue(LoadError)
+  # assume development if gitgo cannot be found
+  require 'vendor/gems/environment'
+  require 'gitgo'
+end
 
 options = {
   :host => '127.0.0.1', 
@@ -16,14 +18,15 @@ options = {
 }
 
 OptionParser.new do |opts|
+  opts.banner = "usage: gitgo [options]"
   opts.separator ""
-  opts.separator "Options:"
+  opts.separator "options:"
   
-  opts.on("-h", "--host=HOST", "The ci server host (#{options[:host]})") do |host|
+  opts.on("-h", "--host=HOST", "The server host (#{options[:host]})") do |host|
     options[:host] = host
   end
   
-  opts.on("-p", "--port=PORT", "The ci server port (#{options[:port]})") do |port|
+  opts.on("-p", "--port=PORT", "The server port (#{options[:port]})") do |port|
     options[:port] = port.to_i
   end
   
@@ -36,18 +39,12 @@ OptionParser.new do |opts|
   end
   
   opts.on("-h", "--help", "Prints this help") do |ports|
-    lines = File.readlines(__FILE__)
-    lines.shift                             # skip shebang
-    lines.shift while lines[0].strip.empty? # skip spaces
-    
-    puts "#" * 80
-    lines.each do |line|
-      break unless line =~ /#\s+(.*)/
-      puts($1)
-    end
-    puts "#" * 80
     puts opts
+    exit(0)
   end
+  
+  opts.separator ""
+  opts.separator "version #{Gitgo::VERSION} -- #{Gitgo::WEBSITE}"
 end.parse!
 
 options[:repo] = Gitgo::Repo.init(options[:repo], options)

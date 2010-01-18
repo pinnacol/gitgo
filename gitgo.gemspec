@@ -3,7 +3,7 @@ Gem::Specification.new do |s|
   s.version = "0.1.1"
   s.author = "Simon Chiang"
   s.email = "simon.a.chiang@gmail.com"
-  s.homepage = ""
+  s.homepage = "http://github.com/pinnacol/gitgo"
   s.platform = Gem::Platform::RUBY
   s.summary = "Issues, comments, and a wiki for git projects."
   s.bindir = "bin"
