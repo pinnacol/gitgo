@@ -228,4 +228,86 @@ class RepoControllerTest < Test::Unit::TestCase
     assert_equal "two document", clone.read(two).content
     assert_equal "three document", clone.read(three).content
   end
+  
+  #
+  # reindex test
+  #
+  
+  def test_reindex_clears_index_and_performs_full_reindex
+    sha = repo.create("document", "tags" => ["a", "b"])
+    repo.commit!("added document")
+    
+    b_index = repo.index_path("tags", "b")
+    FileUtils.rm(b_index)
+    
+    fake_index = repo.index_path("tags", "c")
+    Gitgo::Repo::Index.write(fake_index, sha)
+    
+    get("/repo/idx/tags/a")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
+    
+    get("/repo/idx/tags/b")
+    assert last_response.ok?
+    assert !last_response.body.include?(sha)
+    
+    get("/repo/idx/tags/c")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
+    
+    post("/repo/reindex")
+    
+    get("/repo/idx/tags/a")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
+    
+    get("/repo/idx/tags/b")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
+    
+    get("/repo/idx/tags/c")
+    assert last_response.ok?
+    assert !last_response.body.include?(sha)
+  end
+  
+  #
+  # reset test
+  #
+  
+  def test_reset_clears_index_and_performs_full_reindex
+    sha = repo.create("document", "tags" => ["a", "b"])
+    repo.commit!("added document")
+    
+    b_index = repo.index_path("tags", "b")
+    FileUtils.rm(b_index)
+    
+    fake_index = repo.index_path("tags", "c")
+    Gitgo::Repo::Index.write(fake_index, sha)
+    
+    get("/repo/idx/tags/a")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
+    
+    get("/repo/idx/tags/b")
+    assert last_response.ok?
+    assert !last_response.body.include?(sha)
+    
+    get("/repo/idx/tags/c")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
+    
+    post("/repo/reset")
+    
+    get("/repo/idx/tags/a")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
+    
+    get("/repo/idx/tags/b")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
+    
+    get("/repo/idx/tags/c")
+    assert last_response.ok?
+    assert !last_response.body.include?(sha)
+  end
 end

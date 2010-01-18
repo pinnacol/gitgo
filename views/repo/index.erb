@@ -25,6 +25,12 @@
   </form>
 <% end %>
 </dd>
+<dt>Index</dt>
+<dd>
+  <ul><% keys.each do |key| %>
+  <li><a href="<%= url "/repo/idx/#{key}" %>"><%= key %></a></li><% end %>
+  </ul>
+</dd>
 <dt>Update</dt>
 <dd>
   <form action="<%= url('/repo/update') %>" method="post">
@@ -38,23 +44,18 @@
     <dt><label for="pull">Pull</label></dt>
     <dd><input id="pull" type="checkbox" name="pull" value="true" /></dd>
     <dt><label for="push">Push</label></dt>
-    <dd><input id="push" type="checkbox" name="push" value="true" /></dd>
-    <dt><label for="reset">Reset</label></dt>
     <dd><input id="reset" type="checkbox" name="reset" value="true" /></dd>
     <dt><input type="submit" value="Update" /></dt>
     <dd></dd>
     </dl>
   </form>
-</dd>
-<dt>Index</dt>
-<dd>
-  <ul><% keys.each do |key| %>
-  <li><a href="<%= url "/repo/idx/#{key}" %>"><%= key %></a></li><% end %>
-  </ul>
   
   <form action="<%= url('/repo/reindex') %>" method="post">
-    <input type="hidden" name="full" value="true" />
     <input type="submit" value="Reindex" />
+  </form>
+  
+  <form action="<%= url('/repo/reset') %>" method="post">
+    <input type="submit" value="Reset" />
   </form>
 </dd>
 </dl>
