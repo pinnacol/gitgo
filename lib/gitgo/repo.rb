@@ -417,9 +417,8 @@ module Gitgo
       lines << message
       lines << ""
       
-      
       sha = grit.update_ref(branch, set(:commit, lines.join("\n")))
-      write_index_head(sha)
+      write_index_head(sha) if reindex? == nil
       sha
     end
     
@@ -430,6 +429,14 @@ module Gitgo
     def reset(full=false)
       @grit = Grit::Repo.new(path, :is_bare => grit.bare) if full
       @tree = commit_tree
+      
+      # reindex if necessary
+      case reindex?
+      when true then reindex!
+      when nil  then FileUtils.rm(@index_head); reindex!
+      else
+      end
+      
       self
     end
 
@@ -540,7 +547,6 @@ module Gitgo
         end
         
         reset
-        reindex!(true)
       end
       
       self
@@ -669,7 +675,7 @@ module Gitgo
 
       add(timestamp(doc.date, id) => [mode, id])
       each_index(doc) {|path| Index.append(path, id) }
-      write_index_head('')
+      invalidate_index_head
 
       id
     end
@@ -740,7 +746,7 @@ module Gitgo
         parents(id).each {|parent| unlink(parent, id) }
       end
       
-      write_index_head('')
+      invalidate_index_head
       each_index(doc) {|path| Index.rm(path, id)}
       rm timestamp(doc.date, id)
       
@@ -768,7 +774,7 @@ module Gitgo
     end
     
     def documents
-      reindex!(false) unless File.exists?(@index_all_file)
+      reindex! unless File.exists?(@index_all_file)
       Index.read(@index_all_file)
     end
     
@@ -961,15 +967,20 @@ module Gitgo
     # so that technically it is up-to-date, but that fact is not reflected
     # in the index head.
     def reindex?
-      return true if !File.exists?(@index_head)
+      unless File.exists?(@index_head)
+        return(current ? true : false)
+      end
       
       index_head = File.read(@index_head).strip
-      return nil  if index_head.empty?
+      if index_head.empty?
+        return nil
+      end
       
       head = current
       head && index_head != head.sha
     end
     
+    # Forces a reindex of the repo.
     def reindex!(full=false)
       indexes = Hash.new do |hash, path|
         hash[path] = File.exists?(path) ? Index.read(path) : []
@@ -1005,7 +1016,10 @@ module Gitgo
         Index.write(path, shas.join)
       end
       
-      write_index_head(self.current.sha)
+      if reindex?
+        head = self.current
+        write_index_head(head.sha) if head
+      end
       
       self
     end
@@ -1085,6 +1099,10 @@ module Gitgo
       dir = File.dirname(@index_head)
       FileUtils.mkdir_p(dir) unless File.exists?(dir)
       File.open(@index_head, "w") {|io| io.write(value) }
+    end
+    
+    def invalidate_index_head # :nodoc:
+      write_index_head('')
     end
     
     def each_index(doc) # :nodoc:

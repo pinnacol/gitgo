@@ -299,14 +299,12 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "no changes to commit", err.message
   end
   
-  def test_commit_writes_index_head
-    repo['a'] = 'A'
-    
-    head = repo.path(Repo::INDEX_HEAD)
-    assert_equal false, File.exists?(head)
+  def test_commit_writes_index_head_if_reindex_is_nil
+    repo.create("content")
+    assert_equal nil, repo.reindex?
     
     repo.commit("added content")
-    assert_equal repo.current.sha, File.read(head)
+    assert_equal false, repo.reindex?
   end
   
   #
@@ -667,11 +665,14 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_create_invalidates_index_head
-    repo['a'] = 'A'
+    assert_equal false, repo.reindex?
+    repo.create("a")
+    assert_equal nil, repo.reindex?
+    
     repo.commit("initial commit")
     
     assert_equal false, repo.reindex?
-    repo.create("content")
+    repo.create("b")
     assert_equal nil, repo.reindex?
   end
   
@@ -1130,8 +1131,17 @@ class RepoTest < Test::Unit::TestCase
   # reindex? test
   #
   
+  def test_reindex_returns_false_when_index_head_is_missing_and_prior_to_initial_commit
+    assert_equal nil, repo.current
+    assert_equal false, File.exists?(repo.path(Repo::INDEX_HEAD))
+    assert_equal false, repo.reindex?
+  end
+  
   def test_reindex_returns_true_when_index_head_is_missing
-    assert !File.exists?(repo.path(Repo::INDEX_HEAD))
+    repo['a'] = "A"
+    repo.commit("added a blob")
+    
+    assert_equal false, File.exists?(repo.path(Repo::INDEX_HEAD))
     assert_equal true, repo.reindex?
   end
   
@@ -1157,7 +1167,18 @@ class RepoTest < Test::Unit::TestCase
     assert_equal false, repo.reindex?
   end
   
+  def test_reindex_returns_nil_when_index_head_is_empty_and_prior_to_initial_commit
+    index_head = repo.path(Repo::INDEX_HEAD)
+    FileUtils.mkdir_p(File.dirname(index_head))
+    File.open(index_head, "w") {|io| }
+    
+    assert_equal nil, repo.reindex?
+  end
+  
   def test_reindex_returns_nil_when_index_head_is_empty
+    repo['a'] = "A"
+    repo.commit("added a blob")
+    
     index_head = repo.path(Repo::INDEX_HEAD)
     FileUtils.mkdir_p(File.dirname(index_head))
     File.open(index_head, "w") {|io| }
@@ -1170,21 +1191,26 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_reindex_updates_index_head
-    repo['a'] = 'A'
-    repo.commit "added content"
+    repo['a'] = "A"
+    repo.commit("added a blob")
     
-    head = repo.path(Repo::INDEX_HEAD)
-    assert_equal repo.current.sha, File.read(head)
-    
-    FileUtils.rm(head)
+    assert_equal true, repo.reindex?
+    repo.reindex!
+    assert_equal false, repo.reindex?
+  end
+  
+  def test_reindex_does_not_update_index_head_prior_to_initial_commit
+    assert_equal false, repo.reindex?
+    repo.reindex!
+    assert_equal false, repo.reindex?
+  end
+  
+  def test_reindex_does_not_update_head_if_reindex_is_nil
+    repo.create "content"
+    assert_equal nil, repo.reindex?
     
     repo.reindex!
-    assert_equal repo.current.sha, File.read(head)
-    
-    File.open(head, 'w') {|io| }
-    
-    repo.reindex!
-    assert_equal repo.current.sha, File.read(head)
+    assert_equal nil, repo.reindex?
   end
   
   #
