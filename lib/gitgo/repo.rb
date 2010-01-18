@@ -191,6 +191,7 @@ module Gitgo
       @index_head = path(INDEX_HEAD).freeze
       @index_all_file = path(INDEX_ALL_FILE).freeze
       @sandbox = false
+      @current = nil
       
       self.author = options[:author]
       reset
@@ -198,7 +199,7 @@ module Gitgo
     
     # Returns the current commit for branch.
     def current
-      grit.commits(branch, 1).first
+      @current ||= grit.commits(branch, 1).first
     end
     
     # Returns the specified path relative to the git repo (ie the .git
@@ -419,6 +420,8 @@ module Gitgo
       
       sha = grit.update_ref(branch, set(:commit, lines.join("\n")))
       write_index_head(sha) if reindex? == nil
+      @current = nil
+      
       sha
     end
     
@@ -431,6 +434,7 @@ module Gitgo
     #
     def reset(options={})
       @grit = Grit::Repo.new(path, :is_bare => grit.bare) if options[:full]
+      @current = nil
       @tree = commit_tree
       
       # reindex if necessary
