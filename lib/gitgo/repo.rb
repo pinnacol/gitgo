@@ -427,10 +427,10 @@ module Gitgo
     
     # Resets the working tree.
     #
-    # Options:
+    # Options (specify using symbols):
     #
-    #   :full:: When specified, grit will also be reinitialized; this can be
-    #           useful because grit caches information like configs and packs.
+    #   full:: When specified, grit will also be reinitialized; this can be
+    #          useful because grit caches information like configs and packs.
     #
     def reset(options={})
       @grit = Grit::Repo.new(path, :is_bare => grit.bare) if options[:full]
@@ -991,10 +991,10 @@ module Gitgo
     
     # Reindexes documents in the repo.
     #
-    # Options:
+    # Options (specify using symbols):
     #
-    #   :full:: When specified, the current index is cleared and completely
-    #           rebuilt.
+    #   full:: When specified, the current index is cleared and completely
+    #          rebuilt.
     #
     def reindex(options={})
       indexes = Hash.new do |hash, path|
