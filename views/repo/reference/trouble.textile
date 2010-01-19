@@ -1,0 +1,28 @@
+h1. Troubleshooting
+
+h2. I can't push my gitgo issues (non-fast forward)
+
+This happens when your local gitgo branch has diverged from the remote tracking branch (ex: origin/gitgo).
+
+code.. 
+  % git push
+  Counting objects: 35, done.
+  Delta compression using up to 2 threads.
+  Compressing objects: 100% (26/26), done.
+  Writing objects: 100% (26/26), 5.05 KiB, done.
+  Total 26 (delta 13), reused 0 (delta 0)
+  To git@github.com:pinnacol/gitgo.git
+     cd2c401..0c4e420  dev -> dev
+   ! [rejected]        gitgo -> gitgo (non-fast forward)
+   ! [rejected]        master -> master (non-fast forward)
+  error: failed to push some refs to 'git@github.com:pinnacol/gitgo.git'
+  To prevent you from losing history, non-fast-forward updates were rejected.
+  Merge the remote changes before pushing again.
+  See 'non-fast forward' section of 'git push --help' for details.
+
+p. In the browser, go to the "the repo":http://localhost:8080/repo and update doing both a push and pull.  Or if you want to solve it manually:
+
+code.. 
+  % git checkout gitgo
+  % git pull
+  % git push

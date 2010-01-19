@@ -1,0 +1,31 @@
+h2. How-To Manage the Gitgo Branch
+
+Managing the gitgo branch is the same as managing any other git branch.  There is literally no difference, so you can track, merge, and reset a branch manually when something goes awry:
+
+Setup tracking of an existing remote gitgo branch:
+
+code.. 
+  % git branch [gitgo] --track [origin/gitgo]
+
+p. Manually checkout and pull from the remote:
+
+code.. 
+  % git checkout gitgo
+  % git pull
+
+p. Reset changes:
+
+code.. 
+  % git --reset HARD [some_prior_commit]
+
+p. Remove the branch entirely (no going back):
+
+code.. 
+  % git branch -D gitgo
+
+h2. How-To Reset the Index
+
+Gitgo normally indexes updates in the background, but it can trip up if you manually update the gitgo branch while Gitgo is running.  To reset the index either:
+
+Go to "the index":http://localhost:8080/repo/idx and press 'Reindex', or go to the "the repo":http://localhost:8080/repo and press 'Reset'.  Resetting Gitgo is a more sure-fire way of getting things running but it will erase any uncommitted changes on the gitgo branch.
+
