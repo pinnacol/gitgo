@@ -19,3 +19,9 @@
 <li><%= sha_link(sha) %></li><% end %>
 </ul>
 <% end %>
+
+<form action="<%= url('/repo/reindex') %>" method="post">
+  <input type="hidden" name="key" value="<%= current_key %>">
+  <input type="hidden" name="value" value="<%= current_value %>">
+  <input type="submit" value="Reindex" />
+</form>

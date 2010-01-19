@@ -27,7 +27,6 @@ module Gitgo
       
       def index
         erb :index, :locals => {
-          :keys => repo.list, 
           :remotes => repo.grit.remotes.collect {|remote| remote.name }.sort,
           :track => repo.track,
           :current => repo.current
@@ -104,7 +103,10 @@ module Gitgo
       def reindex
         repo.clear_index
         repo.reindex(:full => true)
-        redirect url("/repo")
+        
+        # allow redirection back to the specific key-value where the reindex occurred
+        original_location = File.join("/repo/idx", request['key'], request['value']).chomp("/")
+        redirect url(original_location)
       end
       
       def reset

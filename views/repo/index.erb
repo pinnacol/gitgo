@@ -25,14 +25,11 @@
   </form>
 <% end %>
 </dd>
-<dt>Index</dt>
-<dd>
-  <ul><% keys.each do |key| %>
-  <li><a href="<%= url "/repo/idx/#{key}" %>"><%= key %></a></li><% end %>
-  </ul>
-</dd>
 <dt>Update</dt>
 <dd>
+  <p>
+    Push to or pull from a remote; select both to synchronize.
+  </p>
   <form action="<%= url('/repo/update') %>" method="post">
     <dl>
     <dt><label for="remote">Remote</label></dt>
@@ -49,11 +46,14 @@
     <dd></dd>
     </dl>
   </form>
-  
-  <form action="<%= url('/repo/reindex') %>" method="post">
-    <input type="submit" value="Reindex" />
-  </form>
-  
+</dd>
+<dt>Reset</dt>
+<dd>
+  <p>
+    Reinitialize the internal bindings gitgo uses to access the git repository.
+    Uncommitted updates in gitgo (see <a href="<%= url('/repo/status') %>">status</a>)
+    will be lost, and the index will be rebuilt.
+  </p>
   <form action="<%= url('/repo/reset') %>" method="post">
     <input type="submit" value="Reset" />
   </form>
@@ -62,6 +62,7 @@
 
 <ul>
 <li><a href="<%= url('/repo/status') %>">Status</a></li>
+<li><a href="<%= url('/repo/idx') %>">Index</a></li>
 <li><a href="<%= url('/repo/maintenance') %>">Maintenance</a></li>
-<li><a href="<%= url('/repo/design') %>">Reference</a></li>
+<li><a href="<%= url('/repo/reference') %>">Reference</a></li>
 </ul>

@@ -109,6 +109,18 @@ class RepoControllerTest < Test::Unit::TestCase
   end
   
   #
+  # reference test
+  #
+  
+  def test_references_are_available
+    get("/repo/reference")
+    assert last_response.ok?
+    
+    get("/repo/reference/design")
+    assert last_response.ok?
+  end
+  
+  #
   # prune test
   #
   
