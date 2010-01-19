@@ -8,7 +8,7 @@
 <dt>Commit</dt>
 <dd><% if current %>
 <%= erb :_commit, :locals => {:commit => repo.current }, :views => path('views/code'), :layout => false %><% else %>
-  <em>The branch doesn't exist.  Click setup to initialize the branch.</em>
+  <em>Select a tracking branch and click setup to create the '<%= repo.branch %>' branch.</em>
   
   <form action="<%= url('/repo/setup') %>" method="post">
     <dl>

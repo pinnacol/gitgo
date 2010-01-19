@@ -1,7 +1,7 @@
 <h1>Gitgo Activity<%= author.empty? ? "" : " for #{author}" %></h1>
 <ul>
-<li class="newer"><% if page >= 1 %><a href="/timeline?author=<%= author %>&page=<%= page - 1 %>&per_page=<%= per_page %>">newer</a><% else %>(newer)<% end %></li>
-<li class="older"><% if timeline.length == per_page %><a href="timeline?author=<%= author %>&page=<%= page + 1 %>&per_page=<%= per_page %>">older</a><% else %>(older)<% end %></li>
+<li class="newer"><% if timeline && page >= 1 %><a href="/timeline?author=<%= author %>&page=<%= page - 1 %>&per_page=<%= per_page %>">newer</a><% else %>(newer)<% end %></li>
+<li class="older"><% if timeline && timeline.length == per_page %><a href="timeline?author=<%= author %>&page=<%= page + 1 %>&per_page=<%= per_page %>">older</a><% else %>(older)<% end %></li>
 </ul>
 
 <ul>
@@ -9,7 +9,14 @@
 <li><a href="/timeline?author=<%= author %>"><%= escape_html author %></a></li><% end %>
 </ul>
 
-<ul class="timeline"><% timeline.reverse_each do |doc| %>
+<ul class="timeline"><% if timeline.nil? %>
+<li>
+  <h2>Welcome to Gitgo!</h2>
+  <p>New activity will be listed here after you visit the <a href='/repo'>repo</a> page and setup a <%= repo.branch %> branch.</p>
+</li><% elsif timeline.empty? %>
+<li>
+  No results to show...
+</li><% else %><% timeline.reverse_each do |doc| %>
 <li>
   <ul>
   <li><%= 
@@ -23,5 +30,5 @@
   <li><%= activity_link(doc.author) %></li>
   <li><%= doc.date.strftime('%Y/%m/%d') %></li>
   </ul>
-</li><% end %>
+</li><% end %><% end %>
 </ul>

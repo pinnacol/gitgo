@@ -19,6 +19,25 @@ class ServerTest < Test::Unit::TestCase
   end
   
   #
+  # index test
+  #
+  
+  def test_index_provides_link_to_repo_page_the_repo_branch_doesnt_exist
+    assert_equal true, repo.current.nil?
+    
+    get("/")
+    assert last_response.ok? 
+    assert last_response.body.include?("setup a #{repo.branch} branch")
+    
+    post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
+    assert_equal false, repo.current.nil?
+    
+    get("/")
+    assert last_response.ok? 
+    assert !last_response.body.include?("setup a #{repo.branch} branch")
+  end
+  
+  #
   # timeline test
   #
   
@@ -41,5 +60,11 @@ class ServerTest < Test::Unit::TestCase
     
     assert last_response.body =~ /#{issue}.*ee9a1ca4441ab2bf937808b26eab784f3d041643.*ee9a1ca4441ab2bf937808b26eab784f3d041643.*#{issue}/m
     assert last_response.body =~ /update.*comment.*comment.*issue/m
+  end
+  
+  def test_timeline_shows_helpful_message_if_no_results_are_available
+    post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
+    get("/timeline", "page" => 10)
+    assert last_response.body.include?('No results to show...')
   end
 end

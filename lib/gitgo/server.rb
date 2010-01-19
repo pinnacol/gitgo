@@ -22,11 +22,16 @@ module Gitgo
       per_page = (request[:per_page] || 5).to_i
       
       author = request[:author].to_s
-      timeline = repo.timeline(:n => per_page, :offset => page * per_page) do |sha|
-        author.empty? || docs[sha].author.email == author
+      timeline = repo.current.nil? ? nil : begin
+        repo.timeline(:n => per_page, :offset => page * per_page) do |sha|
+          author.empty? || docs[sha].author.email == author
+        end.collect do |sha|
+          docs[sha]
+        end.sort_by do |doc|
+          doc.date
+        end
       end
-      timeline = timeline.collect {|sha| docs[sha] }.sort_by {|doc| doc.date }
-
+      
       erb :timeline, :locals => {
         :page => page,
         :per_page => per_page,
