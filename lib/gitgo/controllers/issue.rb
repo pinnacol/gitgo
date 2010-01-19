@@ -26,12 +26,14 @@ module Gitgo
       
       INHERIT = %w{state tags}
       DEFAULT_STATES = %w{open closed}
+      ATTRIBUTES = %w{author date title state tags at}
       
       def index
         issues = repo.index("type", "issue")
       
         criteria = {}
-        request.params.each_pair do |key, values|
+        ATTRIBUTES.each do |key|
+          next unless values = params[key]
           criteria[key] = values.kind_of?(Array) ? values : [values]
         end
       
@@ -56,7 +58,17 @@ module Gitgo
         end
       
         issues.collect! {|sha| docs[sha] }
-      
+        
+        # sort results
+        sort_attr = request['sort'] || 'date'
+        if ATTRIBUTES.include?(sort_attr)
+          issues.sort! {|a, b| a[sort_attr] <=> b[sort_attr] }
+        end
+        
+        if set?('reverse')
+          issues.reverse!
+        end
+        
         erb :index, :locals => {
           :issues => issues,
           :criteria => criteria

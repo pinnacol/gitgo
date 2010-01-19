@@ -69,7 +69,7 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue C/
   end
   
-  def test_index_filters_on_all_params
+  def test_index_filters_on_all_filter_params
     a = open_issue("Issue A", "doc[tags]" => "one")
     b = open_issue("Issue B", "doc[tags]" => "two")
     close_issue(b)
@@ -104,6 +104,23 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body !~ /Issue A/
     assert last_response.body =~ /Issue B/
     assert last_response.body =~ /Issue C/
+  end
+  
+  def test_index_sorts_by_sort_attribute
+    a = open_issue("Issue A")
+    b = open_issue("Issue B")
+    c = open_issue("Issue C")
+    close_issue(c)
+    
+    repo.commit "created fixture"
+    
+    get("/issue", "sort" => "title")
+    assert last_response.ok?
+    assert last_response.body =~ /Issue A.*Issue B.*Issue C/m
+    
+    get("/issue", "sort" => "title", "reverse" => true)
+    assert last_response.ok?
+    assert last_response.body =~ /Issue C.*Issue B.*Issue A/m
   end
   
   #
