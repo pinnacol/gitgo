@@ -1,5 +1,11 @@
 module Gitgo
   module Patches
+    class Grit::Actor
+      def <=>(another)
+        name <=> another.name
+      end
+    end
+    
     class Grit::Commit
       
       # This patch allows file add/remove to be detected in diffs.  For some

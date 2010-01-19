@@ -26,11 +26,21 @@ module Gitgo
       
       INHERIT = %w{state tags}
       DEFAULT_STATES = %w{open closed}
-      ATTRIBUTES = %w{author date title state tags at}
+      ATTRIBUTES = %w{author date state tags}
       
+      # Processes requests like: /index?key=value
+      #
+      # Where the key-value pairs are filter criteria.  Multiple criteria can
+      # be specified per-request (ex a[]=one&a[]=two&b=three).  Any of the
+      # Issue::ATTRIBUTES can be used to filter.
+      #
+      # Sort on a specific key using sort=key (date is the default).  Reverse
+      # the sort with reverse=true. Multiple sort criteria are currently not
+      # supported.
       def index
         issues = repo.index("type", "issue")
       
+        # filter issues
         criteria = {}
         ATTRIBUTES.each do |key|
           next unless values = params[key]
@@ -61,17 +71,16 @@ module Gitgo
         
         # sort results
         sort_attr = request['sort'] || 'date'
-        if ATTRIBUTES.include?(sort_attr)
-          issues.sort! {|a, b| a[sort_attr] <=> b[sort_attr] }
-        end
+        reverse = set?('reverse')
         
-        if set?('reverse')
-          issues.reverse!
-        end
+        issues.sort! {|a, b| a[sort_attr] <=> b[sort_attr] }
+        issues.reverse! if reverse
         
         erb :index, :locals => {
           :issues => issues,
-          :criteria => criteria
+          :current_states => criteria['state'] || [],
+          :sort_attr => sort_attr,
+          :reverse => reverse
         }
       end
     

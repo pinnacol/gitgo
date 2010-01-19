@@ -95,6 +95,10 @@ module Gitgo
       ref ? ref.commit : nil
     end
     
+    def checked?(true_or_false)
+      true_or_false ? 'checked="true" ' : ''
+    end
+    
     # Returns a title for pages served from this controller; either the
     # capitalized resource name or the class basename.
     def title
