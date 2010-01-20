@@ -70,6 +70,7 @@ module Gitgo
           end
         end
       
+        # note this is deadly slow.
         issues.collect! {|sha| docs[sha] }
         
         # sort results
@@ -97,8 +98,11 @@ module Gitgo
     
       def create
         return preview if set?('preview')
-        
+      
         doc = document('type' => 'issue', 'state' => 'open')
+        if empty?(doc['title']) && empty?(doc.content)
+          raise "no title or content specified"
+        end
         issue = repo.store(doc)
       
         # if specified, link the issue to a commit
@@ -191,6 +195,10 @@ module Gitgo
       # Returns an array of tags currently in use
       def tags
         repo.list("tags")
+      end
+      
+      def empty?(obj)
+        obj.nil? || obj.to_s.strip.empty?
       end
     end
   end
