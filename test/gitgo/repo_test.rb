@@ -704,6 +704,15 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # read test
+  #
+  
+  def test_read_returns_nil_for_non_documents
+    id = repo.set :blob, "content"
+    assert_equal nil, repo.read(id)
+  end
+  
+  #
   # update test
   #
   

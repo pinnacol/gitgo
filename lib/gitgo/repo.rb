@@ -742,7 +742,7 @@ module Gitgo
     def read(id)
       begin
         Document.parse(grit.blob(id).data, id)
-      rescue Document::InvalidDocumentError
+      rescue Document::InvalidDocumentError, Errno::EISDIR
         nil
       end
     end
