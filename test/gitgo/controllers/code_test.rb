@@ -287,6 +287,12 @@ tag of project with one, two, three only
     assert last_response.body.include?("invalid parent for comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}")
   end
   
+  def test_post_raises_error_for_no_content
+    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "commit" => "true")
+    assert !last_response.ok?
+    assert last_response.body.include?("no content specified")
+  end
+  
   #
   # put test
   #
@@ -345,6 +351,13 @@ tag of project with one, two, three only
     assert last_response.redirect?, last_response.body
     
     assert_equal false, repo.documents.include?(a)
+  end
+  
+  def test_put_raises_error_for_no_content
+    a = new_comment("comment a")
+    put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "commit" => "true")
+    assert !last_response.ok?
+    assert last_response.body.include?("no content specified")
   end
   
   #

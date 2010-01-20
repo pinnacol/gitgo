@@ -144,5 +144,10 @@ module Gitgo
     def docs
       @docs ||= repo.cache
     end
+    
+    # Returns true if the object is nil, or as a stripped string is empty.
+    def empty?(obj)
+      obj.nil? || obj.to_s.strip.empty?
+    end
   end
 end

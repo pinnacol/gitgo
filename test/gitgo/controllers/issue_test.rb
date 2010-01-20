@@ -175,7 +175,7 @@ class IssueTest < Test::Unit::TestCase
   def test_post_redirects_raises_error_if_no_meaningful_content_or_title_is_given
     post("/issue", "content" => "  \n \t\t \r\n ", "doc[title]" => "  \n \t\t \r ")
     assert !last_response.ok?
-    assert last_response.body.include?("no title or content specified"), last_response.body
+    assert last_response.body.include?("no title or content specified")
   end
   
   #

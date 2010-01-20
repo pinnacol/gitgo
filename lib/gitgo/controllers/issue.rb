@@ -196,10 +196,6 @@ module Gitgo
       def tags
         repo.list("tags")
       end
-      
-      def empty?(obj)
-        obj.nil? || obj.to_s.strip.empty?
-      end
     end
   end
 end

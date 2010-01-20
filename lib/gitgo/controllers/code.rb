@@ -221,7 +221,10 @@ module Gitgo
         end
         
         # create the new comment
-        comment = repo.store(document('type' => 'comment', 're' => obj))
+        doc = document('type' => 'comment', 're' => obj)
+        raise "no content specified" if empty?(doc.content)
+        
+        comment = repo.store(doc)
         repo.link(parent, comment)
         
         repo.commit("comment #{comment} re #{obj}") if commit?
@@ -232,7 +235,10 @@ module Gitgo
         check_valid_comment(obj, comment)
         
         # update the comment
-        new_comment = repo.store(document('type' => 'comment', 're' => obj))
+        doc = document('type' => 'comment', 're' => obj)
+        raise "no content specified" if empty?(doc.content)
+        
+        new_comment = repo.store(doc)
         
         # reassign links
         ancestry = repo.children(obj, :recursive => true)
