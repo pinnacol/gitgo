@@ -94,8 +94,12 @@ module Gitgo
         ref = request['remote'] || repo.track
         remote, remote_branch = ref.split("/", 2)
         
-        repo.pull(remote, ref) if set?("pull")
-        repo.push(remote) if set?("push")
+        # Note that push and pull cannot be cleanly supported as separate
+        # updates because pull can easily fail without a preceding pull. Since
+        # there is no good way to detect that failure, see issue 7f7e85, the
+        # next best option is to ensure a pull if doing a push.
+        repo.pull(remote, ref)
+        repo.push(remote) if set?("sync")
         
         redirect url("/repo")
       end

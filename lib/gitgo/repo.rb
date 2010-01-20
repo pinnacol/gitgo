@@ -129,6 +129,40 @@ module Gitgo
         
         new(path, options)
       end
+      
+      # Sets up Grit to log to the logger for the duration of the block.
+      #
+      # ==== Usage
+      #
+      # The gitlog method is set on Repo because it has global implications;
+      # calls to gitlog that use different loggers will cause a error (this
+      # lousy behavior is a consequence of how logging is implemented in
+      # Grit). As such it should not be used except when debugging.
+      def gitlog(logger=Grit.logger)
+        if @@gitlog
+          if Grit.logger == logger
+            return yield
+          else
+            raise "already git logging using a different logger"
+          end
+        end
+          
+        current_logger = Grit.logger
+        current_debug = Grit.debug
+        begin
+          @@gitlog = true
+          Grit.logger = logger
+          Grit.debug = true
+
+          yield
+        ensure
+          Grit.logger = current_logger
+          Grit.debug = current_debug
+          @@gitlog = false
+        end
+      end
+      @@gitlog = false
+      
     end
     include Enumerable
     include Utils
