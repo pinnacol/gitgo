@@ -115,7 +115,7 @@ module Gitgo
       
       def reset
         repo.clear_index
-        repo.reset(:full => true)
+        repo.reset(:full => set?("full"))
         redirect url("/repo")
       end
       

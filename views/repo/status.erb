@@ -6,6 +6,7 @@
 </ul>
 
 <form class="update" action="<%= url 'commit' %>" method="post">
+<label for="message">Commit Message</label>
 <input type="text" name="message" value="" <% if status.empty? %>disabled="true" <% end %>/>
 <input type="submit" value="Commit" <% if status.empty? %>disabled="true" <% end %>/></dt>
 </form>

@@ -46,15 +46,17 @@
     <dd></dd>
     </dl>
   </form>
+  <p><em>Note: updates can fail silently, for example when the remote cannot be reached.</em></p>
 </dd>
 <dt>Reset</dt>
 <dd>
   <p>
     Reinitialize the internal bindings gitgo uses to access the git repository.
     Uncommitted updates in gitgo (see <a href="<%= url('/repo/status') %>">status</a>)
-    will be lost, and the index will be rebuilt.
+    will be lost.
   </p>
   <form action="<%= url('/repo/reset') %>" method="post">
+    <input type="checkbox" name="full" value="true">Reindex</input>
     <input type="submit" value="Reset" />
   </form>
 </dd>
