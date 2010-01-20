@@ -10,6 +10,11 @@
   <li><input type="checkbox" name="state[]" value="<%= state %>" <%= checked?(current_states.include?(state)) %>><%= state %></input></li><% end %>
   </ul>
   
+  <h3>Tags</h3>
+  <ul class="issuenav"><% tags.each do |tag| %>
+  <li><input type="checkbox" name="tags[]" value="<%= tag %>" <%= checked?(current_tags.include?(tag)) %>><%= tag %></input></li><% end %>
+  </ul>
+  
   <h3>Sort</h3>
   <ul class="issuenav">
   <li><input type="radio" name="sort" value="author" <%= checked?(sort_attr == 'author') %>>Author</input></li>

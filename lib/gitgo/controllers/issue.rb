@@ -82,6 +82,7 @@ module Gitgo
         erb :index, :locals => {
           :issues => issues,
           :current_states => criteria['state'] || [],
+          :current_tags => criteria['tags'] || [],
           :sort_attr => sort_attr,
           :reverse => reverse
         }
