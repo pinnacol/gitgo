@@ -129,6 +129,13 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body =~ /<form .* action="\/issue"/
   end
   
+  def test_get_new_issue_previews_content
+    get("/issue/new", "content" => "h1. A big header")
+    assert last_response.ok?
+    assert last_response.body.include?("Preview")
+    assert last_response.body.include?("<h1>A big header</h1>")
+  end
+  
   #
   # post test
   #
@@ -151,11 +158,18 @@ class IssueTest < Test::Unit::TestCase
     commit = repo.set(:blob, "")
     
     post("/issue", "doc[at]" => commit, "commit" => "true")
-    assert last_response.redirect?, last_response.body
+    assert last_response.redirect?
     
     issue = last_response_location
     assert_equal [issue], repo.children(commit)
     assert_equal issue, repo.reference(commit, issue)
+  end
+  
+  def test_post_with_preview_renders_preview
+    post("/issue", "content" => "h1. Issue Description", "doc[title]" => "New Issue", "preview" => "true")
+    assert last_response.ok?
+    assert last_response.body.include?("Preview")
+    assert last_response.body.include?("<h1>Issue Description</h1>")
   end
   
   #

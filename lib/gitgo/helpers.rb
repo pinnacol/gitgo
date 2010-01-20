@@ -99,6 +99,10 @@ module Gitgo
       true_or_false ? 'checked="true" ' : ''
     end
     
+    def selected?(true_or_false)
+      true_or_false ? 'selected="true" ' : ''
+    end
+    
     # Returns a title for pages served from this controller; either the
     # capitalized resource name or the class basename.
     def title

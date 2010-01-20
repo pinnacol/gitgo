@@ -6,7 +6,7 @@ module Gitgo
       set :views, File.expand_path("views/issue", ROOT)
 
       get('/issue')        { index }
-      get('/issue/new')    { erb :new }
+      get('/issue/new')    { preview }
       get('/issue/:id')    {|id| show(id) }
       get('/issue/:id/:comment') {|id, comment| show(id, comment) }
       
@@ -88,7 +88,16 @@ module Gitgo
         }
       end
     
+      def preview
+        erb :new, :locals => {
+          :doc => request['doc'] || {}, 
+          :content => request['content']
+        }
+      end
+    
       def create
+        return preview if set?('preview')
+        
         doc = document('type' => 'issue', 'state' => 'open')
         issue = repo.store(doc)
       
