@@ -19,6 +19,26 @@ class ServerTest < Test::Unit::TestCase
   end
   
   #
+  # error test
+  #
+  
+  def test_invalidated_repo_errors_provide_opportunity_to_reset_repo
+    repo.create("content")
+    repo.commit("new commit")
+    
+    get("/")
+    assert last_response.ok?
+    
+    repo.sandbox {|git,w,i| git.gc }
+    
+    get("/")
+    assert !last_response.ok?
+    assert last_response.body.include?('Errno::ENOENT')
+    assert last_response.body =~ /No such file or directory - .*idx/
+    assert last_response.body.include?('Reset')
+  end
+  
+  #
   # index test
   #
   

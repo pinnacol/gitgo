@@ -55,7 +55,10 @@ module Gitgo
     end
     
     error Exception do
-      erb :error, :views => path("views"), :locals => {:err => env['sinatra.error']}
+      err = env['sinatra.error']
+      resetable = err.kind_of?(Errno::ENOENT) && err.message =~ /No such file or directory - .*idx/
+      
+      erb :error, :views => path("views"), :locals => {:err => err, :resetable => resetable}
     end
     
     #
