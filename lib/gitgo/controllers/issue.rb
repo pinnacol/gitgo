@@ -6,8 +6,10 @@ module Gitgo
       set :views, File.expand_path("views/issue", ROOT)
 
       get('/issue')        { index }
+      get('/issue/new')    { erb :new }
       get('/issue/:id')    {|id| show(id) }
       get('/issue/:id/:comment') {|id, comment| show(id, comment) }
+      
       post('/issue')       { create }
       post('/issue/:id') do |id|
         _method = request[:_method]
@@ -17,6 +19,7 @@ module Gitgo
         else raise("unknown post method: #{_method}")
         end
       end
+      
       put('/issue/:id')    {|id| update(id) }
       delete('/issue/:id') {|id| destroy(id) }
       

@@ -123,6 +123,12 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue C.*Issue B.*Issue A/m
   end
   
+  def test_get_new_issue_provides_form_for_new_issue
+    get("/issue/new")
+    assert last_response.ok?
+    assert last_response.body =~ /<form .* action="\/issue"/
+  end
+  
   #
   # post test
   #
