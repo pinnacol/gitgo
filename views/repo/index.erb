@@ -4,7 +4,16 @@
 <dt>Path</dt>
 <dd><%= repo.path %></dd>
 <dt>Branch</dt>
-<dd><%= repo.branch %></dd>
+<dd><%= repo.branch %></dd><% if session %>
+<dt>Active Branch</dt>
+<dd>
+  <form action="<%= url('/repo/at') %>" method="post">
+    <select id="ref" name="ref"><% refs(true).each do |ref| %>
+    <option value="<%= ref.name %>" <%= selected?(active_branch == ref.name || active_branch == ref.commit) %>><%= ref.name %></option><% end %>
+    </select>
+    <input type="submit" value="Change" />
+  </form>
+</dd><% end %>
 <dt>Commit</dt>
 <dd><% if current %>
 <%= erb :_commit, :locals => {:commit => repo.current }, :views => path('views/code'), :layout => false %><% else %>
@@ -16,7 +25,7 @@
     <dd>
       <select id="remote" name="remote">
       <option value="">None</option><% remotes.each do |remote| %>
-      <option value="<%= remote %>" <% if track == remote || remote == "origin/gitgo" %> selected="true"<% end %>><%= remote %></option><% end %>
+      <option value="<%= remote %>" <%= selected?(track == remote || remote == "origin/gitgo") %>><%= remote %></option><% end %>
       </select>
     </dd>
     <dt><input type="submit" value="Setup" /></dt>

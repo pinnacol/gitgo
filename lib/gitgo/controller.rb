@@ -107,19 +107,24 @@ module Gitgo
     end
     
     # Returns the session-specific active commit sha.
-    def active_sha
-      @active_sha ||= begin
+    def active_branch
+      @active_branch ||= begin
         if session && session.has_key?('at')
           session['at']
         else
-          repo.grit.head.commit
+          repo.grit.head.name
         end
       end
     end
     
+    def active_branch=(treeish)
+      @active_shas = nil
+      @active_branch = treeish
+    end
+    
     # Returns an array of session-specific active shas.
     def active_shas
-      @active_shas ||= repo.rev_list(active_sha)
+      @active_shas ||= repo.rev_list(active_branch)
     end
     
     # Returns true if the sha is nil (ie unspecified) or if active_shas
