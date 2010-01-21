@@ -1,0 +1,19 @@
+h1. FAQ
+
+h2. What is a 'dangling blob'
+
+Dangling blobs are files that git created but did not commit, or were in some other manner disconnected from references in the repo. A dangling blob can be created like this:
+
+code.. 
+  % git init
+  % echo 'old content' > file.txt
+  % git add file.txt
+  % echo 'new content' > file.txt
+  % git add file.txt
+  % git commit -m "added new content"
+  % git fsck
+  dangling blob 33194a0a6f3f99e366d606c24d9b1ab0e0086e69
+  % git cat-file -p 33194a0a6f3f99e366d606c24d9b1ab0e0086e69
+  old content
+
+p. Similarly a dangling tree and a dangling commit are objects that have become disconnected from the repo.

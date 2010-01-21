@@ -1,5 +1,6 @@
 h1. Gitgo Reference
 
-* "Gitgo Design":/repo/reference/design
+* "Design":/repo/reference/design
+* "FAQ":/repo/reference/faq
 * "Howto":/repo/reference/howto
 * "Troubleshooting":/repo/reference/trouble
