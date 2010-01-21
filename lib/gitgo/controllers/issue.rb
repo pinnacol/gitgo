@@ -121,7 +121,12 @@ module Gitgo
       
         # get children and resolve to docs
         comments = repo.comments(issue, docs)
-        tails = docs.keys.select {|doc| doc[:tail] }
+        tails = docs.keys.collect do |sha|
+          docs[sha]
+        end.select do |doc| 
+          doc[:tail]
+        end
+        
         tails << issue_doc if tails.empty?
         
         merge = {:states => [], :tags => []}

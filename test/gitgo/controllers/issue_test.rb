@@ -123,6 +123,10 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue C.*Issue B.*Issue A/m
   end
   
+  #
+  # get /issue/new
+  #
+  
   def test_get_new_issue_provides_form_for_new_issue
     get("/issue/new")
     assert last_response.ok?
@@ -134,6 +138,24 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.ok?
     assert last_response.body.include?("Preview")
     assert last_response.body.include?("<h1>A big header</h1>")
+  end
+  
+  #
+  # get /issue/id
+  #
+  
+  def test_get_issue_provides_form_to_close_all_tails
+    issue = open_issue("Issue A")
+    put("/issue/#{issue}", "doc[state]" => "closed")
+    iss, a = last_response_location
+    
+    put("/issue/#{issue}", "doc[state]" => "invalid")
+    iss, b = last_response_location
+    
+    get("/issue/#{issue}")
+    assert last_response.ok?
+    assert last_response.body.include?(%Q{name="re[]" value="#{a}"})
+    assert last_response.body.include?(%Q{name="re[]" value="#{b}"})
   end
   
   #
