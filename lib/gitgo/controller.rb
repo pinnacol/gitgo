@@ -98,12 +98,34 @@ module Gitgo
     # the author set for the class.
     def author
       @author ||= begin
-        if session && session['author']
+        if session && session.has_key?('author')
           Grit::Actor.from_string(session['author'])
         else
           options.author
         end
       end
+    end
+    
+    # Returns the session-specific active commit sha.
+    def active_sha
+      @active_sha ||= begin
+        if session && session.has_key?('at')
+          session['at']
+        else
+          repo.grit.head.commit
+        end
+      end
+    end
+    
+    # Returns an array of session-specific active shas.
+    def active_shas
+      @active_shas ||= repo.rev_list(active_sha)
+    end
+    
+    # Returns true if the sha is nil (ie unspecified) or if active_shas
+    # include the sha.
+    def active?(sha)
+      sha.nil? || active_shas.include?(sha)
     end
     
     # Returns true if the key is like 'true' in the request parameters.
@@ -140,7 +162,7 @@ module Gitgo
     
     # Returns the rack session.
     def session
-      request ? request.env['rack.session'] : nil
+      @session ||= request ? request.env['rack.session'] : nil
     end
     
     # Returns a self-filling, per-request cache of documents.  See Repo#cache.

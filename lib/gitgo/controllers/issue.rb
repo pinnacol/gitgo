@@ -41,8 +41,6 @@ module Gitgo
       # the sort with reverse=true. Multiple sort criteria are currently not
       # supported.
       def index
-        issues = repo.index("type", "issue")
-      
         # filter issues
         criteria = {}
         ATTRIBUTES.each do |key|
@@ -58,20 +56,22 @@ module Gitgo
         
           filters << filter
         end
-      
-        unless filters.empty?
-          issues.delete_if do |issue|
-            selected = repo.tails(issue)
-            filters.each do |filter|
-              selected = selected & filter
-            end
+        
+        issues = []
+        repo.index("type", "issue").each do |sha|
+          tails = repo.tails(sha)
+          filters.each do |filter|
+            tails = tails & filter
+          end
           
-            selected.empty?
+          unless tails.empty?
+            # note this lookup is deadly slow.
+            doc = docs[sha]
+            doc[:active] = tails.any? {|tail| active?(docs[tail]['at']) }
+            
+            issues << doc
           end
         end
-      
-        # note this is deadly slow.
-        issues.collect! {|sha| docs[sha] }
         
         # sort results
         sort_attr = request['sort'] || 'date'

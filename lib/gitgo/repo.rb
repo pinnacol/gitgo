@@ -661,6 +661,11 @@ module Gitgo
       sandbox {|git,w,i| git.rev_parse({}, treeish) }
     end
     
+    # Returns an array of revisions (commits) reachable from the treeish.
+    def rev_list(treeish)
+      sandbox {|git,w,i| git.rev_list({}, treeish).split("\n") }
+    end
+    
     # Peforms 'git prune' and returns self.
     def prune
       sandbox {|git,w,i| git.prune }
@@ -1097,8 +1102,7 @@ module Gitgo
         next if parent == sha
         
         doc = docs[parent]
-        doc[:active] ||= active?(doc)
-        doc[:tail]   ||= children.empty?
+        doc[:tail] ||= children.empty?
         
       end.each_pair do |parent, children|
         parent = docs[parent] unless parent == sha
@@ -1112,10 +1116,6 @@ module Gitgo
       comments.shift
       
       comments
-    end
-    
-    def active?(doc)
-      true  # for now...
     end
     
     # Determines whether the repo needs reindexing.  Returns false if the

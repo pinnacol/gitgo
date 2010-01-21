@@ -28,7 +28,7 @@
 
 <div class="issues">
   <ul class="issues"><% issues.each do |doc| %>
-  <li><%= issue_link(doc) %></li><% end %>
+  <li id="<%= doc.sha %>" active="<%= doc[:active] %>"><%= issue_link(doc) %></li><% end %>
   </ul>
 </div>
 

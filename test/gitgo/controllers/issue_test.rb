@@ -123,6 +123,43 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue C.*Issue B.*Issue A/m
   end
   
+  def test_index_indicates_active_state_of_issue
+    repo.checkout('master')
+    repo['state'] = 'point a -- issue A is open'
+    point_a = repo.commit("added content")
+    
+    repo['state'] = 'point b -- issue B is shown invalid'
+    point_b = repo.commit("added content")
+    
+    repo['state'] = 'point c -- issue C is open, B is open'
+    point_c = repo.commit("added content")
+    
+    repo.checkout('gitgo')
+    a = open_issue("Issue A", "doc[at]" => point_a)
+    b = open_issue("Issue B", "doc[at]" => point_c)
+    c = open_issue("Issue C", "doc[at]" => point_c)
+    put("/issue/#{b}", "doc[state]" => "invalid", "doc[at]" => point_b)
+    repo.commit "created fixture"
+    
+    get("/issue", {}, {'rack.session' => {'at' => point_c}})
+    assert last_response.ok?
+    assert last_response.body =~ /id="#{a}" active="true"/
+    assert last_response.body =~ /id="#{b}" active="true"/
+    assert last_response.body =~ /id="#{c}" active="true"/
+    
+    get("/issue", {}, {'rack.session' => {'at' => point_b}})
+    assert last_response.ok?
+    assert last_response.body =~ /id="#{a}" active="true"/
+    assert last_response.body =~ /id="#{b}" active="true"/
+    assert last_response.body =~ /id="#{c}" active="false"/
+    
+    get("/issue", {}, {'rack.session' => {'at' => point_a}})
+    assert last_response.ok?
+    assert last_response.body =~ /id="#{a}" active="true"/
+    assert last_response.body =~ /id="#{b}" active="false"/
+    assert last_response.body =~ /id="#{c}" active="false"/
+  end
+  
   #
   # get /issue/new
   #
