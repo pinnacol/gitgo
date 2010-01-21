@@ -1237,7 +1237,7 @@ class RepoTest < Test::Unit::TestCase
     repo.link(a,b).link(b,c)
     repo.commit("new commit")
     
-    assert_equal ["notice: HEAD points to an unborn branch (master)"], repo.fsck
+    assert_equal "notice: HEAD points to an unborn branch (master)\n", repo.fsck
   end
   
 end

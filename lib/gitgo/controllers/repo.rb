@@ -59,7 +59,7 @@ module Gitgo
       def maintenance
         erb :maintenance, :locals => {
           :keys => repo.list,
-          :issues => repo.fsck,
+          :issues => repo.fsck.split("\n"),
           :stats => repo.stats
         }
       end

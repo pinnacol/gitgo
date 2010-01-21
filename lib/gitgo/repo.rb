@@ -330,6 +330,9 @@ module Gitgo
       grit.git.put_raw_object(content, type.to_s)
     end
     
+    # Returns the sha for the specified reference by reading the
+    # "refs/type/name" file, or nil if the reference file does not exist. The
+    # standard reference types are 'heads', 'remotes', and 'tags'.
     def ref(type, name)
       ref_path = path("refs/#{type}/#{name}")
       
@@ -408,13 +411,30 @@ module Gitgo
       self
     end
     
+    # Commits the current tree to branch with the specified message and
+    # returns the sha for the new commit.  The branch is created if it doesn't
+    # already exist.  Options can specify (as symbols):
+    #
+    #   tree::    The sha of the tree this commit points to (default the
+    #             sha for tree, the in-memory working tree)
+    #   parents:: An array of shas representing parent commits (default the 
+    #             current commit)
+    #   author::  A Grit::Actor, or similar representing the commit author
+    #             (default author)
+    #   authored_date::  The authored date (default now)
+    #   committer::      A Grit::Actor, or similar representing the user
+    #                    making the commit (default author)
+    #   committed_date:: The authored date (default now)
+    #
+    # Raises an error if there are no changes to commit.
     def commit(message, options={})
       raise "no changes to commit" if status.empty?
       commit!(message, options)
     end
     
-    # Commits the current tree to branch with the specified message.  The
-    # branch is created if it doesn't already exist.
+    # Same as commit but does not check if there are changes to commit, useful
+    # when you know there are changes to commit and don't want unnecessary
+    # overhead.
     def commit!(message, options={})
       now = Time.now
       
@@ -560,6 +580,9 @@ module Gitgo
       end
     end
     
+    # Merges the specified reference with the current branch, fast-forwarding
+    # when possible.  This method does not need to checkout the branch into a
+    # working directory to perform the merge.
     def merge(ref=track)
       sandbox do |git, work_tree, index_file|
         local = ref(:heads, branch)
@@ -638,11 +661,14 @@ module Gitgo
       sandbox {|git,w,i| git.rev_parse({}, treeish) }
     end
     
+    # Peforms 'git prune' and returns self.
     def prune
       sandbox {|git,w,i| git.prune }
       self
     end
     
+    # Performs 'git gc' and resets self so that grit will use the updated pack
+    # files.  Returns self.
     def gc
       sandbox {|git,w,i| git.gc }
       
@@ -651,13 +677,16 @@ module Gitgo
       reset(:full => true)
     end
     
+    # Performs 'git fsck' and returns the output.
     def fsck
       sandbox do |git, work_tree, index_file|
         stdout, stderr = git.sh("#{Grit::Git.git_binary} fsck")
-        stderr.split("\n") + stdout.split("\n")
+        "#{stdout}#{stderr}"
       end
     end
     
+    # Returns a hash of repo statistics parsed from 'git count-objects
+    # --verbose'.
     def stats
       sandbox do |git, work_tree, index_file|
         stdout, stderr = git.sh("#{Grit::Git.git_binary} count-objects --verbose")
@@ -722,7 +751,9 @@ module Gitgo
 
       id
     end
-
+    
+    # Returns an array of shas for documents indexed by the specified
+    # key-value pair.
     def index(key, value)
       idx_file = index_path(key, value)
       File.exists?(idx_file) ? Index.read(idx_file) : []
@@ -816,13 +847,13 @@ module Gitgo
       Hash.new {|hash, id| hash[id] = read(id) }
     end
     
+    # Returns an array of the shas for all indexed documents.
     def documents
-      reindex unless File.exists?(@index_all_file)
-      Index.read(@index_all_file)
+      File.exists?(@index_all_file) ? Index.read(@index_all_file) : []
     end
     
     # Yields the sha of each document in the repo, ordered by date (with day
-    # resolution).
+    # resolution), regardless of whether they are indexed or not.
     def each
       years = self[[]] || []
       years.sort!
@@ -1151,6 +1182,7 @@ module Gitgo
       self
     end
     
+    # Clears all index files.
     def clear_index
       if File.exists?(@index_head)
         FileUtils.rm(@index_head)
