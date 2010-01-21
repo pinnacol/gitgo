@@ -975,6 +975,91 @@ module Gitgo
       tails
     end
     
+    # Returns a list of all documents that are descendants of the specified
+    # document. The return is specially formatted for conversion into nested
+    # lists (see below).
+    #
+    # Comments takes a document cache as a second argument, to prevent a
+    # single document from being read multiple times.  During this method
+    # tail documents are flagged using the :tail attribute.
+    #
+    # ==== Implementation and Usage
+    #
+    # Comments uses the flatten and collapse methods (see Gitgo::Repo::Utils)
+    # to collect comments into a flattened, list-friendly ancestry that only
+    # represents existing, rather than potential, branch points.  For example,
+    # given this parent-child hierarchy:
+    #
+    #   a
+    #   `- b
+    #      |- c
+    #      `- d
+    #         ` e
+    #
+    # The results are structured to render this:
+    #
+    #   a
+    #   b
+    #   |- c
+    #   `- d
+    #      e
+    #
+    # More specifically:
+    #
+    #   ancestry = {
+    #     "a" => ["b"],
+    #     "b" => ["c", "d"],
+    #     "c" => [],
+    #     "d" => ["e"],
+    #     "e" => []
+    #   }
+    #
+    #   ancestry_for_a = flatten(ancestry)['a']
+    #   comments = collapse(ancestry_for_a)
+    #   comments # => ["a", "b", ["c"], ["d", "e"]]
+    #
+    # To generate the flattened list, recursively iterate over the results of
+    # comments and add a list item for each non-array and a nested list for
+    # each array.  For example:
+    #
+    #   def render(comments, lines=[], indent="")
+    #     lines << "#{indent}<ul>"
+    #
+    #     comments.each do |comment|
+    #       if comment.kind_of?(Array)
+    #         lines << "#{indent}<li>"
+    #         render(comment, lines, indent + "  ")
+    #         lines << "#{indent}</li>"
+    #       else
+    #         lines << "#{indent}<li>#{comment}</li>"
+    #       end
+    #     end
+    #
+    #     lines << "#{indent}</ul>"
+    #     lines
+    #   end
+    #
+    #   "\n" + render(comments).join("\n") + "\n"
+    #   # => %q{
+    #   # <ul>
+    #   # <li>a</li>
+    #   # <li>b</li>
+    #   # <li>
+    #   #   <ul>
+    #   #   <li>c</li>
+    #   #   </ul>
+    #   # </li>
+    #   # <li>
+    #   #   <ul>
+    #   #   <li>d</li>
+    #   #   <li>e</li>
+    #   #   </ul>
+    #   # </li>
+    #   # </ul>
+    #   # }
+    #
+    #--
+    # Note the documenation test for the imp/usage is in utils_test.rb
     def comments(sha, docs=cache)
       ancestry = {}
       children(sha, :recursive => true).each_pair do |parent, children|

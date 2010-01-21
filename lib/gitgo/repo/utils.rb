@@ -39,6 +39,27 @@ module Gitgo
         segments
       end
       
+      # Flattens an ancestry hash of (parent, [children]) pairs.  For example:
+      #
+      #   ancestry = {
+      #     "a" => ["b"],
+      #     "b" => ["c", "d"],
+      #     "c" => [],
+      #     "d" => ["e"],
+      #     "e" => []
+      #   }
+      #
+      #   flatten(ancestry) 
+      #   # => {
+      #   # "a" => ["a", ["b", ["c"], ["d", ["e"]]]],
+      #   # "b" => ["b", ["c"], ["d", ["e"]]],
+      #   # "c" => ["c"],
+      #   # "d" => ["d", ["e"]],
+      #   # "e" => ["e"]
+      #   # }
+      #
+      # Note that the flattened ancestry re-uses the array values, such that
+      # modifiying the "b" array will propagate to the "a" ancestry.
       def flatten(ancestry)
         ancestry.each_pair do |parent, children|
           children.collect! {|child| ancestry[child] }
@@ -46,7 +67,13 @@ module Gitgo
         end
         ancestry
       end
-
+      
+      # Collapses an nested array hierarchy such that nesting is only
+      # preserved for existing, and not just potential, branches:
+      #
+      #   collapse(["a", ["b", ["c"]]])               # => ["a", "b", "c"]
+      #   collapse(["a", ["b", ["c"], ["d", ["e"]]]]) # => ["a", "b", ["c"], ["d", "e"]]
+      #
       def collapse(array, result=[])
         result << array.at(0)
 
