@@ -14,7 +14,8 @@ options = {
   :host => '127.0.0.1', 
   :port => 8080,
   :repo => ".",
-  :branch => "gitgo"
+  :branch => "gitgo",
+  :sessions => false
 }
 
 OptionParser.new do |opts|
@@ -38,6 +39,10 @@ OptionParser.new do |opts|
     options[:branch] = branch
   end
   
+  opts.on("-s", "--sessions", "Use cookie sessions (#{options[:sessions]})") do
+    options[:sessions] = true
+  end
+  
   opts.on("-h", "--help", "Prints this help") do |ports|
     puts opts
     exit(0)
@@ -48,4 +53,5 @@ OptionParser.new do |opts|
 end.parse!
 
 options[:repo] = Gitgo::Repo.init(options[:repo], options)
+Gitgo::Server.set(:sessions, options[:sessions])
 Gitgo::Server.run!(options)
