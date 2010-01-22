@@ -4,6 +4,7 @@ require 'gitgo/patches/grit'
 require 'gitgo/repo/tree'
 require 'gitgo/repo/index'
 require 'gitgo/repo/utils'
+require 'gitgo/index'
 
 module Gitgo
   

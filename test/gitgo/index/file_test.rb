@@ -1,9 +1,9 @@
 require File.dirname(__FILE__) + "/../../test_helper"
-require 'gitgo/repo/index'
+require 'gitgo/index/file'
 require 'stringio'
 
-class RepoIndexTest < Test::Unit::TestCase
-  Index = Gitgo::Repo::Index
+class IndexFileTest < Test::Unit::TestCase
+  Index = Gitgo::Index
   acts_as_file_test
   
   attr_accessor :idx
@@ -19,49 +19,49 @@ class RepoIndexTest < Test::Unit::TestCase
   
   def setup
     super
-    @idx = Index.new StringIO.new
+    @idx = Index::File.new StringIO.new
   end
   
   #
-  # Index.read test
+  # Index::File.read test
   #
   
   def test_read_reads_all_entries
     path = method_root.prepare(:tmp, "example") {|io| io << PACKED_SHAS.join }
-    assert_equal SHAS, Index.read(path)
+    assert_equal SHAS, Index::File.read(path)
   end
   
   #
-  # Index.write test
+  # Index::File.write test
   #
   
   def test_write_replaces_with_entries
     path = method_root.prepare(:tmp, "example") {|io| io << PACKED_SHAS.join }
     
-    Index.write(path, SHAS[0,2].join)
-    assert_equal SHAS[0,2], Index.read(path)
+    Index::File.write(path, SHAS[0,2].join)
+    assert_equal SHAS[0,2], Index::File.read(path)
   end
   
   #
-  # Index.append test
+  # Index::File.append test
   #
   
   def test_append_appends_entries
     path = method_root.prepare(:tmp, "example") {|io| io << PACKED_SHAS.join }
     
-    Index.append(path, SHAS[0,2].join)
-    assert_equal SHAS + SHAS[0,2], Index.read(path)
+    Index::File.append(path, SHAS[0,2].join)
+    assert_equal SHAS + SHAS[0,2], Index::File.read(path)
   end
   
   #
-  # Index.rm test
+  # Index::File.rm test
   #
   
   def test_rm_removes_entries
     path = method_root.prepare(:tmp, "example") {|io| io << PACKED_SHAS.join }
     
-    Index.rm(path, *SHAS[0,2])
-    assert_equal SHAS[2,3], Index.read(path)
+    Index::File.rm(path, *SHAS[0,2])
+    assert_equal SHAS[2,3], Index::File.read(path)
   end
   
   #

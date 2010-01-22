@@ -1,17 +1,19 @@
+require 'fileutils'
+
 module Gitgo
-  class Repo
+  class Index
     
-    # Index is a wrapper providing access to a file of packed shas.  Such
-    # files are used as indexes of, for instance, all documents with some
+    # Index::File is a wrapper providing access to a file of packed shas. 
+    # Such files are used as indexes of, for instance, all documents with some
     # key-value attribute pair.
-    class Index
+    class File
       class << self
         
         # Opens and returns an index file in the specified mode.  If a block
-        # is given the index is yielded to it and closed afterwards; in this
+        # is given the file is yielded to it and closed afterwards; in this
         # case the return of open is the block result.
         def open(path, mode="r")
-          idx = new(File.open(path, mode))
+          idx = new(::File.open(path, mode))
           
           return idx unless block_given?
 
@@ -30,21 +32,21 @@ module Gitgo
         # Opens the index file and writes the sha; previous contents
         # are replaced.
         def write(path, sha)
-          dir = File.dirname(path)
-          FileUtils.mkdir_p(dir) unless File.exists?(dir)
+          dir = ::File.dirname(path)
+          FileUtils.mkdir_p(dir) unless ::File.exists?(dir)
           open(path, "w") {|idx| idx.write(sha) }
         end
         
         # Opens the index file and appends the sha.
         def append(path, sha)
-          dir = File.dirname(path)
-          FileUtils.mkdir_p(dir) unless File.exists?(dir)
+          dir = ::File.dirname(path)
+          FileUtils.mkdir_p(dir) unless ::File.exists?(dir)
           open(path, "a") {|idx| idx.write(sha) }
         end
         
         # Opens the index file and removes the shas.
         def rm(path, *shas)
-          return unless File.exists?(path)
+          return unless ::File.exists?(path)
           
           current = read(path)
           write(path, (current-shas).join)

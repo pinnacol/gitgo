@@ -165,6 +165,12 @@ task :default => :test
 desc 'Run the tests'
 task :test => ['test:gitgo', 'test:model']
 
+def run_tests(tests)
+  tests = tests.select {|path| File.file?(path) }
+  cmd = ['ruby', "-w", "-e", "ARGV.dup.each {|test| load test}"] + tests
+  sh(*cmd)
+end
+
 namespace :test do
   desc 'Run all the tests'
   task :all => ['test:gitgo', 'test:benchmark']
@@ -172,25 +178,23 @@ namespace :test do
   desc 'Run gitgo tests'
   task :gitgo => :bundle do
     pattern = ENV['PATTERN'] || "**/*_test.rb"
-    tests = Dir.glob("test/gitgo/#{pattern}").select {|path| File.file?(path) }
-    cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
-    sh(*cmd)
+    run_tests Dir.glob("test/gitgo/#{pattern}")
+  end
+  
+  task :index => :bundle do
+    run_tests Dir.glob("test/gitgo/index/*_test.rb") + ["test/gitgo/index_test.rb"]
   end
   
   desc 'Run data model tests'
   task :model => :bundle do
     pattern = ENV['PATTERN'] || "**/*_test.rb"
-    tests = Dir.glob("test/model/#{pattern}").select {|path| File.file?(path) }
-    cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
-    sh(*cmd)
+    run_tests Dir.glob("test/model/#{pattern}")
   end
   
   desc 'Run benchmark tests'
   task :benchmark => :bundle do
     ENV['BENCHMARK'] = "true"
     pattern = ENV['PATTERN'] || "**/*_benchmark.rb"
-    tests = Dir.glob("test/benchmark/#{pattern}").select {|path| File.file?(path) }
-    cmd = ['ruby', "-w", '-rvendor/gems/environment.rb', "-e", "ARGV.dup.each {|test| load test}"] + tests
-    sh(*cmd)
+    run_tests Dir.glob("test/benchmark/#{pattern}")
   end
 end
