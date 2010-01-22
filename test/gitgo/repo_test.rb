@@ -92,8 +92,6 @@ class RepoTest < Test::Unit::TestCase
     assert_equal false, repo.grit.bare
     
     repo.add("path" => "content").commit("initial commit")
-    
-    assert_equal "initial commit", repo.current.message
     assert_equal "content", repo["path"]
   end
   
@@ -109,8 +107,6 @@ class RepoTest < Test::Unit::TestCase
     assert_equal true, repo.grit.bare
     
     repo.add("path" => "content").commit("initial commit")
-    
-    assert_equal "initial commit", repo.current.message
     assert_equal "content", repo["path"]
   end
   
@@ -299,12 +295,12 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "no changes to commit", err.message
   end
   
-  def test_commit_writes_index_head_if_reindex_is_nil
+  def test_commit_writes_index
     repo.create("content")
-    assert_equal nil, repo.reindex?
+    assert_equal nil, repo.index.head
     
     repo.commit("added content")
-    assert_equal false, repo.reindex?
+    assert_equal repo.head, repo.index.head
   end
   
   #
@@ -358,17 +354,11 @@ class RepoTest < Test::Unit::TestCase
   def test_checkout_checks_the_repo_out_into_work_tree_in_the_block
     setup_repo("simple.git")
     
-    expected_work_tree = repo.path(Repo::WORK_TREE)
-    assert !File.exists?(expected_work_tree)
-
     result = repo.checkout do |work_tree|
-      assert_equal expected_work_tree, work_tree
       assert File.directory?(work_tree)
       assert_equal "Contents of file TWO.", File.read(File.join(work_tree, "/one/two.txt"))
     end
     assert_equal repo, result
-    
-    assert !File.exists?(expected_work_tree)
   end
   
   def paths_in(dir)
@@ -572,7 +562,7 @@ class RepoTest < Test::Unit::TestCase
     a.add("a" => "A content").commit("updated file")
     
     b.pull
-    assert_equal a.current.id, b.current.id
+    assert_equal a.head, b.head
   end
   
   def test_pull_does_nothing_unless_necessary
@@ -581,21 +571,21 @@ class RepoTest < Test::Unit::TestCase
     
     b = a.clone(method_root.path(:tmp, "b"))
     
-    previous = b.current.id
+    previous = b.head
     b.pull
-    assert_equal previous, b.current.id
+    assert_equal previous, b.head
     
     b.add("b" => "b content").commit("added a file")
     
-    previous = b.current.id
+    previous = b.head
     b.pull
-    assert_equal previous, b.current.id
+    assert_equal previous, b.head
     
     a.add("a" => "A content").commit("updated a file")
     
-    previous = b.current.id
+    previous = b.head
     b.pull
-    assert previous != b.current.id
+    assert previous != b.head
   end
   
   #
@@ -648,59 +638,26 @@ class RepoTest < Test::Unit::TestCase
     john = Grit::Actor.new("John Doe", "john.doe@email.com")
     jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
     
-    assert_equal [], repo.index('state', 'one')
-    assert_equal [], repo.index('state', 'two')
+    assert_equal [], repo.index.read('state', 'one')
+    assert_equal [], repo.index.read('state', 'two')
     
-    assert_equal [], repo.index('author', john.email)
-    assert_equal [], repo.index('author', jane.email)
+    assert_equal [], repo.index.read('author', john.email)
+    assert_equal [], repo.index.read('author', jane.email)
     
     a = repo.create("new content", "author" => john, "state" => "one")
     b = repo.create("new content", "author" => jane, "state" => "two")
     c = repo.create("new content", "author" => jane, "state" => "one")
     
-    assert_equal [a,c].sort, repo.index('state', 'one').sort
-    assert_equal [b],        repo.index('state', 'two')
+    assert_equal [a,c].sort, repo.index.read('state', 'one').sort
+    assert_equal [b],        repo.index.read('state', 'two')
     
-    assert_equal [a],        repo.index('author', john.email)
-    assert_equal [b,c].sort, repo.index('author', jane.email).sort
+    assert_equal [a],        repo.index.read('author', john.email)
+    assert_equal [b,c].sort, repo.index.read('author', jane.email).sort
   end
   
-  def test_create_invalidates_index_head
-    assert_equal false, repo.reindex?
-    repo.create("a")
-    assert_equal nil, repo.reindex?
-    
-    repo.commit("initial commit")
-    
-    assert_equal false, repo.reindex?
-    repo.create("b")
-    assert_equal nil, repo.reindex?
-  end
-  
-  #
-  # list test
-  #
-  
-  def test_list_returns_a_list_of_indexes_when_no_key_is_specified
-    assert_equal [], repo.list
-    
-    john = Grit::Actor.new("John Doe", "john.doe@email.com")
-    repo.create("new content", "author" => john, "state" => "one")
-    
-    assert_equal ["author", "state"], repo.list.sort
-  end
-  
-  def test_list_returns_a_list_of_index_values
-    assert_equal [], repo.list('author')
-    
-    john = Grit::Actor.new("John Doe", "john.doe@email.com")
-    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
-    
-    a = repo.create("new content", "author" => john)
-    b = repo.create("new content", "author" => jane)
-    c = repo.create("new content", "author" => jane)
-    
-    assert_equal [jane.email, john.email], repo.list('author').sort
+  def test_create_adds_doc_to_index
+    a = repo.create("a")
+    assert_equal [a], repo.index.all
   end
   
   #
@@ -727,29 +684,29 @@ class RepoTest < Test::Unit::TestCase
     doc = repo.read(c).merge("state" => "one")
     d = repo.set(:blob, doc.to_s)
     
-    assert_equal [a,c].sort, repo.index('state', 'one').sort
-    assert_equal [b],        repo.index('state', 'two')
+    assert_equal [a,c].sort, repo.index.read('state', 'one').sort
+    assert_equal [b],        repo.index.read('state', 'two')
     
-    assert_equal [a],        repo.index('author', john.email)
-    assert_equal [b,c].sort, repo.index('author', jane.email).sort
+    assert_equal [a],        repo.index.read('author', john.email)
+    assert_equal [b,c].sort, repo.index.read('author', jane.email).sort
     
     repo.update(b, doc)
     
-    assert_equal [a,c,d].sort, repo.index('state', 'one').sort
-    assert_equal [],           repo.index('state', 'two')
+    assert_equal [a,c,d].sort, repo.index.read('state', 'one').sort
+    assert_equal [],           repo.index.read('state', 'two')
     
-    assert_equal [a],        repo.index('author', john.email)
-    assert_equal [c,d].sort, repo.index('author', jane.email)
+    assert_equal [a],        repo.index.read('author', john.email)
+    assert_equal [c,d].sort, repo.index.read('author', jane.email)
   end
   
-  def test_update_invalidates_index_head
+  def test_update_updates_doc_in_index
     a = repo.create("content")
-    repo.commit("added a document")
-    b = repo.read(a).merge("state" => "one")
+    assert_equal [a], repo.index.all
     
-    assert_equal false, repo.reindex?
+    b = repo.read(a).merge("state" => "one")
     repo.update(a, b)
-    assert_equal nil, repo.reindex?
+    
+    assert_equal [b.sha], repo.index.all
   end
   
   #
@@ -775,28 +732,26 @@ class RepoTest < Test::Unit::TestCase
     b = repo.create("new content", "author" => jane, "state" => "two")
     c = repo.create("new content", "author" => jane, "state" => "one")
     
-    assert_equal [a,c].sort, repo.index('state', 'one').sort
-    assert_equal [b],        repo.index('state', 'two')
+    assert_equal [a,c].sort, repo.index.read('state', 'one').sort
+    assert_equal [b],        repo.index.read('state', 'two')
     
-    assert_equal [a],        repo.index('author', john.email)
-    assert_equal [b,c].sort, repo.index('author', jane.email).sort
+    assert_equal [a],        repo.index.read('author', john.email)
+    assert_equal [b,c].sort, repo.index.read('author', jane.email).sort
     
     repo.destroy(b)
     
-    assert_equal [a,c].sort, repo.index('state', 'one').sort
-    assert_equal [],         repo.index('state', 'two')
+    assert_equal [a,c].sort, repo.index.read('state', 'one').sort
+    assert_equal [],         repo.index.read('state', 'two')
     
-    assert_equal [a],        repo.index('author', john.email)
-    assert_equal [c],        repo.index('author', jane.email)
+    assert_equal [a],        repo.index.read('author', john.email)
+    assert_equal [c],        repo.index.read('author', jane.email)
   end
   
-  def test_destroy_invalidates_index_head
+  def test_destroy_removes_doc_from_index
     a = repo.create("content")
-    repo.commit("added a document")
-    
-    assert_equal false, repo.reindex?
+    assert_equal [a], repo.index.all
     repo.destroy(a)
-    assert_equal nil, repo.reindex?
+    assert_equal [], repo.index.all
   end
   
   #
@@ -1141,86 +1096,67 @@ class RepoTest < Test::Unit::TestCase
   # reindex? test
   #
   
-  def test_reindex_returns_false_when_index_head_is_missing_and_prior_to_initial_commit
-    assert_equal nil, repo.current
-    assert_equal false, File.exists?(repo.path(Repo::INDEX_HEAD))
+  def test_reindex_returns_false_when_head_is_nil
+    assert_equal nil, repo.head
+    assert_equal nil, repo.index.head
     assert_equal false, repo.reindex?
   end
   
-  def test_reindex_returns_true_when_index_head_is_missing
+  def test_reindex_returns_true_when_index_head_is_nil
     repo['a'] = "A"
     repo.commit("added a blob")
+    repo.index.clear
     
-    assert_equal false, File.exists?(repo.path(Repo::INDEX_HEAD))
+    assert_equal nil, repo.index.head
     assert_equal true, repo.reindex?
   end
   
-  def test_reindex_returns_true_when_index_head_differs_from_current_sha
+  def test_reindex_returns_true_when_head_is_not_in_rev_list_for_index_head
     repo['a'] = "A"
     repo.commit("added a blob")
+    repo.index.write("someothersha")
     
-    index_head = repo.path(Repo::INDEX_HEAD)
-    FileUtils.mkdir_p(File.dirname(index_head))
-    File.open(index_head, "w") {|io| io << "not current sha"}
-    
+    assert repo.index.head != repo.head
     assert_equal true, repo.reindex?
   end
   
-  def test_reindex_returns_false_when_index_head_is_the_same_as_current_sha
+  def test_reindex_returns_false_when_index_head_is_the_same_as_head
     repo['a'] = "A"
     repo.commit("added a blob")
     
-    index_head = repo.path(Repo::INDEX_HEAD)
-    FileUtils.mkdir_p(File.dirname(index_head))
-    File.open(index_head, "w") {|io| io << repo.current.sha }
-    
+    assert_equal repo.index.head, repo.head
     assert_equal false, repo.reindex?
   end
   
-  def test_reindex_returns_nil_when_index_head_is_empty_and_prior_to_initial_commit
-    index_head = repo.path(Repo::INDEX_HEAD)
-    FileUtils.mkdir_p(File.dirname(index_head))
-    File.open(index_head, "w") {|io| }
-    
-    assert_equal nil, repo.reindex?
-  end
-  
-  def test_reindex_returns_nil_when_index_head_is_empty
+  def test_reindex_returns_false_when_head_is_in_rev_list_for_index_head
     repo['a'] = "A"
-    repo.commit("added a blob")
+    a = repo.commit("added a blob")
+    repo['b'] = "B"
+    b = repo.commit("added a blob")
     
-    index_head = repo.path(Repo::INDEX_HEAD)
-    FileUtils.mkdir_p(File.dirname(index_head))
-    File.open(index_head, "w") {|io| }
-    
-    assert_equal nil, repo.reindex?
+    repo.checkout(a)
+    assert repo.rev_list(repo.index.head).include?(repo.head)
+    assert_equal false, repo.reindex?
   end
   
   #
   # reindex test
   #
   
-  def test_reindex_updates_index_head
+  def test_reindex_updates_index_head_to_head
     repo['a'] = "A"
     repo.commit("added a blob")
+    repo.index.clear
     
-    assert_equal true, repo.reindex?
+    assert_equal nil, repo.index.head
     repo.reindex
-    assert_equal false, repo.reindex?
+    assert_equal repo.head, repo.index.head
   end
   
-  def test_reindex_does_not_update_index_head_prior_to_initial_commit
-    assert_equal false, repo.reindex?
+  def test_reindex_does_not_update_index_head_if_head_is_nil
+    assert_equal nil, repo.index.head
     repo.reindex
-    assert_equal false, repo.reindex?
-  end
-  
-  def test_reindex_does_not_update_head_if_reindex_is_nil
-    repo.create "content"
-    assert_equal nil, repo.reindex?
-    
-    repo.reindex
-    assert_equal nil, repo.reindex?
+    assert_equal nil, repo.index.head
   end
   
   #
@@ -1239,5 +1175,4 @@ class RepoTest < Test::Unit::TestCase
     
     assert_equal "notice: HEAD points to an unborn branch (master)\n", repo.fsck
   end
-  
 end

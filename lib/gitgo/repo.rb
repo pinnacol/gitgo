@@ -2,7 +2,6 @@ require 'grit'
 require 'gitgo/document'
 require 'gitgo/patches/grit'
 require 'gitgo/repo/tree'
-require 'gitgo/repo/index'
 require 'gitgo/repo/utils'
 require 'gitgo/index'
 
@@ -170,31 +169,10 @@ module Gitgo
     
     # The default branch for storing Gitgo objects.
     DEFAULT_BRANCH = 'gitgo'
-    
-    # The work tree for the repo -- this is the directory where gitgo objects
-    # are checked out during operations that need a working directory.  See
-    # checkout.
-    WORK_TREE = 'gitgo/work_tree'
-    
-    # The index file for the repo work tree (ie a git index file, not a
-    # Gitgo::Index file).  See checkout.
-    INDEX_FILE = 'gitgo/index'
-    
-    # A file containing the sha at which the last index was performed; used to
-    # determine when a partial reindex is required by comparison with
-    # refs/heads/gitgo.
-    INDEX_HEAD = 'gitgo/head'
-    
-    # The directory for key-value index files that sort document shas by their
-    # attributes.
-    INDEX_DIR = 'gitgo/idx'
-    
-    # An index file containing the shas of all indexed documents.
-    INDEX_ALL_FILE = 'gitgo/all'
-    
     DEFAULT_BLOB_MODE = "100644".to_sym
     DEFAULT_TREE_MODE = "40000".to_sym
-
+    DEFAULT_DIR = 'gitgo'
+    
     YEAR = /\A\d{4,}\z/
     MMDD = /\A\d{4}\z/
 
@@ -203,11 +181,20 @@ module Gitgo
     # The internal Grit::Repo
     attr_reader :grit
 
-    # The active branch/commit name
+    # The gitgo branch
     attr_reader :branch
 
-    # The in-memory working tree tracking any adds and removes.
+    # The in-memory working tree tracking any adds and removes
     attr_reader :tree
+    
+    # The repo directory, where repo-specific files are stored
+    attr_reader :dir
+    
+    # An Index to access the branch-specific index files
+    attr_reader :index
+    
+    # Returns the head commit for the branch
+    attr_reader :head
     
     # Initializes a new Git for the repo at the specified path.
     # Raises an error if no such repo exists.  Options can specify the
@@ -219,33 +206,22 @@ module Gitgo
     #
     def initialize(path=Dir.pwd, options={})
       @grit = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
-      @branch = options[:branch] || DEFAULT_BRANCH
-      
-      @work_tree = path(WORK_TREE).freeze
-      @index_file = path(INDEX_FILE).freeze
-      @index_head = path(INDEX_HEAD).freeze
-      @index_all_file = path(INDEX_ALL_FILE).freeze
       @sandbox = false
-      @current = nil
+      @branch = nil
+      @dir = options[:dir] || DEFAULT_DIR
+      @work_tree  = path(dir, 'sandbox', object_id).freeze
+      @work_index = path(dir, 'sandbox', "#{object_id}.index").freeze
       
-      self.author = options[:author]
-      reset
-    end
-    
-    # Returns the current commit for branch.
-    def current
-      @current ||= grit.commits(branch, 1).first
+      self.author = options[:author] || nil
+      self.checkout options[:branch] || DEFAULT_BRANCH
     end
     
     # Returns the specified path relative to the git repo (ie the .git
     # directory as indicated by grit.path).  With no arguments path returns
     # the git repo path.
-    def path(*paths)
-      File.join(grit.path, *paths)
-    end
-    
-    def index_path(*paths)
-      File.join(grit.path, INDEX_DIR, *paths)
+    def path(*segments)
+      segments.collect! {|segment| segment.to_s }
+      File.join(grit.path, *segments)
     end
     
     # Returns the configured author (which should be a Grit::Actor, or similar).
@@ -440,11 +416,7 @@ module Gitgo
       now = Time.now
       
       tree_id = options.delete(:tree) || write_tree(tree)[1]
-      parents = options.delete(:parents) || begin
-        parent = current
-        parent ? [parent.id] : []
-      end
-      
+      parents = options.delete(:parents) || (head ? [head] : [])
       author = options[:author] || self.author
       authored_date = options[:authored_date] || now
       committer = options[:committer] || author
@@ -473,11 +445,11 @@ module Gitgo
       lines << message
       lines << ""
       
-      sha = grit.update_ref(branch, set(:commit, lines.join("\n")))
-      write_index_head(sha) if reindex? == nil
-      @current = nil
+      @head = set('commit', lines.join("\n"))
+      grit.update_ref(branch, head)
+      reindex
       
-      sha
+      head
     end
     
     # Resets the working tree.
@@ -489,15 +461,13 @@ module Gitgo
     #
     def reset(options={})
       @grit = Grit::Repo.new(path, :is_bare => grit.bare) if options[:full]
-      @current = nil
+      commit = grit.commits(branch, 1).first
+      @head = commit ? commit.sha : nil
       @tree = commit_tree
       
-      # reindex if necessary
-      case reindex?
-      when true then reindex
-      when nil  then FileUtils.rm(@index_head); reindex
-      else
-      end
+      # reset the index
+      @index = Index.new(path(dir, 'index', branch))
+      reindex if reindex?
       
       self
     end
@@ -663,8 +633,8 @@ module Gitgo
     end
     
     # Returns an array of revisions (commits) reachable from the treeish.
-    def rev_list(treeish)
-      sandbox {|git,w,i| git.rev_list({}, treeish).split("\n") }
+    def rev_list(*treeishs)
+      sandbox {|git,w,i| git.rev_list({}, *treeishs).split("\n") }
     end
     
     # Peforms 'git prune' and returns self.
@@ -708,12 +678,12 @@ module Gitgo
     
     def sandbox
       if @sandbox
-        return yield(grit.git, @work_tree, @index_file)
+        return yield(grit.git, @work_tree, @work_index)
       end
       
       FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
-      FileUtils.rm(@index_file)  if File.exists?(@index_file)
-    
+      FileUtils.rm(@work_index)  if File.exists?(@work_index)
+      
       begin
         FileUtils.mkdir_p(@work_tree)
         @sandbox = true
@@ -721,14 +691,14 @@ module Gitgo
         with_env(
           'GIT_DIR' => grit.path, 
           'GIT_WORK_TREE' => @work_tree,
-          'GIT_INDEX_FILE' => @index_file
+          'GIT_INDEX_FILE' => @work_index
         ) do
           
-          yield(grit.git, @work_tree, @index_file)
+          yield(grit.git, @work_tree, @work_index)
         end
       ensure
         FileUtils.rm_r(@work_tree) if File.exists?(@work_tree)
-        FileUtils.rm(@index_file)  if File.exists?(@index_file)
+        FileUtils.rm(@work_index)  if File.exists?(@work_index)
         @sandbox = false
       end
     end
@@ -752,26 +722,9 @@ module Gitgo
       id = set(:blob, doc.to_s)
 
       add(timestamp(doc.date, id) => [mode, id])
-      each_index(doc) {|path| Index.append(path, id) }
-      invalidate_index_head
-
-      id
-    end
-    
-    # Returns an array of shas for documents indexed by the specified
-    # key-value pair.
-    def index(key, value)
-      idx_file = index_path(key, value)
-      File.exists?(idx_file) ? Index.read(idx_file) : []
-    end
-    
-    # Returns a list of possible values for the specified index key.
-    def list(key=nil)
-      paths = [key].compact
-      start = index_path(*paths).chomp("/").length + 1
+      index.add(doc, id)
       
-      paths << "*"
-      Dir.glob(index_path(*paths)).collect! {|path| path[start..-1] }
+      id
     end
 
     # Gets the document indicated by id, or nil if no such document exists, or
@@ -794,7 +747,7 @@ module Gitgo
       parents.each {|parent| unlink(parent, id) }
       children.each {|child| unlink(id, child) }
       
-      each_index(old_doc) {|path| Index.rm(path, id)}
+      index.rm(old_doc)
       rm timestamp(old_doc.date, id)
 
       id = store(doc)
@@ -826,8 +779,7 @@ module Gitgo
         parents(id).each {|parent| unlink(parent, id) }
       end
       
-      invalidate_index_head
-      each_index(doc) {|path| Index.rm(path, id)}
+      index.rm(doc)
       rm timestamp(doc.date, id)
       
       doc
@@ -851,11 +803,6 @@ module Gitgo
     #
     def cache
       Hash.new {|hash, id| hash[id] = read(id) }
-    end
-    
-    # Returns an array of the shas for all indexed documents.
-    def documents
-      File.exists?(@index_all_file) ? Index.read(@index_all_file) : []
     end
     
     # Yields the sha of each document in the repo, ordered by date (with day
@@ -902,6 +849,25 @@ module Gitgo
         end
       end
       shas
+    end
+    
+    def list(a, b=nil)
+      a, b = "#{a}^", a if b.nil?
+      output = sandbox {|git,w,i| git.diff_tree({:r => true, :name_status => true}, a, b) }
+      
+      adds = []
+      removes = []
+      output.split("\n").each do |line|
+        next unless line =~ /^(\w)\s+\d{4}\/\d{4}\/(.{40})$/
+        
+        case $1
+        when 'A' then adds << $2
+        when 'D' then removes << $2
+        else raise "unexpected diff output:\n#{output}"
+        end
+      end
+      
+      [adds, removes]
     end
     
     # Links the parent and child by adding a reference to the child under the
@@ -1120,24 +1086,12 @@ module Gitgo
     end
     
     # Determines whether the repo needs reindexing.  Returns false if the
-    # index head is the same as current.sha, and true if they differ.
-    #
-    # Nil will be returned if the repo has added or removed documents that
-    # have yet to be committed -- these operations will update the index
-    # so that technically it is up-to-date, but that fact is not reflected
-    # in the index head.
+    # repo head is the same as or behind the index head.
     def reindex?
-      unless File.exists?(@index_head)
-        return(current ? true : false)
-      end
+      return false if head.nil?
       
-      index_head = File.read(@index_head).strip
-      if index_head.empty?
-        return nil
-      end
-      
-      head = current
-      head && index_head != head.sha
+      index_head = index.head
+      index_head.nil? || head != index_head && !rev_list(index_head).include?(head)
     end
     
     # Reindexes documents in the repo.
@@ -1148,54 +1102,19 @@ module Gitgo
     #          rebuilt.
     #
     def reindex(options={})
-      indexes = Hash.new do |hash, path|
-        hash[path] = File.exists?(path) ? Index.read(path) : []
-      end
-      
-      previous = indexes[@index_all_file]
-      current = collect {|sha| sha }
-      
       if options[:full]
-        previous.clear
-        clear_index
+        index.clear
       end
       
-      # adds
-      (current - previous).each do |sha|
-        each_index(read(sha)) {|path| indexes[path] << sha }
-      end
-      
-      # removes
-      (previous - current).each do |sha|
-        each_index(read(sha)) {|path| indexes[path].delete(sha) }
-      end
-      
-      indexes.each_pair do |path, shas|
-        shas.uniq!
-        Index.write(path, shas.join)
-      end
-      
-      if reindex?
-        head = self.current
-        write_index_head(head.sha) if head
+      if head
+        adds, removes = list(head, index.head)
+        adds.each {|sha| index.add read(sha) }
+        removes.each {|sha| index.rm read(sha) }
+        
+        index.write(head)
       end
       
       self
-    end
-    
-    # Clears all index files.
-    def clear_index
-      if File.exists?(@index_head)
-        FileUtils.rm(@index_head)
-      end
-      
-      if File.exists?(@index_all_file)
-        FileUtils.rm(@index_all_file)
-      end
-      
-      Dir.glob(index_path("*")) do |path|
-        FileUtils.rm_r(path)
-      end
     end
     
     protected
@@ -1230,8 +1149,8 @@ module Gitgo
     end
     
     def commit_tree # :nodoc:
-      commit = current
-      commit ? Tree.new(commit.tree) : Tree.new
+      tree = head ? get(:commit, head).tree : nil
+      Tree.new(tree)
     end
     
     # tree format:
@@ -1267,25 +1186,6 @@ module Gitgo
       end
       
       [tree_mode, tree_id]
-    end
-    
-    def write_index_head(value) # :nodoc:
-      dir = File.dirname(@index_head)
-      FileUtils.mkdir_p(dir) unless File.exists?(dir)
-      File.open(@index_head, "w") {|io| io.write(value) }
-    end
-    
-    def invalidate_index_head # :nodoc:
-      write_index_head('')
-    end
-    
-    def each_index(doc) # :nodoc:
-      doc.each_index do |key, value|
-        value = value.to_s
-        yield(index_path(key, value)) unless value.empty?
-      end
-      
-      yield(@index_all_file)
     end
   end
 end
