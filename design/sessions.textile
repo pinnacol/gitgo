@@ -1,0 +1,83 @@
+h1. Making Gitgo Session Friendly
+
+Session friendliness will allow gitgo to be hosted in a public place where multiple people can make changes at once.  The main requirement is that no information is cached in-memory, such that repos can be instantiated per-request with minimal overhead.
+
+This model will allow cookies (or whatever session middleware uses) to hold only small bits of information like the active commit, authentication, etc.  It will require a much more performant/reliable indexing system, and potentially locks on the repo so that multiple people won't make conflicting commits at once.  It will likely also require an addition level of detail to make sure issues are added to the commits a user sees (ie the state of the repo at request time) rather than to the state of the repo itself (which may change during a session).
+
+* users are at the user-ref (ex dev)
+* repos are at the repo-ref (ex gitgo)
+* indexes are at the index-ref (ex abxyz)
+* when a repo is initialized it checks that it is the same as, or behind the index-ref; if not it updates the index-ref
+
+* full documents should never be cached in memory longer than one request
+* indexes must be available to provide all the document index information
+(ex titles, dates, author, tags, state, at, re... *tails*)
+* the index class should have some api so that it can be replaced by something
+other than files
+
+* the parent of a new commit can float (make it the repo-ref where the repo-ref may have advanced, for instance due to cmdline activity. the consequences will be seen upon the next request) -- this is good to avoid unnecessary merges
+* it is meaningful to check that the repo-ref has not changed before a commit
+
+h2. Single User Design (one persistent repo)
+
+* user-ref can be stored in memory
+* repo-ref is stored in memory
+* index-ref locked to repo-ref (because it is managed by the persistent repo)
+* resets are meaningful
+* it is possible to make changes without a commit
+
+h2. Session Design (new repo for EACH request)
+
+* user-ref stored in session
+* repo-ref stored in session
+* index-ref can get ahead of repo-ref (transiently, because repo-ref may advance due to other users making commits)
+* resets are irrelevant (new repo each time)
+* if the ref moves _during_ a request, the repo-ref must stay the same (due to the cached working tree)
+* there must be consistency when index-ref moves ahead of repo-ref during a request
+* changes must be committed immediately
+
+* if there are multiple physical copies of the same repos, they need to use post-commit hooks or something similar to automatically synchronize with one another
+* multiple repos could be accessed via the same server, but then the repo path must be stored in session
+
+h2. Classes
+
+Gitgo::Repo -- for document CRUD, and wrapping of git functionality
+Gitgo::Index -- to manage and query the index (repo.index)
+Gitgo::Index::Io -- to read/write specific index entries
+
+h2. Index
+
+  .gitgo/index/repo-ref (per repo-ref)
+  |- head
+  `- key {author, tags, state, type}
+     `- value
+  
+  [head]
+  sha
+  
+  [value]
+  shashasha
+  # ... packed
+  
+  .gitgo/cache (shared among all potential repo-refs)
+  |- expire (cache expire time)
+  `- ab
+      `- xyz
+         |- attrs (current attributes of doc -- for issue: all tails, merged)
+         `- links (recursive children, as ancestry)
+   
+   [attrs]
+   YAML
+   
+   [links]
+   nmpq(nil)
+   shashashashasha
+   shasha
+   sha
+   # ancestry - first is first, following are children... pack so that
+   # you read bytes telling how many in each line, until nil
+   
+   [expire]
+   shadateshadate
+   # pack... then from time to time, run through and merge to get
+   # latest expire date, remove expired, reset expire file
