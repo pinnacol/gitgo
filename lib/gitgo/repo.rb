@@ -447,7 +447,7 @@ module Gitgo
       
       @head = set('commit', lines.join("\n"))
       grit.update_ref(branch, head)
-      reindex
+      index.write(head)
       
       head
     end

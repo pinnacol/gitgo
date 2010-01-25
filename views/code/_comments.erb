@@ -33,6 +33,6 @@
     </ul>
   </dd>
   </dl><% if comment[:tail] %>
-<%= erb(:_comment_form, :locals => {:obj => comment['re'], :parent => comment.sha}, :layout => false) %><% end %>
+<%= erb(:_comment_form, :locals => {:sha => comment['re'], :parent => comment.sha}, :layout => false) %><% end %>
   </li><% end %><% end %>
   </ul>

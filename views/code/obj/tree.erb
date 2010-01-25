@@ -1,6 +1,6 @@
-<h2>Tree <%= id %></h2>
+<h2>Tree <%= sha %></h2>
 <div class="tree">
   <ul class="contents"><% obj.contents.each do |content| %>
     <li class="<%= content.kind_of?(Grit::Blob) ? 'blob' : 'tree' %>"><%= show_link(content) %></li><% end %>
   </ul>
-</div><%= render_comments(id) %>
+</div><%= render_comments(sha) %>

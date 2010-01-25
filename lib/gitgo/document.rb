@@ -92,7 +92,7 @@ module Gitgo
     #
     def initialize(attrs={}, content=nil, sha=nil)
       @attributes = attrs
-      @attributes.delete_if {|key, value| empty?(value) }
+      @attributes.delete_if {|key, value| blank?(value) }
       
       self[AUTHOR] = attrs[AUTHOR]
       self[DATE]   = attrs[DATE]
@@ -125,7 +125,7 @@ module Gitgo
       else value
       end
       
-      if empty?(value)
+      if blank?(value)
         attributes.delete(key)
       else
         attributes[key] = value
@@ -207,6 +207,11 @@ module Gitgo
       diff
     end
     
+    # Returns true if the document has no content.
+    def empty?
+      blank?(content)
+    end
+    
     # Serializes self into a string according to the document format.
     def to_s
       attrs = attributes.merge(
@@ -219,7 +224,7 @@ module Gitgo
     
     protected
     
-    def empty?(value) # :nodoc:
+    def blank?(value) # :nodoc:
       value.nil? || (value.respond_to?(:empty?) && value.empty?)
     end
     

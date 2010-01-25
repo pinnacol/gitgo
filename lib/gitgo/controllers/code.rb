@@ -5,18 +5,18 @@ module Gitgo
     class Code < Controller
       set :views, File.expand_path("views/code", ROOT)
       
-      get("/code")            { index }
+      get('/code')            { index }
       get('/blob')            { blob_grep }
       get('/tree')            { tree_grep }
       get('/commit')          { commit_grep }
 
-      get('/blob/:commit/*')  {|commit, path| show_blob(commit, path) }
-      get('/tree/:commit')    {|commit| show_tree(commit) }
-      get('/tree/:commit/*')  {|commit, path| show_tree(commit, path) }
-      get('/commit/:commit')  {|commit| show_commit(commit) }
+      get('/blob/:treeish/*')  {|treeish, path| show_blob(treeish, path) }
+      get('/tree/:treeish')    {|treeish| show_tree(treeish, '') }
+      get('/tree/:treeish/*')  {|treeish, path| show_tree(treeish, path) }
+      get('/commit/:treeish')  {|treeish| show_commit(treeish) }
 
-      get('/obj/:sha')        {|sha| show_object(sha) }
-      get("/commits/:commit") {|commit| show_commits(commit) }
+      get('/obj/:sha')         {|sha| show_object(sha) }
+      get('/commits/:treeish') {|treeish| show_commits(treeish) }
       
       post('/comments/:obj')            {|obj| create(obj) }
       post('/comments/:obj/:comment') do |obj, comment|
@@ -43,15 +43,14 @@ module Gitgo
 
       def blob_grep
         options = {
-          :ignore_case => set?("ignore_case"),
-          :invert_match => set?("invert_match"),
-          :fixed_strings => set?("fixed_strings"),
-          :e => request["pattern"]
+          :ignore_case   => request['ignore_case'] == 'true',
+          :invert_match  => request['invert_match'] == 'true',
+          :fixed_strings => request['fixed_strings'] == 'true',
+          :e => request['pattern']
         }
 
-        id = request["at"] || head.commit
-        unless commit = self.commit(id)
-          raise "unknown commit: #{id}"
+        unless commit = grit.commit(request['at']) || grit.head.commit
+          raise "unknown commit: #{request['at']}"
         end
 
         selected = []
@@ -72,27 +71,24 @@ module Gitgo
 
         erb :grep, :locals => options.merge(
           :type => 'blob',
-          :at => id,
+          :at => commit.sha,
           :selected => selected
         )
       end
 
       def tree_grep
         options = {
-          :ignore_case => set?("ignore_case"),
-          :invert_match => set?("invert_match"),
-          :fixed_strings => set?("fixed_strings"),
+          :ignore_case   => request['ignore_case'] == 'true',
+          :invert_match  => request['invert_match'] == 'true',
+          :fixed_strings => request['fixed_strings'] == 'true',
         }
 
-        id = request["at"] || head.commit
-        unless commit = self.commit(id)
-          raise "unknown commit: #{id}"
+        unless commit = grit.commit(request['at']) || grit.head.commit
+          raise "unknown commit: #{request['at']}"
         end
 
-        pattern = request["pattern"]
         selected = []
-
-        unless pattern.nil?
+        if pattern = request['pattern']
           repo.sandbox do |git, work_tree, index_file|
             postfix = pattern.empty? ? '' : begin
               grep_options = git.transform_options(options)
@@ -108,7 +104,7 @@ module Gitgo
 
         erb :grep, :locals => options.merge(
           :type => 'tree',
-          :at => id,
+          :at => commit.sha,
           :selected => selected,
           :e => pattern
         )
@@ -116,16 +112,16 @@ module Gitgo
 
       def commit_grep
         patterns = {
-          :author => params['author'],
-          :committer => params['committer'],
-          :grep => params['grep']
+          :author => request['author'],
+          :committer => request['committer'],
+          :grep => request['grep']
         }
 
         filters = {
-          :regexp_ignore_case => set?("regexp_ignore_case"),
-          :fixed_strings => set?("fixed_strings"),
-          :max_count => params['max_count'] || '10',
-          :all_match => set?("all_match")
+          :regexp_ignore_case => request['regexp_ignore_case'] == 'true',
+          :fixed_strings => request['fixed_strings'] == 'true',
+          :all_match => request['all_match'] == 'true',
+          :max_count => request['max_count'] || '10'
         }
 
         options = {}
@@ -151,60 +147,60 @@ module Gitgo
         erb :commit_grep, :locals => locals
       end
 
-      def show_commit(id)
-        commit = self.commit(id) || not_found
-        erb :diff, :locals => {:commit => commit}
+      def show_blob(treeish, path)
+        commit = grit.commit(treeish) || not_found
+        blob = commit.tree / path || not_found
+
+        erb :blob, :locals => {:commit => commit, :treeish => treeish, :blob => blob, :path => path}
       end
 
-      def show_tree(id, path="")
-        commit = self.commit(id) || not_found
+      def show_tree(treeish, path)
+        commit = grit.commit(treeish) || not_found
         tree = path.split("/").inject(commit.tree) do |obj, name|
           not_found if obj.nil?
           obj.trees.find {|obj| obj.name == name }
         end
 
-        erb :tree, :locals => {:commit => commit, :id => id, :tree => tree, :path => path}
+        erb :tree, :locals => {:commit => commit, :treeish => treeish, :tree => tree, :path => path}
       end
-
-      def show_blob(id, path)
-        commit = self.commit(id)  || not_found
-        blob = commit.tree / path || not_found
-
-        erb :blob, :locals => {:commit => commit, :id => id, :blob => blob, :path => path}
+      
+      def show_commit(treeish)
+        commit = grit.commit(treeish) || not_found
+        erb :diff, :locals => {:commit => commit, :treeish => treeish}
       end
-
-      def show_object(id)
+      
+      def show_object(sha)
         case
-        when set?('content')
-          response['Content-Type'] = "text/plain"
-          grit.git.cat_file({:p => true}, id)
+        when request['content'] == 'true'
+          response['Content-Type'] = 'text/plain'
+          grit.git.cat_file({:p => true}, sha)
 
-        when set?('download')
-          response['Content-Type'] = "text/plain"
-          response['Content-Disposition'] = "attachment; filename=#{id};"
-          raw_object = grit.git.ruby_git.get_raw_object_by_sha1(id)
+        when request['download'] == 'true'
+          response['Content-Type'] = 'text/plain'
+          response['Content-Disposition'] = "attachment; filename=#{sha};"
+          raw_object = grit.git.ruby_git.get_raw_object_by_sha1(sha)
           "%s %d\0" % [raw_object.type, raw_object.content.length] + raw_object.content
 
         else
-          type = repo.type(id)
+          type = repo.type(sha)
           obj = case type
           when 'blob', 'tree', 'commit' # tag
-            grit.send(type, id)
+            grit.send(type, sha)
           else
             not_found
           end
           
-          erb type.to_sym, :locals => {:id => id, :obj => obj}, :views => path('views/code/obj')
+          erb type.to_sym, :locals => {:sha => sha, :obj => obj}, :views => path('views/code/obj')
         end
       end
       
-      def show_commits(id)
-        commit = self.commit(id)
+      def show_commits(treeish)
+        commit = grit.commit(treeish)
         page = (request[:page] || 0).to_i
         per_page = (request[:per_page] || 10).to_i
 
         erb :commits, :locals => {
-          :id => id,
+          :treeish => treeish,
           :page => page,
           :per_page => per_page,
           :commits => grit.commits(commit.sha, per_page, page * per_page)
@@ -222,12 +218,12 @@ module Gitgo
         
         # create the new comment
         doc = document('type' => 'comment', 're' => obj)
-        raise "no content specified" if empty?(doc.content)
+        raise 'no content specified' if doc.empty?
         
         comment = repo.store(doc)
         repo.link(parent, comment)
         
-        repo.commit("comment #{comment} re #{obj}") if commit?
+        repo.commit("comment #{comment} re #{obj}") if request['commit'] == 'true'
         redirect_to(comment)
       end
     
@@ -236,7 +232,7 @@ module Gitgo
         
         # update the comment
         doc = document('type' => 'comment', 're' => obj)
-        raise "no content specified" if empty?(doc.content)
+        raise 'no content specified' if doc.empty?
         
         new_comment = repo.store(doc)
         
@@ -258,7 +254,7 @@ module Gitgo
         # remove the current comment
         repo.destroy(comment, false)
         
-        repo.commit("update #{comment} with #{new_comment}") if commit?
+        repo.commit("update #{comment} with #{new_comment}") if request['commit'] == 'true'
         redirect_to(new_comment)
       end
     
@@ -285,7 +281,7 @@ module Gitgo
         # remove the comment
         repo.destroy(comment, false)
         
-        repo.commit("remove #{comment}") if commit?
+        repo.commit("remove #{comment}") if request['commit'] == 'true'
         redirect_to(obj)
       end
       
@@ -305,16 +301,6 @@ module Gitgo
       
       def redirect_to(sha)
         redirect(request['redirect'] || "obj/#{sha}")
-      end
-      
-      def render_comments(id)
-        comments = repo.comments(id, docs)
-         
-        if comments.empty?
-          erb(:_comment_form, :locals => {:obj => id, :parent => nil}, :layout => false)
-        else
-          erb(:_comments, :locals => {:obj => id, :comments => comments}, :layout => false)
-        end
       end
     end
   end

@@ -14,8 +14,8 @@
   <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= fixed_strings ? 'checked="true" ' : '' %>/></dd>
   <dt><label for="at">At</label></dt>
   <dd>
-    <select id="at" name="at"><% refs.each do |ref| %>
-    <option <%= at == ref.commit.id ? 'selected="true" ' : ''%>value="<%= ref.commit %>"><%= ref.name %></option><% end %>
+    <select id="at" name="at"><% grit.refs.each do |ref| %>
+    <option <%= selected?(at == ref.commit.id) %> value="<%= ref.commit %>"><%= ref.name %></option><% end %>
     </select>
   </dd>
   <dt><input type="submit" value="Grep" /></dt>

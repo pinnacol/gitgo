@@ -190,7 +190,7 @@ namespace :test do
   end
   
   task :controllers => :bundle do
-    run_tests ["test/gitgo/controller_test.rb"]
+    run_tests Dir.glob("test/gitgo/controllers/code_test.rb") + ["test/gitgo/controller_test.rb"]
   end
   
   desc 'Run data model tests'

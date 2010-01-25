@@ -1,6 +1,8 @@
 require 'erb'
 require 'sinatra/base'
 require 'gitgo/repo'
+require 'gitgo/helpers'
+require 'gitgo/helpers/links'
 
 module Gitgo
   # The expanded path to the Gitgo root directory, used for resolving paths to
@@ -9,7 +11,7 @@ module Gitgo
   
   class Controller < Sinatra::Base
     set :root, ROOT
-    set :raise_errors, false
+    set :raise_errors, true
     set :dump_errors, true
     
     template(:layout) do 
@@ -27,9 +29,8 @@ module Gitgo
       erb :error, :views => path("views"), :locals => {:err => err, :resetable => resetable}
     end
     
-    #
-    # actions
-    #
+    include Helpers
+    include Helpers::Links
     
     # The standard document content parameter
     CONTENT = 'content'
@@ -51,14 +52,14 @@ module Gitgo
       @repo ||= request.env['gitgo.repo']
     end
     
-    # Convenience method; memoizes and returns the repo author.
-    def author
-      @author ||= repo.author
-    end
-    
     # Convenience method; memoizes and returns the repo grit object.
     def grit
       @grit ||= repo.grit
+    end
+    
+    # Convenience method; memoizes and returns the repo author.
+    def author
+      @author ||= repo.author
     end
     
     # Convenience method; memoizes and returns the repo cache.
@@ -66,26 +67,8 @@ module Gitgo
       @cache ||= repo.cache
     end
     
-    # Currently returns the path directly.  Provided as a hook for future use.
-    def url(path="/")
-      path
-    end
-    
-    # Returns the path expanded relative to the Gitgo::ROOT directory.  Paths
-    # often need to be expanded like this so that they will be correct when
-    # Gitgo is running as a gem.
-    def path(path)
-      File.expand_path(path, ROOT)
-    end
-    
-    # Returns true if the key is 'true' in the request parameters.
-    def set?(key)
-      request[key].to_s == 'true'
-    end
-    
-    # Returns true if the object is nil, or as a stripped string is empty.
-    def empty?(obj)
-      obj.nil? || obj.to_s.strip.empty?
+    def admin?
+      false
     end
     
     # Parses and returns the document specified in the request, according to
@@ -103,6 +86,39 @@ module Gitgo
       
       attrs.merge!(overrides) if overrides
       Document.new(attrs, request[CONTENT])
+    end
+    
+    # Returns the path expanded relative to the Gitgo::ROOT directory.  Paths
+    # often need to be expanded like this so that they will be correct when
+    # Gitgo is running as a gem.
+    def path(path)
+      File.expand_path(path, ROOT)
+    end
+    
+    # Renders template as erb, then formats using RedCloth.
+    def textile(template, options={}, locals={})
+      require_warn('RedCloth') unless defined?(::RedCloth)
+      
+      # extract generic options
+      layout = options.delete(:layout)
+      layout = :layout if layout.nil? || layout == true
+      views = options.delete(:views) || self.class.views || "./views"
+      locals = options.delete(:locals) || locals || {}
+
+      # render template
+      data, options[:filename], options[:line] = lookup_template(:textile, template, views)
+      output = render_erb(template, data, options, locals)
+      output = ::RedCloth.new(output).to_html
+      
+      # render layout
+      if layout
+        data, options[:filename], options[:line] = lookup_layout(:erb, layout, views)
+        if data
+          output = render_erb(layout, data, options, locals) { output }
+        end
+      end
+
+      output
     end
   end
 end

@@ -5,17 +5,13 @@ class CodeTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   
+  attr_reader :app
   attr_reader :repo
   
   def setup
     super
     @repo = Gitgo::Repo.new(setup_repo("simple.git"))
-    app.set :repo, @repo
-    app.instance_variable_set :@prototype, nil
-  end
-  
-  def app
-    Gitgo::Controllers::Code
+    @app = Gitgo::Controllers::Code.new(nil, repo)
   end
   
   #
@@ -37,7 +33,7 @@ class CodeTest < Test::Unit::TestCase
 
     # by tag
     get("/blob/only-123/one/two/three.txt")
-    assert last_response.body.include?('449b5502e8dc49264d862b4fc0c01ba115fc9f82')
+    assert last_response.body.include?('d0ad2534e98f0a2b9573af0355d7371468eb77f1')
     assert last_response.body.include?('removed files a, b, and c')
     assert last_response.body.include?('Contents of file three.')
   end
@@ -85,7 +81,7 @@ class CodeTest < Test::Unit::TestCase
 
     # by tag
     get("/tree/only-123/one/two")
-    assert last_response.body.include?('449b5502e8dc49264d862b4fc0c01ba115fc9f82')
+    assert last_response.body.include?('d0ad2534e98f0a2b9573af0355d7371468eb77f1')
     assert last_response.body.include?('removed files a, b, and c')
     %w{
       /blob/only-123/one/two/three.txt
@@ -148,7 +144,7 @@ class CodeTest < Test::Unit::TestCase
       assert last_response.body.include?("warning the version of git on the server is insufficient for this action")
     end
   end
-
+ 
   #
   # obj test
   #
@@ -157,7 +153,7 @@ class CodeTest < Test::Unit::TestCase
     # blob
     get("/obj/c9036dc2e34776218519a95470bd1dce1b47ac9a")
     assert last_response.body.include?('c9036dc2e34776218519a95470bd1dce1b47ac9a')
-    assert last_response.body.include?('Contents of file x.'), last_response.body
+    assert last_response.body.include?('Contents of file x.')
 
     # tree
     get("/obj/42dd6245f1dfd6f5c4fcbe62bb86b79d89f539cc")
@@ -282,15 +278,13 @@ tag of project with one, two, three only
     assert last_response.redirect?
     a = File.basename(last_response['Location'])
     
-    post("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "comment b", "commit" => "true")
-    assert !last_response.ok?
-    assert last_response.body.include?("invalid parent for comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}")
+    err = assert_raises(RuntimeError) { post("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "comment b", "commit" => "true") }
+    assert_equal "invalid parent for comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}", err.message
   end
   
   def test_post_raises_error_for_no_content
-    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "commit" => "true")
-    assert !last_response.ok?
-    assert last_response.body.include?("no content specified")
+    err = assert_raises(RuntimeError) { post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "commit" => "true") }
+    assert_equal "no content specified", err.message
   end
   
   #
@@ -328,36 +322,32 @@ tag of project with one, two, three only
   end
   
   def test_put_validates_it_is_updating_a_comment_on_the_obj
-    put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/d0ad2534e98f0a2b9573af0355d7371468eb77f1", "content" => "update", "commit" => "true")
-    assert !last_response.ok?
-    assert last_response.body.include?("unknown comment: d0ad2534e98f0a2b9573af0355d7371468eb77f1")
+    err = assert_raises(RuntimeError) { put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/d0ad2534e98f0a2b9573af0355d7371468eb77f1", "content" => "update", "commit" => "true") }
+    assert_equal "unknown comment: d0ad2534e98f0a2b9573af0355d7371468eb77f1", err.message
     
     a = new_comment("comment a")
-    put("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "update", "commit" => "true")
-    assert !last_response.ok?
-    assert last_response.body.include?("not a comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}"), last_response.body
+    err = assert_raises(RuntimeError) { put("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "update", "commit" => "true") }
+    assert_equal "not a comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}", err.message
     
     b = repo.create("not a comment")
-    put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "content" => "update", "commit" => "true")
-    assert !last_response.ok?
-    assert last_response.body.include?("not a comment: #{b}")
+    err = assert_raises(RuntimeError) { put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "content" => "update", "commit" => "true") }
+    assert_equal "not a comment: #{b}", err.message
   end
   
   def test_put_deletes_old_comment
     a = new_comment("comment a")
-    assert_equal true, repo.documents.include?(a)
+    assert_equal true, repo.index.all.include?(a)
     
     put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "content" => "update", "commit" => "true")
-    assert last_response.redirect?, last_response.body
+    assert last_response.redirect?
     
-    assert_equal false, repo.documents.include?(a)
+    assert_equal false, repo.index.all.include?(a)
   end
   
   def test_put_raises_error_for_no_content
     a = new_comment("comment a")
-    put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "commit" => "true")
-    assert !last_response.ok?
-    assert last_response.body.include?("no content specified")
+    err = assert_raises(RuntimeError) { put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "commit" => "true") }
+    assert_equal "no content specified", err.message
   end
   
   #
@@ -379,18 +369,15 @@ tag of project with one, two, three only
   end
   
   def test_destroy_validates_it_is_destroying_a_comment_on_the_obj
-    delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/d0ad2534e98f0a2b9573af0355d7371468eb77f1", "content" => "update", "commit" => "true")
-    assert !last_response.ok?
-    assert last_response.body.include?("unknown comment: d0ad2534e98f0a2b9573af0355d7371468eb77f1")
+    err = assert_raises(RuntimeError) { delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/d0ad2534e98f0a2b9573af0355d7371468eb77f1", "content" => "update", "commit" => "true") }
+    assert_equal "unknown comment: d0ad2534e98f0a2b9573af0355d7371468eb77f1", err.message
     
     a = new_comment("comment a")
-    delete("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "update", "commit" => "true")
-    assert !last_response.ok?
-    assert last_response.body.include?("not a comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}"), last_response.body
+    err = assert_raises(RuntimeError) { delete("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "update", "commit" => "true") }
+    assert_equal "not a comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}", err.message
     
     b = repo.create("not a comment")
-    delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "content" => "update", "commit" => "true")
-    assert !last_response.ok?
-    assert last_response.body.include?("not a comment: #{b}")
+    err = assert_raises(RuntimeError) { delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "content" => "update", "commit" => "true") }
+    assert_equal "not a comment: #{b}", err.message
   end
 end

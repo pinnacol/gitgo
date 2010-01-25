@@ -223,11 +223,6 @@ module Gitgo
         self.to_hash == another.to_hash
       end
       
-      # Inspects self as a hash.
-      def inspect
-        to_hash.inspect
-      end
-      
       protected
       
       # returns or initializes the internal working tree (index)
