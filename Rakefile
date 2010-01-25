@@ -189,6 +189,10 @@ namespace :test do
     run_tests Dir.glob("test/gitgo/index/*_test.rb") + ["test/gitgo/index_test.rb"]
   end
   
+  task :controllers => :bundle do
+    run_tests ["test/gitgo/controller_test.rb"]
+  end
+  
   desc 'Run data model tests'
   task :model => :bundle do
     pattern = ENV['PATTERN'] || "**/*_test.rb"
