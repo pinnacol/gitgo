@@ -78,22 +78,12 @@ module Gitgo
       sha.nil? || active_shas.include?(sha)
     end
     
-    def admin?
-      false
-    end
-    
     # Parses and returns the document specified in the request, according to
     # the ATTRIBUTES and CONTENT parameters.
     def document(overrides=nil)
       attrs = request[ATTRIBUTES] || {}
-      
-      if admin?
-        attrs['author'] ||= author
-        attrs['date'] ||= Time.now
-      else
-        attrs['author'] = author
-        attrs['date'] = Time.now
-      end
+      attrs['author'] ||= author
+      attrs['date'] ||= Time.now
       
       attrs.merge!(overrides) if overrides
       Document.new(attrs, request[CONTENT])

@@ -851,7 +851,7 @@ module Gitgo
       shas
     end
     
-    def list(a, b=nil)
+    def changes(a, b=nil)
       a, b = "#{a}^", a if b.nil?
       output = sandbox {|git,w,i| git.diff_tree({:r => true, :name_status => true}, a, b) }
       
@@ -1099,7 +1099,7 @@ module Gitgo
       return self unless head
       
       if index.head
-        adds, removes = list(head, index.head)
+        adds, removes = changes(head, index.head)
         adds.each {|sha| index.add read(sha) }
         removes.each {|sha| index.rm read(sha) }
       else

@@ -39,12 +39,6 @@ h2. Session Design (new repo for EACH request)
 * if there are multiple physical copies of the same repos, they need to use post-commit hooks or something similar to automatically synchronize with one another
 * multiple repos could be accessed via the same server, but then the repo path must be stored in session
 
-h2. Classes
-
-Gitgo::Repo -- for document CRUD, and wrapping of git functionality
-Gitgo::Index -- to manage and query the index (repo.index)
-Gitgo::Index::Io -- to read/write specific index entries
-
 h2. Index
 
   .gitgo/index/repo-ref (per repo-ref)

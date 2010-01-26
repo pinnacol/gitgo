@@ -8,17 +8,12 @@ class IssuesBenchmark < Test::Unit::TestCase
   acts_as_subset_test
   
   attr_reader :repo
+  attr_reader :app
   
   def setup
     super
     @repo = Gitgo::Repo.init(method_root[:tmp], :bare => true)
-    app.set :repo, @repo
-    app.set :secret, "123"
-    app.instance_variable_set :@prototype, nil
-  end
-  
-  def app
-    Gitgo::Controllers::Issue
+    @app = Gitgo::Controllers::Issue.new(nil, repo)
   end
   
   def tick(n=100)
@@ -80,7 +75,6 @@ class IssuesBenchmark < Test::Unit::TestCase
       post("/issue", 
         "doc[title]" => "issue #{i}", 
         "doc[date]" => now.to_i,
-        "secret" => 123,
         "commit" => "true")
       
       assert last_response.redirect?
@@ -97,7 +91,6 @@ class IssuesBenchmark < Test::Unit::TestCase
       post("/issue", 
         "doc[title]" => "issue #{i}", 
         "doc[date]" => now.to_i,
-        "secret" => 123,
         "commit" => "true")
         
       assert last_response.redirect?
@@ -118,7 +111,6 @@ class IssuesBenchmark < Test::Unit::TestCase
     post("/issue", 
       "doc[title]" => "issue", 
       "doc[date]" => now.to_i,
-      "secret" => 123,
       "commit" => "true")
     
     assert last_response.redirect?
@@ -132,7 +124,6 @@ class IssuesBenchmark < Test::Unit::TestCase
         "content" => "comment #{i}",
         "re[]" => previous,
         "doc[date]" => now.to_i,
-        "secret" => 123,
         "commit" => "true")
       
       assert last_response.redirect?, last_response.body
@@ -148,7 +139,6 @@ class IssuesBenchmark < Test::Unit::TestCase
     post("/issue", 
       "doc[title]" => "issue", 
       "doc[date]" => now.to_i,
-      "secret" => 123,
       "commit" => "true")
     
     assert last_response.redirect?
@@ -162,7 +152,6 @@ class IssuesBenchmark < Test::Unit::TestCase
         "content" => "comment #{i}",
         "re[]" => previous,
         "doc[date]" => now.to_i,
-        "secret" => 123,
         "commit" => "true")
       
       assert last_response.redirect?, last_response.body
@@ -198,7 +187,6 @@ class IssuesBenchmark < Test::Unit::TestCase
           post("/issue", 
             "doc[title]" => "issue #{n*m + i}", 
             "doc[date]" => now.to_i,
-            "secret" => 123,
             "commit" => "true")
 
           assert last_response.redirect?
