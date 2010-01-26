@@ -1095,25 +1095,18 @@ module Gitgo
     end
     
     # Reindexes documents in the repo.
-    #
-    # Options (specify using symbols):
-    #
-    #   full:: When specified, the current index is cleared and completely
-    #          rebuilt.
-    #
-    def reindex(options={})
-      if options[:full]
-        index.clear
-      end
+    def reindex
+      return self unless head
       
-      if head
+      if index.head
         adds, removes = list(head, index.head)
         adds.each {|sha| index.add read(sha) }
         removes.each {|sha| index.rm read(sha) }
-        
-        index.write(head)
+      else
+        each {|sha| index.add read(sha) }
       end
       
+      index.write(head)
       self
     end
     

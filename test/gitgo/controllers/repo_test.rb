@@ -5,17 +5,13 @@ class RepoControllerTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   
+  attr_reader :app
   attr_reader :repo
   
   def setup
     super
     @repo = Gitgo::Repo.new(setup_repo("simple.git"))
-    app.set :repo, @repo
-    app.instance_variable_set :@prototype, nil
-  end
-  
-  def app
-    Gitgo::Controllers::Repo
+    @app = Gitgo::Controllers::Repo.new(nil, repo)
   end
   
   #
@@ -36,7 +32,7 @@ class RepoControllerTest < Test::Unit::TestCase
     
     get("/repo/status")
     assert last_response.ok?
-    assert last_response.body =~ /class="add">alpha\.txt.*#{content['alpha.txt'][1]}/, last_response.body
+    assert last_response.body =~ /class="add">alpha\.txt.*#{content['alpha.txt'][1]}/
     assert last_response.body =~ /class="rm">one\/two\.txt.*#{content['one/two.txt'][1]}/
   end
   
@@ -54,7 +50,7 @@ class RepoControllerTest < Test::Unit::TestCase
     
     gitgo = repo.grit.refs.find {|ref| ref.name == 'gitgo' }
     assert_equal 'initial commit', gitgo.commit.message
-    assert_equal gitgo.commit.sha, repo.current.sha
+    assert_equal gitgo.commit.sha, repo.head
   end
   
   def test_setup_sets_up_tracking_of_specified_remote
@@ -69,16 +65,14 @@ class RepoControllerTest < Test::Unit::TestCase
     gitgo = repo.grit.refs.find {|ref| ref.name == 'gitgo' }
     
     assert_equal gitgo.commit.sha, caps.commit.sha
-    assert_equal gitgo.commit.sha, repo.current.sha
+    assert_equal gitgo.commit.sha, repo.head
   end
   
   def test_remote_tracking_setup_reindexes_repo
     repo.checkout('remote')
     sha = repo.create("initialized gitgo", 'tags' => ['tag'])
     repo.commit!("initial commit")
-    
     repo.checkout('gitgo')
-    repo.clear_index
     
     post("/repo/setup", :remote => 'remote')
     assert last_response.redirect?
@@ -86,7 +80,7 @@ class RepoControllerTest < Test::Unit::TestCase
     
     get("/repo/idx/tags/tag")
     assert last_response.ok?
-    assert last_response.body.include?(sha), last_response.body
+    assert last_response.body.include?(sha)
   end
   
   #
@@ -177,8 +171,7 @@ class RepoControllerTest < Test::Unit::TestCase
     clone.commit("added document")
     
     #
-    app.set :repo, clone
-    app.instance_variable_set :@prototype, nil
+    app.repo = clone
     
     assert_equal "one document", repo.read(one).content
     assert_equal "two document", repo.read(two).content
@@ -217,8 +210,7 @@ class RepoControllerTest < Test::Unit::TestCase
     clone.commit("added document")
     
     #
-    app.set :repo, clone
-    app.instance_variable_set :@prototype, nil
+    app.repo = clone
     
     assert_equal "one document", repo.read(one).content
     assert_equal "two document", repo.read(two).content
@@ -248,12 +240,13 @@ class RepoControllerTest < Test::Unit::TestCase
   def test_reindex_clears_index_and_performs_full_reindex
     sha = repo.create("document", "tags" => ["a", "b"])
     repo.commit!("added document")
+    repo.index.reset
     
-    b_index = repo.index_path("tags", "b")
+    b_index = repo.index.path("tags", "b")
     FileUtils.rm(b_index)
     
-    fake_index = repo.index_path("tags", "c")
-    Gitgo::Repo::Index.write(fake_index, sha)
+    fake_index = repo.index.path("tags", "c")
+    Gitgo::Index::IndexFile.write(fake_index, sha)
     
     get("/repo/idx/tags/a")
     assert last_response.ok?
@@ -289,12 +282,13 @@ class RepoControllerTest < Test::Unit::TestCase
   def test_reset_clears_index_and_performs_full_reindex
     sha = repo.create("document", "tags" => ["a", "b"])
     repo.commit!("added document")
+    repo.index.reset
     
-    b_index = repo.index_path("tags", "b")
+    b_index = repo.index.path("tags", "b")
     FileUtils.rm(b_index)
     
-    fake_index = repo.index_path("tags", "c")
-    Gitgo::Repo::Index.write(fake_index, sha)
+    fake_index = repo.index.path("tags", "c")
+    Gitgo::Index::IndexFile.write(fake_index, sha)
     
     get("/repo/idx/tags/a")
     assert last_response.ok?

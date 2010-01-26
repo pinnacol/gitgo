@@ -38,6 +38,8 @@ module Gitgo
     # The standard document attributes parameter
     ATTRIBUTES = 'doc'
     
+    attr_writer :repo
+    
     # Initializes a new instance of self.  The repo may also be specified as a
     # a testing convenience; normally the repo is set in the request
     # environment by upstream middleware.
@@ -65,6 +67,10 @@ module Gitgo
     # Convenience method; memoizes and returns the repo cache.
     def cache
       @cache ||= repo.cache
+    end
+    
+    def active_commit
+      @active_commit ||= request.env['gitgo.at'] || grit.head.commit
     end
     
     def admin?
