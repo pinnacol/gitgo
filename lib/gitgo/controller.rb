@@ -2,7 +2,6 @@ require 'erb'
 require 'sinatra/base'
 require 'gitgo/repo'
 require 'gitgo/helpers'
-require 'gitgo/helpers/links'
 
 module Gitgo
   # The expanded path to the Gitgo root directory, used for resolving paths to
@@ -30,8 +29,7 @@ module Gitgo
     end
     
     include Helpers
-    include Helpers::Links
-    
+
     # The standard document content parameter
     CONTENT = 'content'
     

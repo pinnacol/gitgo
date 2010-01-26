@@ -23,7 +23,7 @@
   case doc['type']
   when 'comment'  then obj_link(doc['re'])
   when 'issue'    then issue_link(doc)
-  when 'update'   then "#{issue_link(docs[doc['re']])} (state: #{doc['state']})"
+  when 'update'   then "#{issue_link(cache[doc['re']])} (state: #{doc['state']})"
   else "Added #{sha_link doc.sha}"
   end %></li><% if type = doc['type'] %>
   <li><%= type %></li><% end %>

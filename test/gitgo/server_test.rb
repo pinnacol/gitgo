@@ -5,17 +5,19 @@ class ServerTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   
+  attr_reader :app
   attr_reader :repo
+  attr_reader :server
   
   def setup
     super
     @repo = Gitgo::Repo.new(setup_repo("simple.git"))
-    app.set :repo, @repo
-    app.instance_variable_set :@prototype, nil
-  end
-  
-  def app
-    Gitgo::Server
+    @server = Gitgo::Server.new
+    
+    @app = lambda do |env|
+      env['gitgo.repo'] = repo
+      server.call(env)
+    end
   end
   
   #
@@ -23,19 +25,25 @@ class ServerTest < Test::Unit::TestCase
   #
   
   def test_invalidated_repo_errors_provide_opportunity_to_reset_repo
-    repo.create("content")
-    repo.commit("new commit")
+    server.options.set(:raise_errors, false)
     
-    get("/")
-    assert last_response.ok?
+    begin
+      repo.create("content")
+      repo.commit("new commit")
     
-    repo.sandbox {|git,w,i| git.gc }
+      get("/")
+      assert last_response.ok?
     
-    get("/")
-    assert !last_response.ok?
-    assert last_response.body.include?('Errno::ENOENT')
-    assert last_response.body =~ /No such file or directory - .*idx/
-    assert last_response.body.include?('Reset')
+      repo.sandbox {|git,w,i| git.gc }
+    
+      get("/")
+      assert !last_response.ok?
+      assert last_response.body.include?('Errno::ENOENT')
+      assert last_response.body =~ /No such file or directory - .*idx/
+      assert last_response.body.include?('Reset')
+    ensure
+      server.options.set(:raise_errors, true)
+    end
   end
   
   #
@@ -43,14 +51,14 @@ class ServerTest < Test::Unit::TestCase
   #
   
   def test_index_provides_link_to_repo_page_the_repo_branch_doesnt_exist
-    assert_equal true, repo.current.nil?
+    assert_equal true, repo.head.nil?
     
     get("/")
     assert last_response.ok? 
     assert last_response.body.include?("setup a #{repo.branch} branch")
     
     post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
-    assert_equal false, repo.current.nil?
+    assert_equal false, repo.head.nil?
     
     get("/")
     assert last_response.ok? 

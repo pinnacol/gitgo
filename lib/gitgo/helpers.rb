@@ -1,9 +1,11 @@
 require 'redcloth'
 require 'rack/utils'
+require 'gitgo/helpers/links'
 
 module Gitgo
   module Helpers
     include Rack::Utils
+    include Links
     
     # Returns a title for pages served from this controller; either the
     # capitalized resource name or the class basename.
