@@ -5,7 +5,7 @@ require 'gitgo/controllers/repo'
 require 'gitgo/controllers/wiki'
 
 module Gitgo
-  class Server < Controller
+  class App < Controller
     set :views, File.expand_path("views/server", ROOT)
     set :static, true
     

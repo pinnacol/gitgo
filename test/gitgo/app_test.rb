@@ -1,7 +1,7 @@
 require File.dirname(__FILE__) + "/../test_helper"
-require 'gitgo/server'
+require 'gitgo/app'
 
-class ServerTest < Test::Unit::TestCase
+class AppTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   
@@ -12,7 +12,7 @@ class ServerTest < Test::Unit::TestCase
   def setup
     super
     @repo = Gitgo::Repo.new(setup_repo("simple.git"))
-    @server = Gitgo::Server.new
+    @server = Gitgo::App.new
     
     @app = lambda do |env|
       env['gitgo.repo'] = repo
