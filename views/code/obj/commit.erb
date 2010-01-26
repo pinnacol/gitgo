@@ -1,4 +1,4 @@
-<h2>Commit <%= sha %></h2>
+<h2>Commit <%= escape_html(sha) %></h2>
 <div class="commit">
   <%= erb :diff, :locals => {:commit => obj}, :layout => false %>
 </div>

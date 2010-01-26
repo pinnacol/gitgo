@@ -10,14 +10,14 @@
 
 <ul><% if issues.empty? %>
 <li>No issues found</li><% end %><% issues.each do |issue| %>
-<li><%= gformat issue %></li><% end %>
+<li><%= gformat(issue) %></li><% end %>
 </ul>
 
-<form action="<%= url '/repo/prune' %>" method="post">
+<form action="<%= url('repo', 'prune') %>" method="post">
 <input type="submit" value="Prune" /></dt>
 </form>
 
-<form action="<%= url '/repo/gc' %>" method="post">
+<form action="<%= url('repo', 'gc') %>" method="post">
 <input type="submit" value="GC" /></dt>
 </form>
 

@@ -3,21 +3,21 @@
 <div class="preview">
   <dl class="description">
   <dt class="title">Title</dt>
-  <dd class="title"><%= doc['title'] %></dd>
+  <dd class="title"><%= escape_html(doc['title']) %></dd>
   <dt class="content">Description</dt>
-  <dd class="content"><%= tformat content %></dd>
+  <dd class="content"><%= tformat(content) %></dd>
   </dl>
 </div><% else %>
 <h1>New Issue</h1><% end %>
 
-<form class="issue" action="/issue" method="post">
+<form class="issue" action="<%= url('issue') %>" method="post">
   <dl class="form">
   <dt><label for="title">Title</label></dt>
-  <dd><input id="title" type="text" name="doc[title]" value="<%= doc['title'] %>" /></dd>
+  <dd><input id="title" type="text" name="doc[title]" value="<%= escape_html(doc['title']) %>" /></dd>
   <dt><label for="content">Description</label></dt>
   <dd><textarea id="content" name="content"><%= content %></textarea></dd>
   <dt><label for="tags">Tags</label></dt>
-  <dd><input type="text" id="tags" name="doc[tags]" value="<%= doc['tags'] %>" /></dd>
+  <dd><input type="text" id="tags" name="doc[tags]" value="<%= escape_html(doc['tags']) %>" /></dd>
   <dt><label for="at">At</label></dt>
   <dd>
 <%= erb :_at, :layout => false %>

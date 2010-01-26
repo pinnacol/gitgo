@@ -7,9 +7,9 @@
 <dd><%= branch %></dd><% if session %>
 <dt>Active Branch</dt>
 <dd>
-  <form action="<%= url('/repo/at') %>" method="post">
+  <form action="<%= url('repo', 'at') %>" method="post">
     <select id="ref" name="ref"><% refs.each do |ref| %>
-    <option value="<%= ref.name %>" <%= selected?(active_commit == ref.commit.sha) %>><%= ref.name %></option><% end %>
+    <option value="<%= escape_html(ref.name) %>" <%= selected?(active_commit == ref.commit.sha) %>><%= escape_html(ref.name) %></option><% end %>
     </select>
     <input type="submit" value="Change" />
   </form>
@@ -17,15 +17,15 @@
 <dt>Commit</dt>
 <dd><% if head %>
 <%= erb :_commit, :locals => {:commit => head }, :views => path('views/code'), :layout => false %><% else %>
-  <em>Select a tracking branch and click setup to create the '<%= repo.branch %>' branch.</em>
+  <em>Select a tracking branch and click setup to create the '<%= escape_html(repo.branch) %>' branch.</em>
   
-  <form action="<%= url('/repo/setup') %>" method="post">
+  <form action="<%= url('repo', 'setup') %>" method="post">
     <dl>
     <dt><label for="remote">Track</label></dt>
     <dd>
       <select id="remote" name="remote">
       <option value="">None</option><% remotes.each do |remote| %>
-      <option value="<%= remote %>" <%= selected?(track == remote) %>><%= remote %></option><% end %>
+      <option value="<%= remote %>" <%= selected?(track == remote) %>><%= escape_html(remote) %></option><% end %>
       </select>
     </dd>
     <dt><input type="submit" value="Setup" /></dt>
@@ -39,12 +39,12 @@
   <p>
     Synchronize with a remote (pull and push), or simply pull updates.
   </p>
-  <form action="<%= url('/repo/update') %>" method="post">
+  <form action="<%= url('repo', 'update') %>" method="post">
     <dl>
     <dt><label for="remote">Remote</label></dt>
     <dd>
       <select id="remote" name="remote"><% remotes.each do |remote| %>
-      <option value="<%= remote %>" <%= selected?(track == remote) %>><%= remote %></option><% end %>
+      <option value="<%= remote %>" <%= selected?(track == remote) %>><%= escape_html(remote) %></option><% end %>
       </select>
     </dd>
     <dt><label for="push">Sync</label></dt>
@@ -61,10 +61,10 @@
 <dd>
   <p>
     Reinitialize the internal bindings gitgo uses to access the git repository.
-    Uncommitted updates in gitgo (see <a href="<%= url('/repo/status') %>">status</a>)
+    Uncommitted updates in gitgo (see <a href="<%= url('repo', 'status') %>">status</a>)
     will be lost.
   </p>
-  <form action="<%= url('/repo/reset') %>" method="post">
+  <form action="<%= url('repo', 'reset') %>" method="post">
     <input type="checkbox" name="full" value="true">Reindex</input>
     <input type="submit" value="Reset" />
   </form>

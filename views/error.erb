@@ -1,19 +1,19 @@
 <h1>Server Error:</h1>
 
 <dl>
-<dt><%= err.class %></dt>
-<dd><pre><%= escape_html err.message %></pre></dd><% if resetable %>
+<dt><%= escape_html(err.class) %></dt>
+<dd><pre><%= escape_html(err.message) %></pre></dd><% if resetable %>
 <dt></dt>
 <dd>
   Errors of this type can occur when the repository has been invalidated,
   for example by a 'git gc' performed on the command line.  Try reseting
   gitgo, or simply restart the server.
 
-  <form action="<%= url('/repo/reset') %>" method="post">
+  <form action="<%= url('repo', 'reset') %>" method="post">
     <input type="hidden" name="full" value="true" />
     <input type="submit" value="Reset" />
   </form>
 </dd><% end %>
 <dt>Backtrace</dt>
-<dd><pre><%= escape_html err.backtrace.join("\n") %></pre></dd>
+<dd><pre><%= escape_html(err.backtrace.join("\n")) %></pre></dd>
 </dl>

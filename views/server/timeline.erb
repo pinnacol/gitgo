@@ -1,12 +1,12 @@
-<h1>Gitgo Activity<%= author.empty? ? "" : " for #{author}" %></h1>
+<h1>Gitgo Activity<%= escape_html(author.empty? ? "" : " for #{author}") %></h1>
 <ul>
-<li class="newer"><% if timeline && page >= 1 %><a href="/timeline?author=<%= author %>&page=<%= page - 1 %>&per_page=<%= per_page %>">newer</a><% else %>(newer)<% end %></li>
-<li class="older"><% if timeline && timeline.length == per_page %><a href="timeline?author=<%= author %>&page=<%= page + 1 %>&per_page=<%= per_page %>">older</a><% else %>(older)<% end %></li>
+<li class="newer"><% if timeline && page >= 1 %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page - 1, :per_page => per_page) %>">newer</a><% else %>(newer)<% end %></li>
+<li class="older"><% if timeline && timeline.length == per_page %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page + 1, :per_page => per_page) %>">older</a><% else %>(older)<% end %></li>
 </ul>
 
 <ul>
-<li><a href="/timeline">All Authors</a></li><% authors.each do |author| %>
-<li><a href="/timeline?author=<%= author %>"><%= escape_html author %></a></li><% end %>
+<li><a href="<%= url('timeline') %>">All Authors</a></li><% authors.each do |author| %>
+<li><a href="<%= url('timeline') %>?<%= build_query(:author => author) %>"><%= escape_html(author) %></a></li><% end %>
 </ul>
 
 <ul class="timeline"><% if timeline.nil? %>
@@ -28,7 +28,7 @@
   end %></li><% if type = doc['type'] %>
   <li><%= type %></li><% end %>
   <li><%= activity_link(doc.author) %></li>
-  <li><%= doc.date.strftime('%Y/%m/%d') %></li>
+  <li><%= format_date(doc.date) %></li>
   </ul>
 </li><% end %><% end %>
 </ul>

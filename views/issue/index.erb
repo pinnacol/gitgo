@@ -7,12 +7,12 @@
 <form class="issue" action="/issue" method="get">
   <h3>State</h3>
   <ul class="issuenav"><% states.each do |state| %>
-  <li><input type="checkbox" name="state[]" value="<%= state %>" <%= checked?(current_states.include?(state)) %>><%= state %></input></li><% end %>
+  <li><input type="checkbox" name="state[]" value="<%= escape_html(state) %>" <%= checked?(current_states.include?(state)) %>><%= escape_html(state) %></input></li><% end %>
   </ul>
   
   <h3>Tags</h3>
   <ul class="issuenav"><% tags.each do |tag| %>
-  <li><input type="checkbox" name="tags[]" value="<%= tag %>" <%= checked?(current_tags.include?(tag)) %>><%= tag %></input></li><% end %>
+  <li><input type="checkbox" name="tags[]" value="<%= escape_html(tag) %>" <%= checked?(current_tags.include?(tag)) %>><%= escape_html(tag) %></input></li><% end %>
   </ul>
   
   <h3>Sort</h3>
@@ -28,7 +28,7 @@
 
 <div class="issues">
   <ul class="issues"><% issues.each do |doc| %>
-  <li id="<%= doc.sha %>" active="<%= doc[:active] %>"><%= issue_link(doc) %></li><% end %>
+  <li id="<%= escape_html(doc.sha) %>" active="<%= escape_html(doc[:active]) %>"><%= issue_link(doc) %></li><% end %>
   </ul>
 </div>
 

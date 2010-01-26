@@ -1,11 +1,11 @@
-<h1>Status (<%= repo.branch %>)</h1>
+<h1>Status (<%= escape_html(repo.branch) %>)</h1>
 
 <ul><% if status.empty? %>
 <li>No changes</li><% end %><% status.keys.sort.each do |key| %><% change, a, b = status[key] %>
-<li class="<%= change %>"><%= key %> (<%= gformat "#{a[1] || '()'}...#{b[1] || '()'}" %>)</li><% end %>
+<li class="<%= change %>"><%= key %> (<%= gformat("#{a[1] || '()'}...#{b[1] || '()'}") %>)</li><% end %>
 </ul>
 
-<form class="update" action="<%= url 'commit' %>" method="post">
+<form class="update" action="<%= url('commit') %>" method="post">
 <label for="message">Commit Message</label>
 <input type="text" name="message" value="" <% if status.empty? %>disabled="true" <% end %>/>
 <input type="submit" value="Commit" <% if status.empty? %>disabled="true" <% end %>/></dt>

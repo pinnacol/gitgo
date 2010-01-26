@@ -38,20 +38,6 @@ class ControllerTest < Test::Unit::TestCase
     assert last_response.ok?
     assert_equal "got *one/two/three/four in Root", last_response.body
   end
-
-  #
-  # url test
-  #
-  
-  def test_url_returns_path
-    setup_app
-    
-    assert_equal "/", app.url("/")
-    assert_equal "/path/to/resource", app.url("/path/to/resource")
-    
-    assert_equal "", app.url("")
-    assert_equal "path/to/resource", app.url("path/to/resource")
-  end
   
   #
   # author test

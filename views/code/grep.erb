@@ -1,21 +1,21 @@
-<h1>Search <%= type.capitalize %>s</h1>
+<h1>Search <%= escape_html(type.capitalize) %>s</h1>
 
 <%=  erb :_grepnav, :layout => false %>
 
-<form class="grep" action="/<%= type %>" method="get">
+<form class="grep" action="<%= url(type) %>" method="get">
   <dl class="form">
   <dt><label for="pattern">Pattern</label></dt>
-  <dd><input id="pattern" type="text" name="pattern" value="<%= e %>" /></dd>
+  <dd><input id="pattern" type="text" name="pattern" value="<%= escape_html(e) %>" /></dd>
   <dt><label for="ignore_case">Case-Insensitive</label></dt>
-  <dd><input id="ignore_case" type="checkbox" name="ignore_case" value="true" <%= ignore_case ? 'checked="true" ' : '' %>/></dd>
+  <dd><input id="ignore_case" type="checkbox" name="ignore_case" value="true" <%= checked?(ignore_case) %>/></dd>
   <dt><label for="invert_match">Invert Match</label></dt>
-  <dd><input id="invert_match" type="checkbox" name="invert_match" value="true" <%= invert_match ? 'checked="true" ' : '' %>/></dd>
+  <dd><input id="invert_match" type="checkbox" name="invert_match" value="true" <%= checked?(invert_match) %>/></dd>
   <dt><label for="fixed_strings">Fixed Strings</label></dt>
-  <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= fixed_strings ? 'checked="true" ' : '' %>/></dd>
+  <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= checked?(fixed_strings) %>/></dd>
   <dt><label for="at">At</label></dt>
   <dd>
     <select id="at" name="at"><% grit.refs.each do |ref| %>
-    <option <%= selected?(at == ref.commit.id) %> value="<%= ref.commit %>"><%= ref.name %></option><% end %>
+    <option <%= selected?(at == ref.commit.id) %> value="<%= escape_html(ref.commit) %>"><%= escape_html(ref.name) %></option><% end %>
     </select>
   </dd>
   <dt><input type="submit" value="Grep" /></dt>
@@ -26,7 +26,7 @@
 <% if selected.empty? %><em>None selected!</em><% end %>
 <table><% selected.each do |(path, obj)| %>
 <tr>
-<td><a href="/blob/<%= at %>/<%= path %>"><%= path %></a> </td>
+<td><%= full_path_link('blob', at, path) %></td>
 <td><%= sha_link(obj.id) %></td>
 </tr><% end %>
 </table>

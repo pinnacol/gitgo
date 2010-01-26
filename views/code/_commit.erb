@@ -1,19 +1,19 @@
 <div class="commit">
   <dl class="commit">
   <dt class="message">message</dt>
-  <dd class="message"><%= gformat commit.message %></dd>
+  <dd class="message"><%= gformat(commit.message) %></dd>
   <dt class="author">author</dt>
   <dd class="author">
 <%= erb :_user, :locals => {:user => commit.author}, :views => path('views/code'), :layout => false %>
   </dd>
   <dt class="author-date">authored date</dt>
-  <dd class="author-date"><%= commit.authored_date %></dd><% if commit.author.to_s != commit.committer.to_s %>
+  <dd class="author-date"><%= format_date(commit.authored_date) %></dd><% if commit.author.to_s != commit.committer.to_s %>
   <dt class="committer">author</dt>
   <dd class="committer">
 <%= erb :_user, :locals => {:user => commit.committer}, :views => path('views/code'), :layout => false %>
   </dd>
   <dt class="committed-date">committed date</dt>
-  <dd class="committed-date"><%= commit.committed_date %></dd><% end %>
+  <dd class="committed-date"><%= format_date(commit.committed_date) %></dd><% end %>
   <dt class="sha">commit</dt>
   <dd class="sha"><%= commit_link(commit.sha) %></dd>
   <dt class="tree">tree</dt>

@@ -3,7 +3,46 @@ require 'gitgo/helpers'
 
 class HelpersTest < Test::Unit::TestCase
   include Gitgo::Helpers
-
+  
+  attr_reader :request
+  
+  def setup
+    @request = Rack::Request.new({})
+  end
+  
+  #
+  # url test
+  #
+  
+  def test_url_returns_path
+    assert_equal "/", url("/")
+    assert_equal "/path/to/resource", url("/path/to/resource")
+  end
+  
+  def test_url_relative_to_mount_point
+    request.env[Gitgo::MOUNT] = '/mount/point'
+    
+    assert_equal "/mount/point/", url("/")
+    assert_equal "/mount/point/path/to/resource", url("/path/to/resource")
+  end
+  
+  #
+  # path_links test
+  #
+  
+  def test_path_links
+    assert_equal [
+      "<a href=\"/tree/id\">id</a>",
+      "<a href=\"/tree/id/path\">path</a>",
+      "<a href=\"/tree/id/path/to\">to</a>",
+      "obj"
+    ], path_links("id", "path/to/obj")
+    
+    assert_equal [
+      "<a href=\"/tree/id\">id</a>"
+    ], path_links("id", "")
+  end
+  
   #
   # gformat test
   #

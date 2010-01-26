@@ -1,4 +1,4 @@
-  <form class="comment" action="/comments/<%= sha %><%= parent ? "/#{parent}" : "" %>" method="post">
+  <form class="comment" action="<%= parent ? url('comments', sha, parent) : url('comments', sha) %>" method="post">
     <input type="hidden" name="redirect" value="<%= request.env['REQUEST_URI'] %>" />
 
     <dl class="form">
