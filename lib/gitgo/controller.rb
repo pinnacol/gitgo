@@ -7,10 +7,11 @@ module Gitgo
   # The expanded path to the Gitgo root directory, used for resolving paths to
   # views, public files, etc.
   ROOT = File.expand_path(File.dirname(__FILE__) + "/../..")
+  REPO = 'gitgo.repo'
   
   class Controller < Sinatra::Base
     set :root, ROOT
-    set :raise_errors, true
+    set :raise_errors, Proc.new { test? }
     set :dump_errors, true
     
     template(:layout) do 
@@ -49,7 +50,7 @@ module Gitgo
     # Returns the Gitgo::Repo specified in the env, if not already specified
     # during initialization.
     def repo
-      @repo ||= request.env['gitgo.repo']
+      @repo ||= request.env[REPO]
     end
     
     # Convenience method; memoizes and returns the repo grit object.
