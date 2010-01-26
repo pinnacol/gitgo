@@ -51,14 +51,14 @@ module Gitgo
         filters = []
         criteria.each_pair do |key, values|
           filter = values.collect do |value|
-            repo.index(key, value)
+            repo.index.read(key, value)
           end.flatten
         
           filters << filter
         end
         
         issues = []
-        repo.index("type", "issue").each do |sha|
+        repo.index.read("type", "issue").each do |sha|
           tails = repo.tails(sha)
           filters.each do |filter|
             tails = tails & filter
@@ -66,8 +66,8 @@ module Gitgo
           
           unless tails.empty?
             # note this lookup is deadly slow.
-            doc = docs[sha]
-            doc[:active] = tails.any? {|tail| active?(docs[tail]['at']) }
+            doc = cache[sha]
+            doc[:active] = tails.any? {|tail| active?(cache[tail]['at']) }
             
             issues << doc
           end
@@ -75,7 +75,7 @@ module Gitgo
         
         # sort results
         sort_attr = request['sort'] || 'date'
-        reverse = set?('reverse')
+        reverse = request['reverse'] == 'true'
         
         issues.sort! {|a, b| a[sort_attr] <=> b[sort_attr] }
         issues.reverse! if reverse
@@ -97,10 +97,10 @@ module Gitgo
       end
     
       def create
-        return preview if set?('preview')
+        return preview if request['preview'] == 'true'
       
         doc = document('type' => 'issue', 'state' => 'open')
-        if empty?(doc['title']) && empty?(doc.content)
+        if doc['title'].to_s.strip.empty? && doc.empty?
           raise "no title or content specified"
         end
         issue = repo.store(doc)
@@ -110,19 +110,19 @@ module Gitgo
           repo.link(commit, issue, :ref => issue)
         end
       
-        repo.commit!("issue #{issue}") if commit?
+        repo.commit!("issue #{issue}") if request['commit'] == 'true'
         redirect url("/issue/#{issue}")
       end
     
       def show(issue, comment=nil)
-        unless issue_doc = docs[issue]
+        unless issue_doc = cache[issue]
           raise "unknown issue: #{issue.inspect}"
         end
       
         # get children and resolve to docs
-        comments = repo.comments(issue, docs)
-        tails = docs.keys.collect do |sha|
-          docs[sha]
+        comments = repo.comments(issue, cache)
+        tails = cache.keys.collect do |sha|
+          cache[sha]
         end.select do |doc| 
           doc[:tail]
         end
@@ -150,7 +150,7 @@ module Gitgo
     
       # Update adds a comment to the specified issue.
       def update(issue)
-        unless doc = docs[issue]
+        unless doc = cache[issue]
           raise "unknown issue: #{issue.inspect}"
         end
       
@@ -168,7 +168,7 @@ module Gitgo
           repo.link(commit, update, :ref => issue)
         end
       
-        repo.commit!("update #{update} re #{issue}") if commit?
+        repo.commit!("update #{update} re #{issue}") if request['commit'] == 'true'
         redirect url("/issue/#{issue}/#{update}")
       end
     

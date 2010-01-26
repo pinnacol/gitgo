@@ -207,9 +207,9 @@ module Gitgo
       diff
     end
     
-    # Returns true if the document has no content.
+    # Returns true if the document has no meaningful content.
     def empty?
-      blank?(content)
+      blank?(content.to_s.strip)
     end
     
     # Serializes self into a string according to the document format.

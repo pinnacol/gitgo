@@ -5,17 +5,13 @@ class IssueTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   
+  attr_reader :app
   attr_reader :repo
   
   def setup
     super
     @repo = Gitgo::Repo.init(method_root[:tmp], :is_bare => true)
-    app.set :repo, @repo
-    app.instance_variable_set :@prototype, nil
-  end
-  
-  def app
-    Gitgo::Controllers::Issue
+    @app = Gitgo::Controllers::Issue.new(nil, repo)
   end
   
   # open an issue using a post, and return the sha of the new issue
@@ -55,7 +51,7 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue C/
     
     get("/issue?state=open")
-    assert last_response.ok?, last_response.body
+    assert last_response.ok?
     
     assert last_response.body =~ /Issue A/
     assert last_response.body =~ /Issue B/
@@ -141,19 +137,19 @@ class IssueTest < Test::Unit::TestCase
     put("/issue/#{b}", "doc[state]" => "invalid", "doc[at]" => point_b)
     repo.commit "created fixture"
     
-    get("/issue", {}, {'rack.session' => {'at' => point_c}})
+    get("/issue", {}, {'gitgo.at' => point_c})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="true"/
     assert last_response.body =~ /id="#{c}" active="true"/
     
-    get("/issue", {}, {'rack.session' => {'at' => point_b}})
+    get("/issue", {}, {'gitgo.at' => point_b})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="true"/
     assert last_response.body =~ /id="#{c}" active="false"/
     
-    get("/issue", {}, {'rack.session' => {'at' => point_a}})
+    get("/issue", {}, {'gitgo.at' => point_a})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="false"/
@@ -232,9 +228,8 @@ class IssueTest < Test::Unit::TestCase
   end
   
   def test_post_redirects_raises_error_if_no_meaningful_content_or_title_is_given
-    post("/issue", "content" => "  \n \t\t \r\n ", "doc[title]" => "  \n \t\t \r ")
-    assert !last_response.ok?
-    assert last_response.body.include?("no title or content specified")
+    err = assert_raises(RuntimeError) { post("/issue", "content" => "  \n \t\t \r\n ", "doc[title]" => "  \n \t\t \r ") }
+    assert_equal "no title or content specified", err.message
   end
   
   #
@@ -329,9 +324,7 @@ class IssueTest < Test::Unit::TestCase
   end
   
   def test_put_raises_error_for_unknown_issue
-    put("/issue/unknown", "content" => "Comment on the Issue", "commit" => "true")
-    assert_equal 500, last_response.status
-    
-    assert last_response.body =~ /unknown issue: &quot;unknown&quot;/
+    err = assert_raises(RuntimeError) { put("/issue/unknown", "content" => "Comment on the Issue", "commit" => "true") }
+    assert_equal 'unknown issue: "unknown"', err.message
   end
 end

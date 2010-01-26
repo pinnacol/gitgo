@@ -73,6 +73,17 @@ module Gitgo
       @active_commit ||= request.env['gitgo.at'] || grit.head.commit
     end
     
+    # Returns an array of session-specific active shas.
+    def active_shas
+      @active_shas ||= repo.rev_list(active_commit)
+    end
+    
+    # Returns true if the sha is nil (ie unspecified) or if active_shas
+    # include the sha.
+    def active?(sha)
+      sha.nil? || active_shas.include?(sha)
+    end
+    
     def admin?
       false
     end
