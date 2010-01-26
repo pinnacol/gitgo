@@ -15,8 +15,8 @@
   </form>
 </dd><% end %>
 <dt>Commit</dt>
-<dd><% if head %>
-<%= erb :_commit, :locals => {:commit => head }, :views => path('views/code'), :layout => false %><% else %>
+<dd><% if commit %>
+<%= erb :_commit, :locals => {:commit => commit}, :views => path('views/code'), :layout => false %><% else %>
   <em>Select a tracking branch and click setup to create the '<%= escape_html(repo.branch) %>' branch.</em>
   
   <form action="<%= url('repo', 'setup') %>" method="post">

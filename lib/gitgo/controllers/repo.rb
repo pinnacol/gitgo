@@ -31,7 +31,7 @@ module Gitgo
           :refs => grit.refs,
           :remotes => grit.remotes.collect {|remote| remote.name }.sort,
           :track => repo.track || 'origin/gitgo',
-          :head => repo.head,
+          :commit => grit.commit(repo.head),
           :path => repo.path,
           :branch => repo.branch
         }

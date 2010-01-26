@@ -194,12 +194,12 @@ module Gitgo
       
       # Returns an array of states currently in use
       def states
-        (DEFAULT_STATES + repo.list("states")).uniq
+        (DEFAULT_STATES + repo.index.values("states")).uniq
       end
     
       # Returns an array of tags currently in use
       def tags
-        repo.list("tags")
+        repo.index.values("tags")
       end
     end
   end
