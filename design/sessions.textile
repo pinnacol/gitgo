@@ -81,3 +81,7 @@ h2. Index
    shadateshadate
    # pack... then from time to time, run through and merge to get
    # latest expire date, remove expired, reset expire file
+   
+h2. Urls
+
+To allow mounting at various points, make all url generation go through the url method.

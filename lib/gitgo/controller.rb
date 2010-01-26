@@ -8,6 +8,7 @@ module Gitgo
   # views, public files, etc.
   ROOT = File.expand_path(File.dirname(__FILE__) + "/../..")
   REPO = 'gitgo.repo'
+  MOUNT = 'gitgo.mount'
   
   class Controller < Sinatra::Base
     set :root, ROOT
