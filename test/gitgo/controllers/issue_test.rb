@@ -209,6 +209,31 @@ class IssueTest < Test::Unit::TestCase
     assert_equal "/issue/#{id}", last_response['Location']
   end
   
+  def test_post_rev_parses_at
+    @repo = Gitgo::Repo.new(setup_repo("simple.git"))
+    @app = Gitgo::Controllers::Issue.new(nil, repo)
+    
+    #
+    post("/issue", "doc[title]" => "issue from ref", "doc[at]" => 'caps', "commit" => "true")
+    assert last_response.redirect?
+    
+    id = last_response_location
+    issue = repo.read(id)
+    
+    assert_equal "issue from ref", issue['title']
+    assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", issue['at']
+    
+    #
+    post("/issue", "doc[title]" => "issue from sha", "doc[at]" => '19377b7ec7b83909b8827e52817c53a47db96cf0', "commit" => "true")
+    assert last_response.redirect?
+    
+    id = last_response_location
+    issue = repo.read(id)
+    
+    assert_equal "issue from sha", issue['title']
+    assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", issue['at']
+  end
+  
   def test_post_links_issue_at_commit_referencing_issue
     commit = repo.set(:blob, "")
     
