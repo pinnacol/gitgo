@@ -379,7 +379,13 @@ class IssueTest < Test::Unit::TestCase
   end
   
   def test_put_raises_error_for_unknown_issue
-    err = assert_raises(RuntimeError) { put("/issue/unknown", "content" => "Comment on the Issue", "commit" => "true") }
+    err = assert_raises(RuntimeError) { put("/issue/unknown") }
     assert_equal 'unknown issue: "unknown"', err.message
+  end
+  
+  def test_put_raises_error_for_invalid_re
+    issue = repo.create("New Issue")
+    err = assert_raises(RuntimeError) { put("/issue/#{issue}", "re" => "unknown") }
+    assert_equal 'unknown re: "unknown"', err.message
   end
 end

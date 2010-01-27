@@ -169,8 +169,10 @@ module Gitgo
         erb :diff, :locals => {:commit => commit, :treeish => treeish}
       end
       
-      def show_object(sha)
-        sha = repo.rev_parse(sha)
+      def show_object(shaish)
+        unless sha = repo.sha(shaish)
+          raise "unknown object: #{shaish}"
+        end
         
         case
         when request['content'] == 'true'
@@ -210,8 +212,7 @@ module Gitgo
       end
       
       def create(obj, parent=obj)
-        obj = repo.rev_parse(obj)
-        parent = repo.rev_parse(parent)
+        obj, parent = repo.rev_parse(obj, parent)
         
         # determine and validate comment parent
         if parent != obj
@@ -233,8 +234,7 @@ module Gitgo
       end
     
       def update(obj, comment)
-        obj = repo.rev_parse(obj)
-        comment = repo.rev_parse(comment)
+        obj, comment = repo.rev_parse(obj, comment)
         check_valid_comment(obj, comment)
         
         # update the comment
@@ -266,8 +266,7 @@ module Gitgo
       end
     
       def destroy(obj, comment)
-        obj = repo.rev_parse(obj)
-        comment = repo.rev_parse(comment)
+        obj, comment = repo.rev_parse(obj, comment)
         check_valid_comment(obj, comment)
         
         # reassign children to comment parent

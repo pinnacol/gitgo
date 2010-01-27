@@ -102,7 +102,7 @@ module Gitgo
         if doc['title'].to_s.strip.empty? && doc.empty?
           raise "no title or content specified"
         end
-        issue = repo.store(doc)
+        issue = repo.store(doc, :rev_parse => ['at'])
       
         # if specified, link the issue to a commit
         if commit = doc['at']
@@ -114,34 +114,29 @@ module Gitgo
       end
     
       def show(issue, update=nil)
-        issue = repo.rev_parse(issue)
-        update = repo.rev_parse(update) if update
-        
-        unless issue_doc = cache[issue]
+        unless doc = cache[issue]
           raise "unknown issue: #{issue.inspect}"
         end
-      
-        # get children and resolve to docs
-        updates = repo.comments(issue, cache)
-        tails = cache.keys.collect do |sha|
-          cache[sha]
-        end.select do |doc| 
-          doc[:tail]
-        end
+        issue = doc.sha
         
-        tails << issue_doc if tails.empty?
+        # get updates
+        updates = repo.comments(issue, cache)
+        
+        # resolve tails
+        tails = cache.keys.collect {|sha| cache[sha] }.select {|document| document && document[:tail] }
+        tails << doc if tails.empty?
         
         tail_states = []
         tail_tags = []
-        tails.each do |doc|
-          tail_states << doc['state']
-          tail_tags.concat(doc.tags)
+        tails.each do |document|
+          tail_states << document['state']
+          tail_tags.concat(document.tags)
         end
         tail_states.uniq!
         tail_tags.uniq!
       
         erb :show, :locals => {
-          :doc => issue_doc,
+          :doc => doc,
           :updates => updates,
           :tails => tails,
           :tail_states => tail_states,
@@ -151,19 +146,25 @@ module Gitgo
     
       # Update adds a comment to the specified issue.
       def update(issue)
-        issue = repo.rev_parse(issue)
         unless doc = cache[issue]
           raise "unknown issue: #{issue.inspect}"
         end
-      
+        issue = doc.sha
+        
         # the comment is always in regards to the issue internally (ie re => issue)
         doc = inherit(doc, 'type' => 'update', 're' => issue)
-        update = repo.store(doc)
+        update = repo.store(doc, :rev_parse => ['at', 're'])
 
         # link the comment to each parent and update the index
         parents = request['re'] || [issue]
         parents = [parents] unless parents.kind_of?(Array)
-        parents.each {|parent| repo.link(repo.rev_parse(parent), update) }
+        parents.each do |parent|
+          unless sha = repo.sha(parent)
+            raise "unknown re: #{parent.inspect}"
+          end
+          
+          repo.link(sha, update)
+        end
       
         # if specified, link the issue to a commit
         if commit = doc['at']
@@ -174,13 +175,6 @@ module Gitgo
         redirect url("/issue/#{issue}/#{update}")
       end
       
-      def document(overrides=nil)
-        doc = super
-        doc['at'] = repo.rev_parse(doc['at']) if doc['at']
-        doc['re'] = repo.rev_parse(doc['re']) if doc['re']
-        doc
-      end
-    
       # Same as document, but ensures each of the INHERIT attributes is
       # inherited from doc if it is not specified in the request.
       def inherit(doc, overrides=nil)

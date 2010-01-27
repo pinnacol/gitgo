@@ -216,6 +216,24 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # sha test
+  #
+  
+  def test_sha_resolves_id_to_sha
+    setup_repo("simple.git")
+    
+    assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", repo.sha("caps")
+    assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", repo.sha("19377b7ec7")
+    assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", repo.sha("19377b7ec7b83909b8827e52817c53a47db96cf0")
+  end
+  
+  def test_sha_returns_nil_for_unresolvable_inputs
+    assert_equal nil, repo.sha(nil)
+    assert_equal nil, repo.sha("missing")
+    assert_equal nil, repo.sha("19377b7ec7b827e52817c53a47db96cf0notasha")
+  end
+  
+  #
   # AGET test
   #
 
@@ -711,6 +729,14 @@ class RepoTest < Test::Unit::TestCase
   #
   # read test
   #
+  
+  def test_read_returns_document_for_sha
+    id = repo.create "content"
+    doc = repo.read(id)
+    
+    assert_equal Gitgo::Document, doc.class
+    assert_equal "content", doc.content
+  end
   
   def test_read_returns_nil_for_non_documents
     id = repo.set :blob, "content"

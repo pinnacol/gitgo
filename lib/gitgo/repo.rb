@@ -322,6 +322,18 @@ module Gitgo
       end
     end
     
+    # Returns a full sha for the identifier, as determined by rev_parse. All
+    # sha-looking string are returned immediately; there is no guarantee the
+    # sha will point to an object in the repo.
+    #
+    # Returns nil the identifier cannot be resolved to an sha.
+    def sha(id)
+      case id
+      when nil, SHA then id
+      else rev_parse(id).first rescue nil
+      end
+    end
+    
     # Gets the content for path; either the blob data or an array of content
     # names for a tree.  Returns nil if path doesn't exist.
     def [](path, committed=false)
@@ -729,7 +741,7 @@ module Gitgo
     #########################################################################
     # Document API
     #########################################################################
-
+    
     # Creates a new Document using the content and attributes, writes it to
     # the repo and returns it's sha.  New documents are stored by timestamp.
     def create(content, attrs={}, options={})
@@ -742,6 +754,15 @@ module Gitgo
     # Stores the document by timestamp.
     def store(doc, options={})
       mode = options[:mode] || DEFAULT_BLOB_MODE
+      
+      # rev_parse specified attributes before storage
+      if keys = options[:rev_parse]
+        keys.each do |key|
+          next unless value = doc[key]
+          doc[key] = sha(value)
+        end
+      end
+      
       id = set(:blob, doc.to_s)
 
       add(timestamp(doc.date, id) => [mode, id])
@@ -825,7 +846,13 @@ module Gitgo
     #   alts[id].equal?(docs[id])  # => false
     #
     def cache
-      Hash.new {|hash, id| hash[id] = read(id) }
+      Hash.new do |hash, id|
+        if doc_id = sha(id)
+          hash[doc_id] = read(doc_id)
+        else
+          nil
+        end
+      end
     end
     
     # Yields the sha of each document in the repo, ordered by date (with day
