@@ -8,3 +8,16 @@ Templates are written in erb and use helper classes extensively.  The helper cla
 
 This means that helpers are responsible for formatting and html-escaping document data.  Doing this work in the templates is a bit harder to maintain because the important transformations are buried in markup.  *Please add helpers for any insertions that require formatting or escaping.*
 
+h3. Urls
+
+Urls can be nested under a specific mount point.  For example when a single Gitgo server is used to access multiple repositories, you might get urls like:
+
+code.. 
+  /repo-a/issues
+  /repo-b/issues
+
+p. Gitgo::Controller automatically nests urls under the mount point specified in the request environment.  Ergo, it is important to define urls in templates using the +url+ method.  See any form in the templates for an example.
+
+h2. Git Objects
+
+Git objects can be specified in numerous ways.  To promote usability, all controller methods that can input a reference to a git object should rev-parse the reference.  That way the correct object will always be in use.  As a corollary, documents should always specify object references as full shas.
