@@ -1,10 +1,10 @@
 <h1>Issues</h1>
 
-<form class="issue" action="/issue/new" method="get">
+<form class="issue" action="<%= url('issue', 'new') %>" method="get">
   <input type="submit" value="New Issue" >
 </form>
 
-<form class="issue" action="/issue" method="get">
+<form class="issue" action="<%= url('issue') %>" method="get">
   <h3>State</h3>
   <ul><% form.each_state(*current_states) do |value, checked, content| %>
   <li><input type="checkbox" name="state[]" value="<%= value %>"<%= form.check(checked) %>><%= content %></input></li><% end %>

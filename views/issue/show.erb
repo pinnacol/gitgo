@@ -5,11 +5,11 @@
   <dt class="title">Title</dt>
   <dd class="title"><%= format.title doc['title'] %></dd>
   <dt class="content">Description</dt>
-  <dd class="content"><%= format.content doc.content %></dd><% unless merge[:tags].empty? %>
+  <dd class="content"><%= format.content doc.content %></dd><% unless tail_tags.empty? %>
   <dt class="tags">Tags</dt>
-  <dd class="tags"><%= format.tags merge[:tags] %></dd><% end %>
+  <dd class="tags"><%= format.tags tail_tags %></dd><% end %>
   <dt class="state">State</dt>
-  <dd class="state"><%= format.states merge[:states] %></dd>
+  <dd class="state"><%= format.states tail_states %></dd>
   <dt class="author">Author</dt>
   <dd class="author"><%= format.author doc.author %></dd>
   <dt class="date">Date</dt>
@@ -20,7 +20,7 @@
   <dd class="updates"><%= erb :_updates, :locals => {:parent => doc, :updates => updates}, :layout => false %></dd>
   <dt class="update">Update Issue</dt>
   <dd class="update">
-  <form class="update" action="<%= url('issue', id) %>" method="post">
+  <form class="update" action="<%= url('issue', doc.sha) %>" method="post">
     <input type="hidden" name="_method" value="update" /><% tails.each do |tail| %>
     <input type="hidden" name="re[]" value="<%= tail.sha %>" /><% end %>
     
@@ -28,10 +28,10 @@
     <dt><label for="content">Comment</label></dt>
     <dd><textarea id="content" name="content"></textarea></dd>
     <dt><label for="tags">Tags</label></dt>
-    <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value merge[:tags] %>" /></dd>
+    <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value tail_tags %>" /></dd>
     <dt><label for="state">State</label></dt>
     <dd>
-      <select id="state" name="doc[state]"><% form.each_state(merge[:states][-1]) do |value, selected, content| %>
+      <select id="state" name="doc[state]"><% form.each_state(tail_states[-1]) do |value, selected, content| %>
       <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
       </select>
     </dd>

@@ -128,22 +128,21 @@ module Gitgo
         
         tails << issue_doc if tails.empty?
         
-        merge = {:states => [], :tags => []}
+        tail_states = []
+        tail_tags = []
         tails.each do |doc|
-          merge[:states] << doc['state']
-          merge[:tags].concat doc.tags
+          tail_states << doc['state']
+          tail_tags.concat(doc.tags)
         end
-        merge.each_value do |value|
-          value.uniq!
-        end
+        tail_states.uniq!
+        tail_tags.uniq!
       
         erb :show, :locals => {
-          :id => issue,
           :doc => issue_doc,
           :updates => updates,
           :tails => tails,
-          :merge => merge,
-          :selected => update,
+          :tail_states => tail_states,
+          :tail_tags => tail_tags
         }
       end
     
@@ -170,10 +169,6 @@ module Gitgo
         repo.commit!("update #{update} re #{issue}") if request['commit'] == 'true'
         redirect url("/issue/#{issue}/#{update}")
       end
-    
-      #
-      # helpers
-      # 
     
       # Same as document, but ensures each of the INHERIT attributes is
       # inherited from doc if it is not specified in the request.
