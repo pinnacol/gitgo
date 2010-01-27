@@ -114,6 +114,9 @@ module Gitgo
       end
     
       def show(issue, update=nil)
+        issue = repo.rev_parse(issue)
+        update = repo.rev_parse(update) if update
+        
         unless issue_doc = cache[issue]
           raise "unknown issue: #{issue.inspect}"
         end
@@ -148,6 +151,7 @@ module Gitgo
     
       # Update adds a comment to the specified issue.
       def update(issue)
+        issue = repo.rev_parse(issue)
         unless doc = cache[issue]
           raise "unknown issue: #{issue.inspect}"
         end
@@ -159,7 +163,7 @@ module Gitgo
         # link the comment to each parent and update the index
         parents = request['re'] || [issue]
         parents = [parents] unless parents.kind_of?(Array)
-        parents.each {|parent| repo.link(parent, update) }
+        parents.each {|parent| repo.link(repo.rev_parse(parent), update) }
       
         # if specified, link the issue to a commit
         if commit = doc['at']
@@ -168,6 +172,13 @@ module Gitgo
       
         repo.commit!("update #{update} re #{issue}") if request['commit'] == 'true'
         redirect url("/issue/#{issue}/#{update}")
+      end
+      
+      def document(overrides=nil)
+        doc = super
+        doc['at'] = repo.rev_parse(doc['at']) if doc['at']
+        doc['re'] = repo.rev_parse(doc['re']) if doc['re']
+        doc
       end
     
       # Same as document, but ensures each of the INHERIT attributes is

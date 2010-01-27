@@ -191,6 +191,14 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body.include?(%Q{name="re[]" value="#{b}"})
   end
   
+  def test_get_rev_parses_issue
+    issue = open_issue("Issue A")
+    
+    get("/issue/#{issue}")
+    assert last_response.ok?
+    assert last_response.body.include?("Issue A")
+  end
+  
   #
   # post test
   #
@@ -346,6 +354,28 @@ class IssueTest < Test::Unit::TestCase
     assert_equal issue, id
     assert_equal [comment], repo.children(commit)
     assert_equal issue, repo.reference(commit, comment)
+  end
+  
+  def test_put_rev_parses_issue_and_re
+    issue = repo.create("New Issue")
+    a = repo.create("Comment A")
+    b = repo.create("Comment B")
+    
+    assert_equal [], repo.children(issue)
+    assert_equal [], repo.children(a)
+    assert_equal [], repo.children(a)
+    
+    put("/issue/#{issue[0,8]}", "content" => "Comment on A and B", "re" => [a[0,8], b[0,8]], "commit" => "true")
+    assert last_response.redirect?, last_response.body
+    id, comment = last_response_location
+    
+    assert_equal issue, id
+    assert_equal [], repo.children(issue)
+    assert_equal [comment], repo.children(a)
+    assert_equal [comment], repo.children(b)
+    
+    comment = repo.read(comment)
+    assert_equal "Comment on A and B", comment.content
   end
   
   def test_put_raises_error_for_unknown_issue

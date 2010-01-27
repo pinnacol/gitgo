@@ -112,10 +112,6 @@ module Gitgo
       attrs['author'] ||= author
       attrs['date'] ||= Time.now
       
-      # rev-parse at so that if users specify a reference name
-      # their documents will be fixed to a specific commit
-      attrs['at'] = repo.rev_parse(attrs['at']) if attrs['at']
-      
       attrs.merge!(overrides) if overrides
       Document.new(attrs, request[CONTENT])
     end
