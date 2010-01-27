@@ -170,6 +170,8 @@ module Gitgo
       end
       
       def show_object(sha)
+        sha = repo.rev_parse(sha)
+        
         case
         when request['content'] == 'true'
           response['Content-Type'] = 'text/plain'
@@ -208,6 +210,9 @@ module Gitgo
       end
       
       def create(obj, parent=obj)
+        obj = repo.rev_parse(obj)
+        parent = repo.rev_parse(parent)
+        
         # determine and validate comment parent
         if parent != obj
           parent_doc = repo.read(parent)
@@ -228,6 +233,8 @@ module Gitgo
       end
     
       def update(obj, comment)
+        obj = repo.rev_parse(obj)
+        comment = repo.rev_parse(comment)
         check_valid_comment(obj, comment)
         
         # update the comment
@@ -259,6 +266,8 @@ module Gitgo
       end
     
       def destroy(obj, comment)
+        obj = repo.rev_parse(obj)
+        comment = repo.rev_parse(comment)
         check_valid_comment(obj, comment)
         
         # reassign children to comment parent

@@ -171,6 +171,18 @@ class CodeTest < Test::Unit::TestCase
     # assert last_response.body.include?('d0ad2534e98f0a2b9573af0355d7371468eb77f1')
     # assert last_response.body.include?('tag of project with one, two, three only'), last_response.body
   end
+  
+  def test_get_rev_parses_id
+    # blob
+    get("/obj/c9036d")
+    assert last_response.body.include?('c9036dc2e34776218519a95470bd1dce1b47ac9a')
+    assert last_response.body.include?('Contents of file x.')
+    
+    # commit
+    get("/obj/xyz")
+    assert last_response.body.include?('ee9a1ca4441ab2bf937808b26eab784f3d041643')
+    assert last_response.body.include?('added files x, y, and z')
+  end
 
   def test_obj_returns_pretty_print_content_if_specified
     # blob
@@ -282,6 +294,18 @@ tag of project with one, two, three only
     assert_equal "invalid parent for comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}", err.message
   end
   
+  def test_post_rev_parses_parent
+    post("/comments/caps", "content" => "comment content", "commit" => "true")
+    assert last_response.redirect?
+    
+    comment = File.basename(last_response['Location'])
+    doc = repo.read(comment)
+    
+    assert_equal "comment content", doc.content
+    assert_equal '19377b7ec7b83909b8827e52817c53a47db96cf0', doc['re']
+    assert_equal [comment], repo.children('19377b7ec7b83909b8827e52817c53a47db96cf0')
+  end
+  
   def test_post_raises_error_for_no_content
     err = assert_raises(RuntimeError) { post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "commit" => "true") }
     assert_equal "no content specified", err.message
@@ -344,6 +368,28 @@ tag of project with one, two, three only
     assert_equal false, repo.index.all.include?(a)
   end
   
+  def test_put_rev_parses_parent_and_comment
+    a = new_comment("comment a")
+    b = new_comment("comment b", a)
+    c = new_comment("comment c", b)
+    
+    assert_equal [a], repo.children('ee9a1ca4441ab2bf937808b26eab784f3d041643')
+    assert_equal [b], repo.children(a)
+    assert_equal [c], repo.children(b)
+    
+    put("/comments/ee9a1c/#{b[0,8]}", "content" => "comment d", "commit" => "true")
+    assert last_response.redirect?
+    d = File.basename(last_response['Location'])
+    
+    doc = repo.read(d)
+    assert_equal "comment d", doc.content
+    assert_equal 'ee9a1ca4441ab2bf937808b26eab784f3d041643', doc['re']
+    
+    assert_equal [a], repo.children('ee9a1ca4441ab2bf937808b26eab784f3d041643')
+    assert_equal [d], repo.children(a)
+    assert_equal [c], repo.children(d)
+  end
+  
   def test_put_raises_error_for_no_content
     a = new_comment("comment a")
     err = assert_raises(RuntimeError) { put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "commit" => "true") }
@@ -379,5 +425,19 @@ tag of project with one, two, three only
     b = repo.create("not a comment")
     err = assert_raises(RuntimeError) { delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "content" => "update", "commit" => "true") }
     assert_equal "not a comment: #{b}", err.message
+  end
+  
+  def test_destroy_rev_parses_parent_and_comment
+    a = new_comment("comment a")
+    b = new_comment("comment b", a)
+    c = new_comment("comment c", b)
+
+    assert_equal [b], repo.children(a)
+    assert_equal [c], repo.children(b)
+  
+    delete("/comments/ee9a1c/#{b[0,8]}", "commit" => "true")
+    assert last_response.redirect?
+  
+    assert_equal [c], repo.children(a)
   end
 end
