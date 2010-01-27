@@ -7,9 +7,9 @@
 <dd><%= branch %></dd><% if session %>
 <dt>Active Branch</dt>
 <dd>
-  <form action="<%= url('repo', 'at') %>" method="post">
+  <form action="<%= url('repo', 'session') %>" method="post">
     <select id="ref" name="ref"><% refs.each do |ref| %>
-    <option value="<%= escape_html(ref.name) %>" <%= selected?(active_commit == ref.commit.sha) %>><%= escape_html(ref.name) %></option><% end %>
+    <option value="<%= escape_html(ref.name) %>" <%= selected?(active_commit == ref.name) %>><%= escape_html(ref.name) %></option><% end %>
     </select>
     <input type="submit" value="Change" />
   </form>

@@ -85,8 +85,12 @@ module Gitgo
       File.join(mount_point, *paths)
     end
     
+    def session
+      @session ||= (request.env['rack.session'] || {})
+    end
+    
     def active_commit
-      @active_commit ||= request.env['gitgo.at'] || grit.head.commit
+      @active_commit ||= (session['at'] || grit.head.name)
     end
     
     # Returns an array of session-specific active shas.
@@ -97,7 +101,8 @@ module Gitgo
     # Returns true if the sha is nil (ie unspecified) or if active_shas
     # include the sha.
     def active?(sha)
-      sha.nil? || active_shas.include?(sha)
+      return nil if sha.nil?
+      active_shas.include?(sha)
     end
     
     # Parses and returns the document specified in the request, according to

@@ -137,19 +137,19 @@ class IssueTest < Test::Unit::TestCase
     put("/issue/#{b}", "doc[state]" => "invalid", "doc[at]" => point_b)
     repo.commit "created fixture"
     
-    get("/issue", {}, {'gitgo.at' => point_c})
+    get("/issue", {}, {'rack.session' => {'at' => point_c}})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="true"/
     assert last_response.body =~ /id="#{c}" active="true"/
     
-    get("/issue", {}, {'gitgo.at' => point_b})
+    get("/issue", {}, {'rack.session' => {'at' => point_b}})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="true"/
     assert last_response.body =~ /id="#{c}" active="false"/
     
-    get("/issue", {}, {'gitgo.at' => point_a})
+    get("/issue", {}, {'rack.session' => {'at' => point_a}})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="false"/

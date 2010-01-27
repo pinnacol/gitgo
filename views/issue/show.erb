@@ -1,7 +1,7 @@
 <h1>Issue <%= escape_html doc.sha %></h1>
 
-<div class="issue" active="<%= active?(doc['at']) %>">
-  <dl class="description">
+<div class="issue">
+  <dl class="issue" active="<%= active?(doc['at']) %>">
   <dt class="title">Title</dt>
   <dd class="title"><%= format.title doc['title'] %></dd>
   <dt class="content">Description</dt>

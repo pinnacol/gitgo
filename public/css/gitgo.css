@@ -16,5 +16,17 @@ textarea {
 }
 
 li[active=false] a {
+  color: #C0C0C0;
+}
+
+li[active=''] a {
+  color: gray;
+}
+
+dl[active=false] {
+  color: #C0C0C0;
+}
+
+dl[active=''] {
   color: gray;
 }

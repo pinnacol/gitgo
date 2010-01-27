@@ -66,7 +66,7 @@ module Gitgo
           unless tails.empty?
             # note this lookup is deadly slow.
             doc = cache[sha]
-            doc[:active] = tails.any? {|tail| active?(cache[tail]['at']) }
+            doc[:active] = tails.any? {|tail| active?(cache[tail]['at']) } ? true : active?(doc['at'])
             
             issues << doc
           end

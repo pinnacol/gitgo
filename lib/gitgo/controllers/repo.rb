@@ -20,7 +20,7 @@ module Gitgo
       post('/repo/reset')    { reset }
       post('/repo/prune')    { prune }
       post('/repo/gc')       { gc }
-      post('/repo/at')       { set_active_branch }
+      post('/repo/session')  { update_session }
       
       #
       # actions
@@ -133,9 +133,7 @@ module Gitgo
         redirect url('/repo/maintenance')
       end
       
-      def set_active_branch
-        raise "active branch cannot be set without sessions" unless session
-        
+      def update_session
         if ref = request['ref']
           session['at'] = ref
         else
