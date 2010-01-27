@@ -22,8 +22,9 @@
   <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value doc['tags'] %>" /></dd>
   <dt><label for="at">At</label></dt>
   <dd>
-    <select id="at" name="doc[at]"><% form.each_ref(grit.head.commit) do |value, selected, content| %>
+    <select id="at" name="doc[at]"><% form.each_ref(grit.head.name) do |value, selected, content| %>
     <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
+    <option value="">(none)</option>
     </select>
   </dd>
   <dt><label for="preview">Preview</label></dt>

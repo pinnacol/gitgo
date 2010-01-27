@@ -172,6 +172,7 @@ module Gitgo
     DEFAULT_BLOB_MODE = "100644".to_sym
     DEFAULT_TREE_MODE = "40000".to_sym
     DEFAULT_DIR = 'gitgo'
+    DEFAULT_TRACK_BRANCH = 'origin/gitgo'
     
     YEAR = /\A\d{4,}\z/
     MMDD = /\A\d{4}\z/

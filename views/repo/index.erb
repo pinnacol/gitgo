@@ -2,38 +2,36 @@
 
 <dl>
 <dt>Path</dt>
-<dd><%= path %></dd>
+<dd><%= format.path path %></dd>
 <dt>Branch</dt>
-<dd><%= branch %></dd><% if session %>
+<dd><%= format.branch branch %></dd><% if session %>
 <dt>Active Branch</dt>
 <dd>
   <form action="<%= url('repo', 'session') %>" method="post">
-    <select id="ref" name="ref"><% refs.each do |ref| %>
-    <option value="<%= escape_html(ref.name) %>" <%= selected?(active_commit == ref.name) %>><%= escape_html(ref.name) %></option><% end %>
+    <select id="ref" name="ref"><% form.each_ref_name(active_commit) do |value, selected, content| %>
+    <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
     </select>
     <input type="submit" value="Change" />
   </form>
 </dd><% end %>
 <dt>Commit</dt>
-<dd><% if commit %>
-<%= erb :_commit, :locals => {:commit => commit}, :views => path('views/code'), :layout => false %><% else %>
-  <em>Select a tracking branch and click setup to create the '<%= escape_html(repo.branch) %>' branch.</em>
+<dd><% if commit.nil? %>
+  <em>Select a tracking branch and click setup to create the '<%= format.branch repo.branch %>' branch.</em>
   
   <form action="<%= url('repo', 'setup') %>" method="post">
     <dl>
     <dt><label for="remote">Track</label></dt>
     <dd>
       <select id="remote" name="remote">
-      <option value="">None</option><% remotes.each do |remote| %>
-      <option value="<%= remote %>" <%= selected?(track == remote) %>><%= escape_html(remote) %></option><% end %>
+      <option value="">None</option><% form.each_remote_name(track) do |value, selected, content| %>
+      <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
       </select>
     </dd>
     <dt><input type="submit" value="Setup" /></dt>
     <dd></dd>
     </dl>
   </form>
-<% end %>
-</dd>
+<% else %><%= erb :_commit, :locals => {:commit => commit}, :views => path('views/code'), :layout => false %><% end %></dd>
 <dt>Update</dt>
 <dd>
   <p>
@@ -43,8 +41,8 @@
     <dl>
     <dt><label for="remote">Remote</label></dt>
     <dd>
-      <select id="remote" name="remote"><% remotes.each do |remote| %>
-      <option value="<%= remote %>" <%= selected?(track == remote) %>><%= escape_html(remote) %></option><% end %>
+      <select id="remote" name="remote"><% form.each_remote_name(track) do |value, selected, content| %>
+      <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
       </select>
     </dd>
     <dt><label for="push">Sync</label></dt>

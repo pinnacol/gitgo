@@ -28,9 +28,7 @@ module Gitgo
       
       def index
         erb :index, :locals => {
-          :refs => grit.refs,
-          :remotes => grit.remotes.collect {|remote| remote.name }.sort,
-          :track => repo.track || 'origin/gitgo',
+          :track => repo.track || Gitgo::Repo::DEFAULT_TRACK_BRANCH,
           :commit => grit.commit(repo.head),
           :path => repo.path,
           :branch => repo.branch
@@ -48,10 +46,10 @@ module Gitgo
       def idx(key=nil, value=nil)
         erb :idx, :locals => {
           :current_key => key,
-          :keys => repo.index.keys,
+          :index_keys => repo.index.keys.sort,
           :current_value => value,
-          :values => key ? repo.index.values(key) : [],
-          :shas => key && value ? repo.index.read(key, value) : []
+          :index_values => key ? repo.index.values(key).sort : [],
+          :shas => key && value ? repo.index.read(key, value).sort : []
         }
       end
       

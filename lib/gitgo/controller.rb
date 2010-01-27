@@ -70,7 +70,7 @@ module Gitgo
     end
     
     def refs
-      @refs ||= repo.grit.refs
+      @refs ||= repo.grit.refs.sort {|a, b| a.name <=> b.name }
     end
     
     def format

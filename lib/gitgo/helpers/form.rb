@@ -17,10 +17,6 @@ module Gitgo
         controller.url(*paths)
       end
       
-      def refs
-        controller.refs
-      end
-      
       def states
         @states ||= (DEFAULT_STATES + controller.repo.index.values("states")).uniq
       end
@@ -41,6 +37,10 @@ module Gitgo
         true_or_false ? ' selected="selected"' : nil
       end
       
+      def value(str)
+        str
+      end
+      
       #
       #
       #
@@ -57,23 +57,35 @@ module Gitgo
         content
       end
       
-      def each_state(*current) # :yields: value, select_or_check, content
+      def each_state(*selected) # :yields: value, select_or_check, content
         states.each do |state|
-          yield escape_html(state), current.include?(state), escape_html(state)
+          yield escape_html(state), selected.include?(state), escape_html(state)
         end
       end
       
-      def each_tag(*current) # :yields: value, select_or_check, content
+      def each_tag(*selected) # :yields: value, select_or_check, content
         tags.each do |tag|
-          yield escape_html(tag), current.include?(tag), escape_html(tag)
+          yield escape_html(tag), selected.include?(tag), escape_html(tag)
         end
       end
       
-      def each_ref(*current) # :yields: value, select_or_check, content
-        refs.each do |ref|
-          yield escape_html(ref.commit), current.include?(ref.commit.sha), escape_html(ref.name)
+      def each_ref(selected_name) # :yields: value, select_or_check, content
+        controller.refs.each do |ref|
+          yield escape_html(ref.commit), selected_name == ref.name, escape_html(ref.name)
         end
-        yield '', false, '(none)'
+      end
+      
+      def each_ref_name(selected_name) # :yields: value, select_or_check, content
+        controller.refs.each do |ref|
+          yield escape_html(ref.name), selected_name == ref.name, escape_html(ref.name)
+        end
+      end
+      
+      def each_remote_name(selected_name) # :yields: value, select_or_check, content
+        controller.refs.each do |ref|
+          next unless ref.kind_of?(Grit::Remote)
+          yield escape_html(ref.name), selected_name == ref.name, escape_html(ref.name)
+        end
       end
     end
   end

@@ -1,27 +1,22 @@
 <h1>Index</h1>
-
-<ul><% keys.each do |key| %>
-<li><a href="<%= url "/repo/idx/#{key}" %>"><%= escape_html key %></a></li><% end %>
+<ul><% index_keys.each do |key| %>
+<li><%= format.index_key_a key %></li><% end %>
 </ul>
-
 <% if current_key %>
 <h2>Key: <%= escape_html current_key %></h2>
-<ul><% if values.empty? %>
-<li>None</li><% end %><% values.each do |value| %>
-<li><a href="<%= url "/repo/idx/#{current_key}/#{value}" %>"><%= escape_html value %></a></li><% end %>
-</ul>
-<% end %>
-
+<ul><% if index_values.empty? %>
+<li>None</li><% end %><% index_values.each do |value| %>
+<li><%= format.index_value_a(current_key, value) %></li></li><% end %>
+</ul><% end %>
 <% if current_value %>
 <h2>Value: <%= escape_html current_value %></h2>
 <ul><% if shas.empty? %>
 <li>None</li><% end %><% shas.each do |sha| %>
-<li><%= sha_link(sha) %></li><% end %>
-</ul>
-<% end %>
+<li><%= format.sha_a(sha) %></li><% end %>
+</ul><% end %>
 
-<form action="<%= url('/repo/reindex') %>" method="post">
-  <input type="hidden" name="key" value="<%= current_key %>">
-  <input type="hidden" name="value" value="<%= current_value %>">
+<form action="<%= url('repo', 'reindex') %>" method="post">
+  <input type="hidden" name="key" value="<%= form.value current_key %>">
+  <input type="hidden" name="value" value="<%= form.value current_value %>">
   <input type="submit" value="Reindex" />
 </form>

@@ -21,17 +21,21 @@ module Gitgo
       
       def text(str)
         str = escape_html(str)
-        str.gsub!(/[a-f0-9]{40}/) {|sha| self.sha(sha) }
+        str.gsub!(/[a-f0-9]{40}/) {|sha| sha_a(sha) }
         str
       end
       
       def sha(sha)
-        "<a href=\"#{url('obj', sha)}\" title=\"#{sha}\">#{sha[0,8]}</a>"
+        escape_html(sha)
       end
       
       #
-      # document links
+      # links
       #
+      
+      def sha_a(sha)
+        "<a class=\"sha\" href=\"#{url('obj', sha)}\" title=\"#{sha}\">#{sha}</a>"
+      end
       
       def issue_a(doc)
         title = doc['title']
@@ -39,6 +43,14 @@ module Gitgo
         state = doc['state']
         
         "<a class=\"#{escape_html state}\" id=\"#{doc.sha}\" active=\"#{doc[:active]}\" href=\"#{url('issue', doc.sha)}\">#{escape_html title}</a>"
+      end
+      
+      def index_key_a(key)
+        "<a href=\"#{url('repo', 'idx', key)}\">#{escape_html key}</a>"
+      end
+      
+      def index_value_a(key, value)
+        "<a href=\"#{url('repo', 'idx', key, value)}\">#{escape_html value}</a>"
       end
       
       #
@@ -62,16 +74,14 @@ module Gitgo
         "<abbr title=\"#{date.iso8601}\">#{date.strftime('%Y/%m/%d %H:%M %p')}</abbr>"
       end
       
-      def ref(sha)
-        controller.refs.find {|ref| ref.commit.sha == sha }
-      end
-      
       def at(sha)
         return '(unknown)' unless sha
         
-        ref = self.ref(sha) 
-        name = ref ? " (#{escape_html ref.name})" : nil
-        "#{self.sha(sha)}#{name}"
+        refs = controller.refs.select {|ref| ref.commit.sha == sha }
+        refs.collect! {|ref| escape_html ref.name }
+        
+        ref_names = refs.empty? ? nil : " (#{refs.join(', ')})"
+        "#{sha_a(sha)}#{ref_names}"
       end
       
       def tags(tags)
@@ -85,6 +95,18 @@ module Gitgo
       
       def states(states)
         escape_html states.join(', ')
+      end
+      
+      #
+      # repo
+      #
+      
+      def path(path)
+        escape_html(path)
+      end
+      
+      def branch(branch)
+        escape_html(branch)
       end
     end
   end
