@@ -10,7 +10,7 @@
 
 <ul><% if issues.empty? %>
 <li>No issues found</li><% end %><% issues.each do |issue| %>
-<li><%= gformat(issue) %></li><% end %>
+<li><%= format.text issue %></li><% end %>
 </ul>
 
 <form action="<%= url('repo', 'prune') %>" method="post">
@@ -23,6 +23,6 @@
 
 <h2>Stats</h2>
 <dl><% stats.keys.sort.each do |key| %>
-<dt class="stat"><%= key %></dt>
-<dd class="<%= key %>-stat"><%= stats[key] %></dd><% end %>
+<dt class="stat"><%= escape_html key %></dt>
+<dd class="stat"><%= escape_html stats[key] %></dd><% end %>
 </dl>

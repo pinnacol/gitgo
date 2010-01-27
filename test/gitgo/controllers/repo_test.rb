@@ -32,8 +32,12 @@ class RepoControllerTest < Test::Unit::TestCase
     
     get("/repo/status")
     assert last_response.ok?
-    assert last_response.body =~ /class="add">alpha\.txt.*#{content['alpha.txt'][1]}/
-    assert last_response.body =~ /class="rm">one\/two\.txt.*#{content['one/two.txt'][1]}/
+    
+    alpha_sha = content['alpha.txt'][1]
+    assert last_response.body =~ /class="add".*#{alpha_sha}.*alpha\.txt/
+    
+    one_two_sha = content['one/two.txt'][1]
+    assert last_response.body =~ /class="rm".*#{one_two_sha}.*one\/two\.txt/
   end
   
   #
@@ -141,14 +145,14 @@ class RepoControllerTest < Test::Unit::TestCase
     repo.commit("new commit")
     
     get("/repo/maintenance")
-    assert last_response.body.include?('class="count-stat">5<')
+    assert last_response.body =~ /count[^\d]+?5/m
     
     post("/repo/gc")
     assert last_response.redirect?
     assert_equal "/repo/maintenance", last_response['Location']
     
     follow_redirect!
-    assert last_response.body.include?('class="count-stat">0<')
+    assert last_response.body =~ /count[^\d]+?0/m
   end
   
   #

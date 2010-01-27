@@ -29,14 +29,6 @@ module Gitgo
       #
       #
       
-      def check(true_or_false)
-        true_or_false ? ' checked="checked"' : nil
-      end
-
-      def select(true_or_false)
-        true_or_false ? ' selected="selected"' : nil
-      end
-      
       def value(str)
         str
       end

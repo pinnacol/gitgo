@@ -1,4 +1,4 @@
-<h1>Issue <%= format.sha doc.sha %></h1>
+<h1>Issue <%= format.sha_a doc.sha %></h1>
 
 <div class="issue">
   <dl class="issue" active="<%= active?(doc['at']) %>">
@@ -32,13 +32,13 @@
     <dt><label for="state">State</label></dt>
     <dd>
       <select id="state" name="doc[state]"><% form.each_state(tail_states[-1]) do |value, selected, content| %>
-      <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
+      <option value="<%= value %>"<%= html.select(selected) %>><%= content %></option><% end %>
       </select>
     </dd>
     <dt><label for="at">At</label></dt>
     <dd>
       <select id="at" name="doc[at]"><% form.each_ref(grit.head.name) do |value, selected, content| %>
-      <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
+      <option value="<%= value %>"<%= html.select(selected) %>><%= content %></option><% end %>
       <option value="">(none)</option>
       </select>
     </dd>

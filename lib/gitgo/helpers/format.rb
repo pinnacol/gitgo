@@ -108,6 +108,16 @@ module Gitgo
       def branch(branch)
         escape_html(branch)
       end
+      
+      def each_diff_a(status)
+        status.keys.sort.each do |path|
+          change, a, b = status[path]
+          a_mode, a_sha = a
+          b_mode, b_sha = b
+          
+          yield "<a class=\"#{change}\" href=\"#{url('obj', b_sha.to_s)}\" title=\"#{a_sha || '-'} to #{b_sha || '-'}\">#{path}</a>"
+        end
+      end
     end
   end
 end

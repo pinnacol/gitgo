@@ -1,16 +1,16 @@
-<h1>Status (<%= escape_html(repo.branch) %>)</h1>
+<h1>Status (<%= format.branch repo.branch %>)</h1>
 
 <ul><% if status.empty? %>
-<li>No changes</li><% end %><% status.keys.sort.each do |key| %><% change, a, b = status[key] %>
-<li class="<%= change %>"><%= key %> (<%= gformat("#{a[1] || '()'}...#{b[1] || '()'}") %>)</li><% end %>
+<li>No changes</li><% end; format.each_diff_a(status) do |link| %>
+<li><%= link %></li><% end %>
 </ul>
 
 <form class="update" action="<%= url('commit') %>" method="post">
 <label for="message">Commit Message</label>
-<input type="text" name="message" value="" <% if status.empty? %>disabled="true" <% end %>/>
-<input type="submit" value="Commit" <% if status.empty? %>disabled="true" <% end %>/></dt>
+<input type="text" name="message" value="" <%= html.disable status.empty? %>/>
+<input type="submit" value="Commit" <%= html.disable status.empty? %>/></dt>
 </form>
 
-<form class="update" action="<%= url 'reset' %>" method="post">
-<input type="submit" value="Reset" <% if status.empty? %>disabled="true" <% end %>/></dt>
+<form class="update" action="<%= url('reset') %>" method="post">
+<input type="submit" value="Reset" <%= html.disable status.empty? %>/></dt>
 </form>

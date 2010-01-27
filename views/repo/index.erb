@@ -9,7 +9,7 @@
 <dd>
   <form action="<%= url('repo', 'session') %>" method="post">
     <select id="ref" name="ref"><% form.each_ref_name(active_commit) do |value, selected, content| %>
-    <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
+    <option value="<%= value %>"<%= html.select(selected) %>><%= content %></option><% end %>
     </select>
     <input type="submit" value="Change" />
   </form>
@@ -24,7 +24,7 @@
     <dd>
       <select id="remote" name="remote">
       <option value="">None</option><% form.each_remote_name(track) do |value, selected, content| %>
-      <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
+      <option value="<%= value %>"<%= html.select(selected) %>><%= content %></option><% end %>
       </select>
     </dd>
     <dt><input type="submit" value="Setup" /></dt>
@@ -42,7 +42,7 @@
     <dt><label for="remote">Remote</label></dt>
     <dd>
       <select id="remote" name="remote"><% form.each_remote_name(track) do |value, selected, content| %>
-      <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
+      <option value="<%= value %>"<%= html.select(selected) %>><%= content %></option><% end %>
       </select>
     </dd>
     <dt><label for="push">Sync</label></dt>

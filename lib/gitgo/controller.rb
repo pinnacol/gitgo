@@ -4,6 +4,7 @@ require 'gitgo/repo'
 require 'gitgo/helpers'
 require 'gitgo/helpers/format'
 require 'gitgo/helpers/form'
+require 'gitgo/helpers/html'
 
 module Gitgo
   class Controller < Sinatra::Base
@@ -79,6 +80,10 @@ module Gitgo
     
     def form
       @form ||= Helpers::Form.new(self)
+    end
+    
+    def html
+      Helpers::Html
     end
     
     def url(*paths)
