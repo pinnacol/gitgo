@@ -1,0 +1,10 @@
+h1. Gitgo Code
+
+Every codebase has implicit patterns.  These are patterns developers should be aware of to keep Gitgo consistent.
+
+h2. Templates
+
+Templates are written in erb and use helper classes extensively.  The helper classes are split out to promote encapsulation and testing.  In general the erb templates define the structure of pages, but the helpers actually make the content.  
+
+This means that helpers are responsible for formatting and html-escaping document data.  Doing this work in the templates is a bit harder to maintain because the important transformations are buried in markup.  *Please add helpers for any insertions that require formatting or escaping.*
+

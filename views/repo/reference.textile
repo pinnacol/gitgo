@@ -1,6 +1,12 @@
 h1. Gitgo Reference
 
-* "Design":/repo/reference/design
+Users:
+
 * "FAQ":/repo/reference/faq
 * "Howto":/repo/reference/howto
 * "Troubleshooting":/repo/reference/trouble
+
+Developers:
+
+* "Code":/repo/reference/code
+* "Design":/repo/reference/design
