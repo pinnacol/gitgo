@@ -7,28 +7,26 @@ module Gitgo
       
       DEFAULT_STATES = %w{open closed}
       
-      attr_reader :repo
-      attr_reader :mount_point
+      attr_reader :controller
       
-      def initialize(repo, mount_point="/")
-        @repo = repo
-        @mount_point = mount_point
+      def initialize(controller)
+        @controller = controller
       end
       
       def url(*paths)
-        File.join(mount_point, *paths)
+        controller.url(*paths)
       end
       
       def refs
-        @refs ||= repo.grit.refs
+        controller.refs
       end
       
       def states
-        @states ||= (DEFAULT_STATES + repo.index.values("states")).uniq
+        @states ||= (DEFAULT_STATES + controller.repo.index.values("states")).uniq
       end
     
       def tags
-        @tags ||= repo.index.values("tags")
+        @tags ||= controller.repo.index.values("tags")
       end
       
       #

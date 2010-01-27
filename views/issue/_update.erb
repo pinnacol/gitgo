@@ -1,6 +1,6 @@
     
-    <dl class="update">
-    <dt class="content">Comment</dt>
+    <dl class="update" active="<%= active?(update['at']) %>">
+    <dt class="content">Comment <%= format.sha update.sha %></dt>
     <dd class="content"><%= format.content update.content %></dd><% if adds = diff['tags'] %>
     <dt class="tags">Added Tags</dt>
     <dd class="tags"><%= format.tags adds %></dd><% end %><% if removes = diff[:tags] %>

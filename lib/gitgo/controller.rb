@@ -69,12 +69,20 @@ module Gitgo
       @mount_point ||= (request.env[MOUNT_ENV_VAR] || '/')
     end
     
+    def refs
+      @refs ||= repo.grit.refs
+    end
+    
     def format
-      @format ||= Helpers::Format.new(mount_point)
+      @format ||= Helpers::Format.new(self)
     end
     
     def form
-      @form ||= Helpers::Form.new(repo, mount_point)
+      @form ||= Helpers::Form.new(self)
+    end
+    
+    def url(*paths)
+      File.join(mount_point, *paths)
     end
     
     def active_commit

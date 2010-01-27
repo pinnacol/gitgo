@@ -5,14 +5,18 @@ module Gitgo
     class Format
       include Rack::Utils
       
-      attr_reader :mount_point
+      attr_reader :controller
       
-      def initialize(mount_point="/")
-        @mount_point = mount_point
+      def initialize(controller)
+        @controller = controller
       end
       
       def url(*paths)
-        File.join(mount_point, *paths)
+        controller.url(*paths)
+      end
+      
+      def refs
+        controller.refs
       end
       
       def text(str)
@@ -22,7 +26,7 @@ module Gitgo
       end
       
       def sha(sha)
-        "<a href=\"#{url('obj', sha)}\">#{escape_html(sha)}</a>"
+        "<a href=\"#{url('obj', sha)}\" title=\"#{escape_html(sha)}\">#{escape_html(sha[0,8])}</a>"
       end
       
       #
@@ -46,8 +50,16 @@ module Gitgo
         "<abbr title=\"#{date.iso8601}\">#{date.strftime('%Y/%m/%d %H:%M %p')}</abbr>"
       end
       
+      def ref(sha)
+        refs.find {|ref| ref.commit.sha == sha }
+      end
+      
       def at(sha)
-        sha ? self.sha(sha) : '(unknown)'
+        return '(unknown)' unless sha
+        
+        ref = self.ref(sha) 
+        name = ref ? " (#{ref.name})" : nil
+        "#{self.sha(sha)}#{name}"
       end
       
       def tags(tags)
