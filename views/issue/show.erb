@@ -1,25 +1,23 @@
-<h1>Issue <%= doc.sha %></h1>
+<h1>Issue <%= escape_html doc.sha %></h1>
 
 <div class="issue">
   <dl class="description">
   <dt class="title">Title</dt>
-  <dd class="title"><%= escape_html(doc['title']) %></dd>
+  <dd class="title"><%= format.title doc['title'] %></dd>
   <dt class="content">Description</dt>
-  <dd class="content"><%= tformat(doc.content) %></dd><% unless merge[:tags].empty? %>
+  <dd class="content"><%= format.content doc.content %></dd><% unless merge[:tags].empty? %>
   <dt class="tags">Tags</dt>
-  <dd class="tags"><%= escape_html merge[:tags].join(', ') %></dd><% end %>
+  <dd class="tags"><%= format.tags merge[:tags] %></dd><% end %>
   <dt class="state">State</dt>
-  <dd class="state"><%= escape_html merge[:states].join(', ') %></dd>
+  <dd class="state"><%= format.states merge[:states] %></dd>
   <dt class="author">Author</dt>
-  <dd class="author"><%= activity_link(doc.author) %></dd>
+  <dd class="author"><%= format.author doc.author %></dd>
   <dt class="date">Date</dt>
-  <dd class="date"><%= format_date(doc.date) %></dd><% if at = doc['at']%>
+  <dd class="date"><%= format.date doc.date %></dd>
   <dt class="at">At</dt>
-  <dd class="at"><%= sha_link(at) %></dd><% end %><% unless comments.empty? %>
-  <dt class="comments">Comments</dt>
-  <dd class="comments">
-<%= erb :_comments, :locals => {:parent => doc, :comments => comments}, :layout => false %>
-  </dd><% end %>
+  <dd class="at"><%= format.at doc['at'] %></dd>
+  <dt class="updates">Updates</dt>
+  <dd class="updates"><%= erb :_updates, :locals => {:parent => doc, :updates => updates}, :layout => false %></dd>
   <dt class="update">Update Issue</dt>
   <dd class="update">
   <form class="update" action="<%= url('issue', id) %>" method="post">
@@ -30,16 +28,18 @@
     <dt><label for="content">Comment</label></dt>
     <dd><textarea id="content" name="content"></textarea></dd>
     <dt><label for="tags">Tags</label></dt>
-    <dd><input type="text" id="tags" name="doc[tags]" value="<%= merge[:tags].join(" ") %>" /></dd>
+    <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value merge[:tags] %>" /></dd>
     <dt><label for="state">State</label></dt>
     <dd>
-      <select id="state" name="doc[state]"><% states.each do |state| %>
-      <option value="<%= state %>" <% if state == merge[:states][-1] %> selected="true"<% end %>><%= state %></option><% end %>
+      <select id="state" name="doc[state]"><% form.each_state(merge[:states][-1]) do |value, selected, content| %>
+      <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
       </select>
     </dd>
     <dt><label for="at">At</label></dt>
     <dd>
-<%= erb :_at, :layout => false %>
+      <select id="at" name="doc[at]"><% form.each_ref(grit.head.commit) do |value, selected, content| %>
+      <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
+      </select>
     </dd>
     <dt><label for="commit">Commit</label></dt>
     <dd><input id="commit" type="checkbox" name="commit" value="true" checked="true"/></dd>
@@ -50,4 +50,3 @@
   </dd>
   </dl>
 </div>
-

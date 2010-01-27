@@ -7,7 +7,7 @@ module Gitgo
     include Rack::Utils
     
     def mount_point
-      @mount_point ||= (request.env[MOUNT] || '/')
+      @mount_point ||= (request.env[MOUNT_ENV_VAR] || '/')
     end
     
     def url(*paths)

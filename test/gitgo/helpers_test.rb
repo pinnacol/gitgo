@@ -20,7 +20,7 @@ class HelpersTest < Test::Unit::TestCase
   end
   
   def test_url_relative_to_mount_point
-    request.env[Gitgo::MOUNT] = '/mount/point'
+    request.env[Gitgo::MOUNT_ENV_VAR] = '/mount/point'
     
     assert_equal "/mount/point/", url("/")
     assert_equal "/mount/point/path/to/resource", url("/path/to/resource")

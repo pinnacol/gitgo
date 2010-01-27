@@ -2,6 +2,8 @@ require 'erb'
 require 'sinatra/base'
 require 'gitgo/repo'
 require 'gitgo/helpers'
+require 'gitgo/helpers/format'
+require 'gitgo/helpers/form'
 
 module Gitgo
   class Controller < Sinatra::Base
@@ -45,7 +47,7 @@ module Gitgo
     # Returns the Gitgo::Repo specified in the env, if not already specified
     # during initialization.
     def repo
-      @repo ||= request.env[REPO]
+      @repo ||= request.env[REPO_ENV_VAR]
     end
     
     # Convenience method; memoizes and returns the repo grit object.
@@ -61,6 +63,18 @@ module Gitgo
     # Convenience method; memoizes and returns the repo cache.
     def cache
       @cache ||= repo.cache
+    end
+    
+    def mount_point
+      @mount_point ||= (request.env[MOUNT_ENV_VAR] || '/')
+    end
+    
+    def format
+      @format ||= Helpers::Format.new(mount_point)
+    end
+    
+    def form
+      @form ||= Helpers::Form.new(repo, mount_point)
     end
     
     def active_commit

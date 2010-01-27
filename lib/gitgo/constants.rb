@@ -3,8 +3,8 @@ module Gitgo
   # views, public files, etc.
   ROOT = File.expand_path(File.dirname(__FILE__) + "/../..")
   
-  REPO = 'gitgo.repo'
-  MOUNT = 'gitgo.mount'
+  REPO_ENV_VAR  = 'gitgo.repo'
+  MOUNT_ENV_VAR = 'gitgo.mount'
   
   MAJOR = 0
   MINOR = 1

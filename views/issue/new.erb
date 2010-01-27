@@ -3,9 +3,11 @@
 <div class="preview">
   <dl class="description">
   <dt class="title">Title</dt>
-  <dd class="title"><%= escape_html(doc['title']) %></dd>
+  <dd class="title"><%= format.title doc['title'] %></dd>
   <dt class="content">Description</dt>
-  <dd class="content"><%= tformat(content) %></dd>
+  <dd class="content"><%= format.content content %></dd>
+  <dt class="at">At</dt>
+  <dd class="at"><%= format.at doc['at'] %></dd>
   </dl>
 </div><% else %>
 <h1>New Issue</h1><% end %>
@@ -13,14 +15,16 @@
 <form class="issue" action="<%= url('issue') %>" method="post">
   <dl class="form">
   <dt><label for="title">Title</label></dt>
-  <dd><input id="title" type="text" name="doc[title]" value="<%= escape_html(doc['title']) %>" /></dd>
+  <dd><input id="title" type="text" name="doc[title]" value="<%= form.title_value doc['title'] %>" /></dd>
   <dt><label for="content">Description</label></dt>
-  <dd><textarea id="content" name="content"><%= content %></textarea></dd>
+  <dd><textarea id="content" name="content"><%= form.content_value content %></textarea></dd>
   <dt><label for="tags">Tags</label></dt>
-  <dd><input type="text" id="tags" name="doc[tags]" value="<%= escape_html(doc['tags']) %>" /></dd>
+  <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value doc['tags'] %>" /></dd>
   <dt><label for="at">At</label></dt>
   <dd>
-<%= erb :_at, :layout => false %>
+    <select id="at" name="doc[at]"><% form.each_ref(grit.head.commit) do |value, selected, content| %>
+    <option value="<%= value %>"<%= form.select(selected) %>><%= content %></option><% end %>
+    </select>
   </dd>
   <dt><label for="preview">Preview</label></dt>
   <dd><input id="preview" type="checkbox" name="preview" value="true"/></dd>
@@ -30,4 +34,3 @@
   <dd></dd>
   </dl>
 </form>
-

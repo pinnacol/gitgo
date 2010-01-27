@@ -1,0 +1,6 @@
+  
+  <ul><% updates.each do |update|; if update.kind_of?(Array) %>
+  <li><%= erb :_updates, :locals => {:updates => update, :parent => parent }, :layout => false %></li><% else %>
+  <li><%= erb :_update,  :locals => {:update => update, :diff => update.diff(parent) }, :layout => false %></li><% parent = update %><% end;end %>
+  </ul>
+  

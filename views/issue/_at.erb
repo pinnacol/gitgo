@@ -1,4 +1,0 @@
-    <select id="at" name="doc[at]"><% refs.each do |ref| %>
-    <option value="<%= escape_html(ref.commit) %>"<%= selected?(ref.name == head) %>><%= escape_html(ref.name) %></option><% end %>
-    <option value="">(none)</option>
-    </select>

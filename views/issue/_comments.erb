@@ -1,8 +1,0 @@
-  <ul><% comments.each do |comment| %><% if comment.kind_of?(Array) %>
-  <li>
-<%= erb :_comments, :locals => {:comments => comment, :parent => parent }, :layout => false %>
-  </li><% else %>
-  <li>
-<%= erb :_comment, :locals => {:comment => comment, :diff => comment.diff(parent) }, :layout => false %>
-  </li><% parent = comment %><% end %><% end %>
-  </ul>

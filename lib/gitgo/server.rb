@@ -30,7 +30,7 @@ module Gitgo
       Controller.set(:environment, options[:environment].to_sym)
       
       repo = Repo.init(options[:repo], options)
-      Session.new(App, Gitgo::REPO => repo, Gitgo::MOUNT => options[:mount])
+      Session.new(App, Gitgo::REPO_ENV_VAR => repo, Gitgo::MOUNT_ENV_VAR => options[:mount])
     end
     
     def default_options
@@ -69,7 +69,7 @@ module Gitgo
           options[:Port] = port
         }
         
-        opts.on("-r", "--repo=REPO", "use git repo (default: #{options[:repo]})") { |repo|
+        opts.on("-r", "--repo=REPO_ENV_VAR", "use git repo (default: #{options[:repo]})") { |repo|
           options[:repo] = repo
         }
 

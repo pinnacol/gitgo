@@ -8,7 +8,7 @@ module Gitgo
       get('/issue')        { index }
       get('/issue/new')    { preview }
       get('/issue/:id')    {|id| show(id) }
-      get('/issue/:id/:comment') {|id, comment| show(id, comment) }
+      get('/issue/:id/:update') {|id, update| show(id, update) }
       
       post('/issue')       { create }
       post('/issue/:id') do |id|
@@ -28,7 +28,6 @@ module Gitgo
       #
       
       INHERIT = %w{state tags}
-      DEFAULT_STATES = %w{open closed}
       ATTRIBUTES = %w{author date state tags}
       
       # Processes requests like: /index?key=value
@@ -114,13 +113,13 @@ module Gitgo
         redirect url("/issue/#{issue}")
       end
     
-      def show(issue, comment=nil)
+      def show(issue, update=nil)
         unless issue_doc = cache[issue]
           raise "unknown issue: #{issue.inspect}"
         end
       
         # get children and resolve to docs
-        comments = repo.comments(issue, cache)
+        updates = repo.comments(issue, cache)
         tails = cache.keys.collect do |sha|
           cache[sha]
         end.select do |doc| 
@@ -141,10 +140,10 @@ module Gitgo
         erb :show, :locals => {
           :id => issue,
           :doc => issue_doc,
-          :comments => comments,
+          :updates => updates,
           :tails => tails,
           :merge => merge,
-          :selected => comment,
+          :selected => update,
         }
       end
     
@@ -182,24 +181,6 @@ module Gitgo
         base = document(overrides)
         INHERIT.each {|key| base[key] ||= doc[key] }
         base
-      end
-      
-      def refs
-        grit.refs
-      end
-      
-      def head
-        @head ||= grit.head.name
-      end
-      
-      # Returns an array of states currently in use
-      def states
-        (DEFAULT_STATES + repo.index.values("states")).uniq
-      end
-    
-      # Returns an array of tags currently in use
-      def tags
-        repo.index.values("tags")
       end
     end
   end
