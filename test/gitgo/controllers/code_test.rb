@@ -260,8 +260,8 @@ tag of project with one, two, three only
   # post test
   #
   
-  def test_post_comments_creates_comment_on_parent
-    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "content" => "comment content", "commit" => "true")
+  def test_post_comment_creates_comment_regarding_object
+    post("/comment", "re" => "ee9a1ca4441ab2bf937808b26eab784f3d041643", "content" => "comment content", "commit" => "true")
     assert last_response.redirect?
     
     comment = File.basename(last_response['Location'])
@@ -273,11 +273,11 @@ tag of project with one, two, three only
   end
   
   def test_post_links_comment_to_parent_comment
-    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "content" => "comment a", "commit" => "true")
+    post("/comment", "re" => "ee9a1ca4441ab2bf937808b26eab784f3d041643", "content" => "comment a", "commit" => "true")
     assert last_response.redirect?
     a = File.basename(last_response['Location'])
     
-    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "content" => "comment b", "commit" => "true")
+    post("/comment", "re" => "ee9a1ca4441ab2bf937808b26eab784f3d041643", "parents" => [a], "content" => "comment b", "commit" => "true")
     assert last_response.redirect?
     b = File.basename(last_response['Location'])
     
@@ -286,16 +286,16 @@ tag of project with one, two, three only
   end
   
   def test_post_validates_parent_is_regarding_the_same_object
-    post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "content" => "comment a", "commit" => "true")
+    post("/comment", "re" => "ee9a1ca4441ab2bf937808b26eab784f3d041643", "content" => "comment a", "commit" => "true")
     assert last_response.redirect?
     a = File.basename(last_response['Location'])
     
-    err = assert_raises(RuntimeError) { post("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "comment b", "commit" => "true") }
+    err = assert_raises(RuntimeError) { post("/comment", "re" => "d0ad2534e98f0a2b9573af0355d7371468eb77f1", "parents" => [a], "content" => "comment b", "commit" => "true") }
     assert_equal "invalid parent for comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}", err.message
   end
   
-  def test_post_rev_parses_parent
-    post("/comments/caps", "content" => "comment content", "commit" => "true")
+  def test_post_rev_parses_object_reference
+    post("/comment", "re" => "caps", "content" => "comment content", "commit" => "true")
     assert last_response.redirect?
     
     comment = File.basename(last_response['Location'])
@@ -307,7 +307,7 @@ tag of project with one, two, three only
   end
   
   def test_post_raises_error_for_no_content
-    err = assert_raises(RuntimeError) { post("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643", "commit" => "true") }
+    err = assert_raises(RuntimeError) { post("/comment", "re" => "ee9a1ca4441ab2bf937808b26eab784f3d041643", "commit" => "true") }
     assert_equal "no content specified", err.message
   end
   
@@ -315,15 +315,13 @@ tag of project with one, two, three only
   # put test
   #
   
-  def new_comment(content, parent=nil, obj='ee9a1ca4441ab2bf937808b26eab784f3d041643')
-    path = parent ? File.join(obj, parent) : obj
-    
-    post("/comments/#{path}", "content" => content, "commit" => "true")
+  def new_comment(content, parents=[], object='ee9a1ca4441ab2bf937808b26eab784f3d041643')
+    post("/comment", "re" => object, "parents" => [*parents], "content" => content, "commit" => "true")
     assert last_response.redirect?
     File.basename(last_response['Location'])
   end
   
-  def test_put_replaces_previous_comment_with_new_comment_on_parent
+  def test_put_replaces_previous_comment_with_new_comment_regarding_object
     a = new_comment("comment a")
     b = new_comment("comment b", a)
     c = new_comment("comment c", b)
@@ -332,7 +330,7 @@ tag of project with one, two, three only
     assert_equal [b], repo.children(a)
     assert_equal [c], repo.children(b)
     
-    put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "content" => "comment d", "commit" => "true")
+    put("/comment/#{b}", "content" => "comment d", "commit" => "true")
     assert last_response.redirect?
     d = File.basename(last_response['Location'])
     
@@ -345,30 +343,31 @@ tag of project with one, two, three only
     assert_equal [c], repo.children(d)
   end
   
-  def test_put_validates_it_is_updating_a_comment_on_the_obj
-    err = assert_raises(RuntimeError) { put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/d0ad2534e98f0a2b9573af0355d7371468eb77f1", "content" => "update", "commit" => "true") }
+  def test_put_validates_it_is_updating_a_comment
+    err = assert_raises(RuntimeError) { put("/comment/d0ad2534e98f0a2b9573af0355d7371468eb77f1") }
     assert_equal "unknown comment: d0ad2534e98f0a2b9573af0355d7371468eb77f1", err.message
     
-    a = new_comment("comment a")
-    err = assert_raises(RuntimeError) { put("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "update", "commit" => "true") }
-    assert_equal "not a comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}", err.message
+    a = repo.create("not a comment")
+    err = assert_raises(RuntimeError) { put("/comment/#{a}") }
+    assert_equal "not a comment: #{a}", err.message
     
-    b = repo.create("not a comment")
-    err = assert_raises(RuntimeError) { put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "content" => "update", "commit" => "true") }
-    assert_equal "not a comment: #{b}", err.message
+    # no 're' attribute
+    b = repo.create("invalid comment", "type" => "comment")
+    err = assert_raises(RuntimeError) { put("/comment/#{b}") }
+    assert_equal "invalid comment: #{b}", err.message
   end
   
   def test_put_deletes_old_comment
     a = new_comment("comment a")
     assert_equal true, repo.index.all.include?(a)
     
-    put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "content" => "update", "commit" => "true")
+    put("/comment/#{a}", "content" => "update", "commit" => "true")
     assert last_response.redirect?
     
     assert_equal false, repo.index.all.include?(a)
   end
   
-  def test_put_rev_parses_parent_and_comment
+  def test_put_rev_parses_comment
     a = new_comment("comment a")
     b = new_comment("comment b", a)
     c = new_comment("comment c", b)
@@ -377,7 +376,7 @@ tag of project with one, two, three only
     assert_equal [b], repo.children(a)
     assert_equal [c], repo.children(b)
     
-    put("/comments/ee9a1c/#{b[0,8]}", "content" => "comment d", "commit" => "true")
+    put("/comment/#{b[0,8]}", "content" => "comment d", "commit" => "true")
     assert last_response.redirect?
     d = File.basename(last_response['Location'])
     
@@ -392,7 +391,7 @@ tag of project with one, two, three only
   
   def test_put_raises_error_for_no_content
     a = new_comment("comment a")
-    err = assert_raises(RuntimeError) { put("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{a}", "commit" => "true") }
+    err = assert_raises(RuntimeError) { put("/comment/#{a}", "commit" => "true") }
     assert_equal "no content specified", err.message
   end
   
@@ -404,38 +403,39 @@ tag of project with one, two, three only
     a = new_comment("comment a")
     b = new_comment("comment b", a)
     c = new_comment("comment c", b)
-
+  
     assert_equal [b], repo.children(a)
     assert_equal [c], repo.children(b)
   
-    delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "commit" => "true")
+    delete("/comment/#{b}", "commit" => "true")
     assert last_response.redirect?
   
     assert_equal [c], repo.children(a)
   end
   
   def test_destroy_validates_it_is_destroying_a_comment_on_the_obj
-    err = assert_raises(RuntimeError) { delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/d0ad2534e98f0a2b9573af0355d7371468eb77f1", "content" => "update", "commit" => "true") }
+    err = assert_raises(RuntimeError) { delete("/comment/d0ad2534e98f0a2b9573af0355d7371468eb77f1") }
     assert_equal "unknown comment: d0ad2534e98f0a2b9573af0355d7371468eb77f1", err.message
     
-    a = new_comment("comment a")
-    err = assert_raises(RuntimeError) { delete("/comments/d0ad2534e98f0a2b9573af0355d7371468eb77f1/#{a}", "content" => "update", "commit" => "true") }
-    assert_equal "not a comment on d0ad2534e98f0a2b9573af0355d7371468eb77f1: #{a}", err.message
+    a = repo.create("not a comment")
+    err = assert_raises(RuntimeError) { delete("/comment/#{a}") }
+    assert_equal "not a comment: #{a}", err.message
     
-    b = repo.create("not a comment")
-    err = assert_raises(RuntimeError) { delete("/comments/ee9a1ca4441ab2bf937808b26eab784f3d041643/#{b}", "content" => "update", "commit" => "true") }
-    assert_equal "not a comment: #{b}", err.message
+    # no 're' attribute
+    b = repo.create("invalid comment", "type" => "comment")
+    err = assert_raises(RuntimeError) { delete("/comment/#{b}") }
+    assert_equal "invalid comment: #{b}", err.message
   end
   
-  def test_destroy_rev_parses_parent_and_comment
+  def test_destroy_rev_parses_comment
     a = new_comment("comment a")
     b = new_comment("comment b", a)
     c = new_comment("comment c", b)
-
+  
     assert_equal [b], repo.children(a)
     assert_equal [c], repo.children(b)
   
-    delete("/comments/ee9a1c/#{b[0,8]}", "commit" => "true")
+    delete("/comment/#{b[0,8]}", "commit" => "true")
     assert last_response.redirect?
   
     assert_equal [c], repo.children(a)

@@ -187,8 +187,8 @@ class IssueTest < Test::Unit::TestCase
     
     get("/issue/#{issue}")
     assert last_response.ok?
-    assert last_response.body.include?(%Q{name="re[]" value="#{a}"})
-    assert last_response.body.include?(%Q{name="re[]" value="#{b}"})
+    assert last_response.body.include?(%Q{name="parents[]" value="#{a}"})
+    assert last_response.body.include?(%Q{name="parents[]" value="#{b}"})
   end
   
   def test_get_rev_parses_issue
@@ -302,14 +302,14 @@ class IssueTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue A/
   end
   
-  def test_put_links_comment_to_re
+  def test_put_links_comment_to_parents
     issue = open_issue("Issue A")
     a = repo.create("Comment A")
     
     assert_equal [], repo.children(issue)
     assert_equal [], repo.children(a)
     
-    put("/issue/#{issue}", "content" => "Comment on A", "re" => a, "commit" => "true")
+    put("/issue/#{issue}", "content" => "Comment on A", "parents" => [a], "commit" => "true")
     assert last_response.redirect?, last_response.body
     id, comment = last_response_location
     
@@ -321,7 +321,7 @@ class IssueTest < Test::Unit::TestCase
     assert_equal "Comment on A", comment.content
   end
   
-  def test_put_links_comment_to_multiple_re
+  def test_put_links_comment_to_multiple_parents
     issue = repo.create("New Issue")
     a = repo.create("Comment A")
     b = repo.create("Comment B")
@@ -330,7 +330,7 @@ class IssueTest < Test::Unit::TestCase
     assert_equal [], repo.children(a)
     assert_equal [], repo.children(a)
     
-    put("/issue/#{issue}", "content" => "Comment on A and B", "re" => [a, b], "commit" => "true")
+    put("/issue/#{issue}", "content" => "Comment on A and B", "parents" => [a, b], "commit" => "true")
     assert last_response.redirect?, last_response.body
     id, comment = last_response_location
     
@@ -356,7 +356,7 @@ class IssueTest < Test::Unit::TestCase
     assert_equal issue, repo.reference(commit, comment)
   end
   
-  def test_put_rev_parses_issue_and_re
+  def test_put_rev_parses_issue_and_parents
     issue = repo.create("New Issue")
     a = repo.create("Comment A")
     b = repo.create("Comment B")
@@ -365,7 +365,7 @@ class IssueTest < Test::Unit::TestCase
     assert_equal [], repo.children(a)
     assert_equal [], repo.children(a)
     
-    put("/issue/#{issue[0,8]}", "content" => "Comment on A and B", "re" => [a[0,8], b[0,8]], "commit" => "true")
+    put("/issue/#{issue[0,8]}", "content" => "Comment on A and B", "parents" => [a[0,8], b[0,8]], "commit" => "true")
     assert last_response.redirect?, last_response.body
     id, comment = last_response_location
     
@@ -383,9 +383,9 @@ class IssueTest < Test::Unit::TestCase
     assert_equal 'unknown issue: "unknown"', err.message
   end
   
-  def test_put_raises_error_for_invalid_re
+  def test_put_raises_error_for_invalid_parents
     issue = repo.create("New Issue")
-    err = assert_raises(RuntimeError) { put("/issue/#{issue}", "re" => "unknown") }
+    err = assert_raises(RuntimeError) { put("/issue/#{issue}", "parents" => ["unknown"]) }
     assert_equal 'unknown re: "unknown"', err.message
   end
 end

@@ -1,3 +1,4 @@
+  
   <form class="comment" action="<%= parent ? url('comments', sha, parent) : url('comments', sha) %>" method="post">
     <input type="hidden" name="redirect" value="<%= request.env['REQUEST_URI'] %>" />
 
@@ -6,7 +7,8 @@
     <dd><textarea id="content" name="content"></textarea></dd>
     <dt><label for="commit">Commit</label></dt>
     <dd><input id="commit" type="checkbox" name="commit" value="true" checked="true"/></dd>
-    <dt><input type="submit" value="Add Comment" /></dt>
+    <dt><input type="submit" value="Comment" /></dt>
     <dd></dd>
     </dl>
   </form>
+  

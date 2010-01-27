@@ -14,21 +14,21 @@ module Gitgo
       get('/tree/:treeish')    {|treeish| show_tree(treeish, '') }
       get('/tree/:treeish/*')  {|treeish, path| show_tree(treeish, path) }
       get('/commit/:treeish')  {|treeish| show_commit(treeish) }
-
-      get('/obj/:sha')         {|sha| show_object(sha) }
       get('/commits/:treeish') {|treeish| show_commits(treeish) }
-      
-      post('/comments/:obj')            {|obj| create(obj) }
-      post('/comments/:obj/:comment') do |obj, comment|
+      get('/obj/:sha')         {|sha| show_object(sha) }
+
+      get('/comment/:sha')     {|sha| read(sha) }
+      post('/comment')         { create }
+      post('/comment/:sha') do |sha|
         _method = request[:_method]
         case _method
-        when /\Aupdate\z/i then update(obj, comment)
-        when /\Adelete\z/i then destroy(obj, comment)
-        else create(obj, comment)
+        when /\Aupdate\z/i then update(obj)
+        when /\Adelete\z/i then destroy(obj)
+        else raise("unknown post method: #{_method}")
         end
       end
-      put('/comments/:obj/:comment')    {|obj, comment| update(obj, comment) }
-      delete('/comments/:obj/:comment') {|obj, comment| destroy(obj, comment) }
+      put('/comment/:sha')     {|sha| update(sha) }
+      delete('/comment/:sha')  {|sha| destroy(sha) }
       
       #
       # actions
@@ -169,6 +169,19 @@ module Gitgo
         erb :diff, :locals => {:commit => commit, :treeish => treeish}
       end
       
+      def show_commits(treeish)
+        commit = grit.commit(treeish)
+        page = (request[:page] || 0).to_i
+        per_page = (request[:per_page] || 10).to_i
+
+        erb :commits, :locals => {
+          :treeish => treeish,
+          :page => page,
+          :per_page => per_page,
+          :commits => grit.commits(commit.sha, per_page, page * per_page)
+        }
+      end
+      
       def show_object(shaish)
         unless sha = repo.sha(shaish)
           raise "unknown object: #{shaish}"
@@ -198,53 +211,47 @@ module Gitgo
         end
       end
       
-      def show_commits(treeish)
-        commit = grit.commit(treeish)
-        page = (request[:page] || 0).to_i
-        per_page = (request[:per_page] || 10).to_i
-
-        erb :commits, :locals => {
-          :treeish => treeish,
-          :page => page,
-          :per_page => per_page,
-          :commits => grit.commits(commit.sha, per_page, page * per_page)
-        }
-      end
-      
-      def create(obj, parent=obj)
-        obj, parent = repo.rev_parse(obj, parent)
+      def create
+        sha = request['re']
+        unless object = repo.sha(sha)
+          raise "unknown object: #{sha}"
+        end
         
-        # determine and validate comment parent
-        if parent != obj
-          parent_doc = repo.read(parent)
-          unless parent_doc && parent_doc['re'] == obj
-            raise "invalid parent for comment on #{obj}: #{parent}"
+        # determine and validate parents
+        parents = request['parents']
+        parents = parents ? repo.rev_parse(*parents) : [object]
+        parents.each do |parent|
+          next if parent == object
+          
+          parent_doc = cache[parent]
+          unless parent_doc && parent_doc['re'] == object
+            raise "invalid parent for comment on #{object}: #{parent}"
           end
         end
         
         # create the new comment
-        doc = document('type' => 'comment', 're' => obj)
+        doc = document('type' => 'comment', 're' => object)
         raise 'no content specified' if doc.empty?
         
         comment = repo.store(doc)
-        repo.link(parent, comment)
+        parents.each do |parent|
+          repo.link(parent, comment)
+        end
         
-        repo.commit("comment #{comment} re #{obj}") if request['commit'] == 'true'
+        repo.commit!("comment #{comment} re #{object}") if request['commit'] == 'true'
         redirect_to(comment)
       end
     
-      def update(obj, comment)
-        obj, comment = repo.rev_parse(obj, comment)
-        check_valid_comment(obj, comment)
+      def update(sha)
+        comment, object = comment_and_object_shas(sha)
         
         # update the comment
-        doc = document('type' => 'comment', 're' => obj)
+        doc = document('type' => 'comment', 're' => object)
         raise 'no content specified' if doc.empty?
-        
         new_comment = repo.store(doc)
         
         # reassign links
-        ancestry = repo.children(obj, :recursive => true)
+        ancestry = repo.children(object, :recursive => true)
         
         ancestry.each_pair do |parent, children|
           next unless children.include?(comment)
@@ -261,16 +268,16 @@ module Gitgo
         # remove the current comment
         repo.destroy(comment, false)
         
-        repo.commit("update #{comment} with #{new_comment}") if request['commit'] == 'true'
+        repo.commit!("update #{comment} with #{new_comment}") if request['commit'] == 'true'
         redirect_to(new_comment)
       end
     
-      def destroy(obj, comment)
-        obj, comment = repo.rev_parse(obj, comment)
-        check_valid_comment(obj, comment)
+      def destroy(sha)
+        comment, object = comment_and_object_shas(sha)
         
-        # reassign children to comment parent
-        ancestry = repo.children(obj, :recursive => true)
+        # reassign links to parent, and unassign links
+        ancestry = repo.children(object, :recursive => true)
+        
         ancestry.each_pair do |parent, children|
           if children.include?(comment)
             repo.unlink(parent, comment)
@@ -281,7 +288,6 @@ module Gitgo
           end
         end
         
-        # unlink children
         ancestry[comment].each do |child|
           repo.unlink(comment, child)
         end
@@ -289,26 +295,32 @@ module Gitgo
         # remove the comment
         repo.destroy(comment, false)
         
-        repo.commit("remove #{comment}") if request['commit'] == 'true'
-        redirect_to(obj)
+        repo.commit!("remove #{comment}") if request['commit'] == 'true'
+        redirect_to(object)
       end
       
-      def check_valid_comment(obj, comment)
-        if doc = repo.read(comment)
-          unless doc['type'] == 'comment'
-            raise "not a comment: #{comment}"
-          end
-          
-          unless doc['re'] == obj
-            raise "not a comment on #{obj}: #{comment}"
-          end
-        else
-          raise("unknown comment: #{comment}")
+      #
+      # helpers
+      #
+      
+      def comment_and_object_shas(sha)
+        unless comment = cache[sha]
+          raise "unknown comment: #{sha}"
         end
+        
+        unless comment['type'] == 'comment'
+          raise "not a comment: #{comment.sha}"
+        end
+        
+        unless object = comment['re']
+          raise "invalid comment: #{comment.sha}"
+        end
+        
+        [comment.sha, object]
       end
       
-      def redirect_to(sha)
-        redirect(request['redirect'] || "obj/#{sha}")
+      def redirect_to(object)
+        redirect(request['redirect'] || "obj/#{object}")
       end
     end
   end

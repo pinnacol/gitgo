@@ -156,8 +156,7 @@ module Gitgo
         update = repo.store(doc, :rev_parse => ['at', 're'])
 
         # link the comment to each parent and update the index
-        parents = request['re'] || [issue]
-        parents = [parents] unless parents.kind_of?(Array)
+        parents = request['parents'] || [issue]
         parents.each do |parent|
           unless sha = repo.sha(parent)
             raise "unknown re: #{parent.inspect}"

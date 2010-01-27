@@ -1,0 +1,10 @@
+
+  <dl class="comment">
+  <dt class="content">Comment <%= format.sha_a comment.sha %></dt>
+  <dd class="content"><%= format.content comment.content %></dd>
+  <dt class="author">Author</dt>
+  <dd class="author"><%= format.author comment.author %></dd>
+  <dt class="date">Date</dt>
+  <dd class="date"><%= format.date comment.date %></dd>
+  </dl>
+<% if comment[:tail] %><%= erb(:_comment_form, :locals => {:sha => comment['re'], :parent => comment.sha}, :layout => false) %><% end %>

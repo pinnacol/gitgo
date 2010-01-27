@@ -5,12 +5,12 @@
 <li><%= link %></li><% end %>
 </ul>
 
-<form class="update" action="<%= url('commit') %>" method="post">
+<form class="update" action="<%= url('repo', 'commit') %>" method="post">
 <label for="message">Commit Message</label>
 <input type="text" name="message" value="" <%= html.disable status.empty? %>/>
 <input type="submit" value="Commit" <%= html.disable status.empty? %>/></dt>
 </form>
 
-<form class="update" action="<%= url('reset') %>" method="post">
+<form class="update" action="<%= url('repo', 'reset') %>" method="post">
 <input type="submit" value="Reset" <%= html.disable status.empty? %>/></dt>
 </form>
