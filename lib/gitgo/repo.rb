@@ -176,7 +176,8 @@ module Gitgo
     
     YEAR = /\A\d{4,}\z/
     MMDD = /\A\d{4}\z/
-
+    SHA  = /\A[A-Fa-f\d]{40}\z/
+    
     GIT_VERSION = [1,6,4,2]
 
     # The internal Grit::Repo
@@ -555,10 +556,9 @@ module Gitgo
     # Merges the specified reference with the current branch, fast-forwarding
     # when possible.  This method does not need to checkout the branch into a
     # working directory to perform the merge.
-    def merge(ref=track)
+    def merge(treeish=track)
       sandbox do |git, work_tree, index_file|
-        local = ref(:heads, branch)
-        remote = rev_parse(ref)
+        local, remote = rev_parse(branch, treeish)
         base = local.nil? ? nil : git.merge_base({}, local, remote).chomp("\n")
         
         case
@@ -578,7 +578,7 @@ module Gitgo
             :index_output => index_file
           }, base, branch, remote)
           
-          commit!("gitgo merge of #{ref} into #{branch}", 
+          commit!("gitgo merge of #{treeish} into #{branch}", 
             :tree => git.write_tree.chomp("\n"),
             :parents => [local, remote]
           )
@@ -629,13 +629,35 @@ module Gitgo
       end
     end
     
-    def rev_parse(treeish)
-      sandbox {|git,w,i| git.rev_parse({}, treeish) }
+    # Returns an array of shas identified by the args (ex a sha, short-sha, or
+    # treeish).  Raises an error if not all args can be converted into something
+    # that looks like a sha.
+    #
+    # Note there is no guarantee the rev-parse will return a sha to a valid
+    # object --- not even 'git rev-parse' will do that.
+    def rev_parse(*args)
+      return args if args.empty?
+      
+      sandbox do |git,w,i|
+        shas = git.run('', :rev_parse, '', {}, args).split("\n")
+        
+        # Grit::Git#run only makes stdout available, not stderr, and so this
+        # wonky check relies on the fact that git rev-parse will print the
+        # unresolved ref to stdout and quit if it can't succeed. That means
+        # the last printout will not look like a sha in the event of an error.
+        
+        unless shas.last.to_s =~ SHA
+          raise "could not resolve to a sha: #{args.last}"
+        end
+        
+        shas
+      end
     end
     
     # Returns an array of revisions (commits) reachable from the treeish.
     def rev_list(*treeishs)
-      sandbox {|git,w,i| git.rev_list({}, *treeishs).split("\n") }
+      return treeishs if treeishs.empty?
+      sandbox {|git,w,i| git.run('', :rev_list, '', {}, treeishs).split("\n") }
     end
     
     # Peforms 'git prune' and returns self.

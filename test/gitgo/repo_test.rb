@@ -589,6 +589,54 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # rev_parse tests
+  #
+  
+  def test_rev_parse_returns_an_array_of_object_refs_parsed_to_their_correct_sha
+    setup_repo("simple.git")
+    
+    assert_equal %w{
+      19377b7ec7b83909b8827e52817c53a47db96cf0
+      ee9a1ca4441ab2bf937808b26eab784f3d041643
+      990191ea92e4dc85f598203e123849df1f8bd124
+    }, repo.rev_parse("19377b7", "xyz", "xyz^")
+  end
+  
+  def test_rev_parse_returns_empty_array_for_no_inputs
+    assert_equal [], repo.rev_parse()
+  end
+  
+  def test_rev_parse_raises_error_unless_all_refs_can_be_resolved
+    setup_repo("simple.git")
+    
+    err = assert_raises(RuntimeError) { repo.rev_parse("nonexistant") }
+    assert_equal "could not resolve to a sha: nonexistant", err.message
+    
+    not_a_sha = "x" * 40
+    err = assert_raises(RuntimeError) { repo.rev_parse(not_a_sha) }
+    assert_equal "could not resolve to a sha: #{not_a_sha}", err.message
+  end
+  
+  #
+  # rev_list tests
+  #
+  
+  def test_rev_list_returns_an_array_of_commits_reachable_from_the_treeishs
+    setup_repo("simple.git")
+    
+    assert_equal %w{
+      ee9a1ca4441ab2bf937808b26eab784f3d041643
+      19377b7ec7b83909b8827e52817c53a47db96cf0
+      990191ea92e4dc85f598203e123849df1f8bd124
+      c6746dd1882d772e540342f8e180d3125a9364ad
+    }, repo.rev_list("19377b7", "xyz")
+  end
+  
+  def test_rev_list_returns_empty_array_for_no_inputs
+    assert_equal [], repo.rev_list()
+  end
+  
+  #
   # stats test
   #
   
