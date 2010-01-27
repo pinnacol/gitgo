@@ -15,9 +15,9 @@ module Gitgo
         controller.url(*paths)
       end
       
-      def refs
-        controller.refs
-      end
+      #
+      # general formatters
+      #
       
       def text(str)
         str = escape_html(str)
@@ -26,11 +26,23 @@ module Gitgo
       end
       
       def sha(sha)
-        "<a href=\"#{url('obj', sha)}\" title=\"#{escape_html(sha)}\">#{escape_html(sha[0,8])}</a>"
+        "<a href=\"#{url('obj', sha)}\" title=\"#{sha}\">#{sha[0,8]}</a>"
       end
       
       #
+      # document links
       #
+      
+      def issue_a(doc)
+        title = doc['title']
+        title = "(nameless issue)" if title.to_s.empty?
+        state = doc['state']
+        
+        "<a class=\"#{escape_html state}\" id=\"#{doc.sha}\" active=\"#{doc[:active]}\" href=\"#{url('issue', doc.sha)}\">#{escape_html title}</a>"
+      end
+      
+      #
+      # documents
       #
       
       # a document title
@@ -51,14 +63,14 @@ module Gitgo
       end
       
       def ref(sha)
-        refs.find {|ref| ref.commit.sha == sha }
+        controller.refs.find {|ref| ref.commit.sha == sha }
       end
       
       def at(sha)
         return '(unknown)' unless sha
         
         ref = self.ref(sha) 
-        name = ref ? " (#{ref.name})" : nil
+        name = ref ? " (#{escape_html ref.name})" : nil
         "#{self.sha(sha)}#{name}"
       end
       

@@ -15,18 +15,10 @@ textarea {
   padding: 0.3em;
 }
 
-li[active=false] a {
+dl[active=false], a[active='false'] {
   color: #C0C0C0;
 }
 
-li[active=''] a {
-  color: gray;
-}
-
-dl[active=false] {
-  color: #C0C0C0;
-}
-
-dl[active=''] {
+dl[active=''], a[active=''] {
   color: gray;
 }
