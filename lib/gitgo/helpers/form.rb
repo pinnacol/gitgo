@@ -34,8 +34,12 @@ module Gitgo
       end
       
       #
+      # documents
       #
-      #
+      
+      def author_value(author)
+        escape_html(author)
+      end
       
       def title_value(title)
         escape_html(title)

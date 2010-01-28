@@ -6,8 +6,6 @@
 
 <div class="commits">
 <ul class="commits"><% commits.each do |commit| %>
-<li>
-<%= erb :_commit, :locals => {:commit => commit}, :layout => false %>
-</li><% end %>
+<li><%= erb :_commit, :locals => {:commit => commit}, :layout => false %></li><% end %>
 </ul>
 </div>

@@ -37,6 +37,30 @@ module Gitgo
         "<a class=\"sha\" href=\"#{url('obj', sha)}\" title=\"#{sha}\">#{sha}</a>"
       end
       
+      def path_a(type, treeish, path)
+        "<a class=\"#{type}\" href=\"#{url(type, treeish, *path)}\">#{escape_html(path.pop || treeish)}</a>"
+      end
+      
+      def full_path_a(type, treeish, path)
+        "<a class=\"#{type}\" href=\"#{url(type, treeish, *path)}\">#{escape_html File.join(path)}</a>"
+      end
+      
+      def commit_a(treeish)
+        "<a class=\"commit\" href=\"#{url('commit', treeish)}\">#{escape_html treeish}</a>"
+      end
+      
+      def tree_a(treeish, *path)
+        path_a('tree', treeish, path)
+      end
+      
+      def blob_a(treeish, *path)
+        path_a('blob', treeish, path)
+      end
+      
+      def history_a(treeish)
+        "<a class=\"history\" href=\"#{url('commits', treeish)}\" title=\"#{escape_html treeish}\">history</a>"
+      end
+      
       def issue_a(doc)
         title = doc['title']
         title = "(nameless issue)" if title.to_s.empty?
@@ -51,6 +75,21 @@ module Gitgo
       
       def index_value_a(key, value)
         "<a href=\"#{url('repo', 'idx', key, value)}\">#{escape_html value}</a>"
+      end
+      
+      def each_path(treeish, path)
+        paths = path.split("/")
+        base = paths.pop
+        paths.unshift(treeish)
+
+        object_path = ['tree']
+        paths.collect! do |path| 
+          object_path << path
+          yield "<a href=\"#{url(*object_path)}\">#{escape_html path}</a>"
+        end
+
+        yield(base) if base
+        paths
       end
       
       #

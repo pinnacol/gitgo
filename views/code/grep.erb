@@ -5,17 +5,18 @@
 <form class="grep" action="<%= url(type) %>" method="get">
   <dl class="form">
   <dt><label for="pattern">Pattern</label></dt>
-  <dd><input id="pattern" type="text" name="pattern" value="<%= escape_html(e) %>" /></dd>
+  <dd><input id="pattern" type="text" name="pattern" value="<%= form.value e %>" /></dd>
   <dt><label for="ignore_case">Case-Insensitive</label></dt>
-  <dd><input id="ignore_case" type="checkbox" name="ignore_case" value="true" <%= checked?(ignore_case) %>/></dd>
+  <dd><input id="ignore_case" type="checkbox" name="ignore_case" value="true" <%= html.check(ignore_case) %>/></dd>
   <dt><label for="invert_match">Invert Match</label></dt>
-  <dd><input id="invert_match" type="checkbox" name="invert_match" value="true" <%= checked?(invert_match) %>/></dd>
+  <dd><input id="invert_match" type="checkbox" name="invert_match" value="true" <%= html.check(invert_match) %>/></dd>
   <dt><label for="fixed_strings">Fixed Strings</label></dt>
-  <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= checked?(fixed_strings) %>/></dd>
+  <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= html.check(fixed_strings) %>/></dd>
   <dt><label for="at">At</label></dt>
   <dd>
-    <select id="at" name="at"><% grit.refs.each do |ref| %>
-    <option <%= selected?(at == ref.commit.id) %> value="<%= escape_html(ref.commit) %>"><%= escape_html(ref.name) %></option><% end %>
+    <select id="at" name="at"><% form.each_ref(grit.head.name) do |value, selection, content| %>
+    <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
+    <option value="">(none)</option>
     </select>
   </dd>
   <dt><input type="submit" value="Grep" /></dt>
@@ -26,7 +27,6 @@
 <% if selected.empty? %><em>None selected!</em><% end %>
 <table><% selected.each do |(path, obj)| %>
 <tr>
-<td><%= full_path_link('blob', at, path) %></td>
-<td><%= sha_link(obj.id) %></td>
+<td><%= format.full_path_a('blob', at, path) %></td>
 </tr><% end %>
 </table>

@@ -7,19 +7,19 @@
 <form class="grep" action="<%= url('commit') %>" method="get">
   <dl class="form">
   <dt><label for="author">Author</label></dt>
-  <dd><input id="author" type="text" name="author" value="<%= escape_html(author) %>" /></dd>
+  <dd><input id="author" type="text" name="author" value="<%= form.author_value author %>" /></dd>
   <dt><label for="committer">Committer</label></dt>
-  <dd><input id="committer" type="text" name="committer" value="<%= escape_html(committer) %>" /></dd>
+  <dd><input id="committer" type="text" name="committer" value="<%= form.author_value committer %>" /></dd>
   <dt><label for="grep">Message</label></dt>
-  <dd><input id="grep" type="text" name="grep" value="<%= escape_html(grep) %>" /></dd>
+  <dd><input id="grep" type="text" name="grep" value="<%= form.value grep %>" /></dd>
   <dt><label for="ignore_case">Case-Insensitive</label></dt>
-  <dd><input id="ignore_case" type="checkbox" name="regexp_ignore_case " value="true" <%= checked?(regexp_ignore_case) %>/></dd>
+  <dd><input id="ignore_case" type="checkbox" name="regexp_ignore_case " value="true" <%= html.check(regexp_ignore_case) %>/></dd>
   <dt><label for="fixed_strings">Fixed Strings</label></dt>
-  <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= checked?(fixed_strings) %>/></dd>
+  <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= html.check(fixed_strings) %>/></dd>
   <dt><label for="all_match">All Match</label></dt>
-  <dd><input id="all_match" type="checkbox" name="all_match" value="true" <%= checked?(all_match) %>/></dd>
+  <dd><input id="all_match" type="checkbox" name="all_match" value="true" <%= html.check(all_match) %>/></dd>
   <dt><label for="max_count">Max Count</label></dt>
-  <dd><input id="max_count" type="text" name="max_count" value="<%= escape_html(max_count) %>" /></dd>
+  <dd><input id="max_count" type="text" name="max_count" value="<%= form.value max_count %>" /></dd>
   <dt><input type="submit" value="Grep" /></dt>
   <dd></dd>
   </dl>
@@ -28,8 +28,8 @@
 <% if selected.empty? %><em>None selected!</em><% end %>
 <table><% selected.each do |commit| %>
 <tr>
-<td><%= escape_html(commit.author) %><% if commit.committer.to_s != commit.author.to_s %>(<%= escape_html(commit.committer) %>)<% end %></td>
-<td><%= commit_link(commit.sha) %></a></td>
-<td><%= gformat(commit.message) %></td>
+<td><%= format.author commit.author %></td>
+<td><%= format.commit_a commit.sha %></a></td>
+<td><%= format.text commit.message %></td>
 </tr><% end %>
 </table>

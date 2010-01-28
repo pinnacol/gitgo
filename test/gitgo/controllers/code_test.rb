@@ -158,8 +158,8 @@ class CodeTest < Test::Unit::TestCase
     # tree
     get("/obj/42dd6245f1dfd6f5c4fcbe62bb86b79d89f539cc")
     assert last_response.body.include?('42dd6245f1dfd6f5c4fcbe62bb86b79d89f539cc')
-    assert last_response.body.include?('<a href="/obj/d6b80e9b86f052fef9f495446fdf7bdebd8a5b7e">y.txt</a>')
-    assert last_response.body.include?('<a href="/obj/8f7de8797365eefbac8abeff9b9e78130122fcc2">y</a>')
+    assert last_response.body.include?('y.txt')
+    assert last_response.body.include?('y')
 
     # commit
     get("/obj/ee9a1ca4441ab2bf937808b26eab784f3d041643")

@@ -1,10 +1,9 @@
 <%= erb :_commit, :locals => {:commit => commit }, :layout => false %>
-
 <%= erb :_treenav, :locals => {:treeish => treeish, :path => path}, :layout => false %>
 
 <div class="tree">
   <ul class="contents"><% tree.contents.each do |obj| %><% if obj.kind_of?(Grit::Tree) %>
-    <li class="tree"><%= tree_link(treeish, path, obj.name) %></li><% else %>
-    <li class="blob"><%= blob_link(treeish, path, obj.name) %></li><% end %><% end %>
+    <li class="tree"><%= format.tree_a(treeish, path, obj.name) %></li><% else %>
+    <li class="blob"><%= format.blob_a(treeish, path, obj.name) %></li><% end %><% end %>
   </ul>
 </div>

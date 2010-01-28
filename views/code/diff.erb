@@ -1,5 +1,4 @@
 <%= erb :_commit, :locals => {:commit => commit}, :layout => false %>
-
 <div class="diff">
   <ul class="diff"><% commit.diffs.each do |diff| %><% if diff.new_file %>
   <li class="add"><%= escape_html(diff.b_path) %></li><% elsif diff.deleted_file %>
@@ -8,4 +7,4 @@
     <pre><%= escape_html(diff.diff) %></pre>
   </li><% end %><% end %>
   </ul>
-</div><%= render_comments(commit.id) %>
+</div><%= render_comments(commit.sha) %>

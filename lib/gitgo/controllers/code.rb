@@ -201,9 +201,16 @@ module Gitgo
         else
           type = repo.type(sha)
           obj = case type
-          when 'blob', 'tree', 'commit' # tag
+          when 'blob', 'tree', 'commit'
             grit.send(type, sha)
+          when 'tag'
+            commit = grit.send('commit', sha)
+            grit.tags.find {|tag| tag.commit.tree.id == commit.tree.id }
           else
+            nil
+          end
+          
+          if obj.nil?
             not_found
           end
           
@@ -317,6 +324,16 @@ module Gitgo
         end
         
         [comment.sha, object]
+      end
+      
+      def render_comments(sha)
+        comments = repo.comments(sha, cache)
+
+        if comments.empty?
+          erb(:_comment_form, :locals => {:sha => sha, :parent => nil}, :layout => false)
+        else
+          erb(:_comments, :locals => {:comments => comments}, :layout => false)
+        end
       end
       
       def redirect_to(object)

@@ -6,13 +6,13 @@
 
 <form class="issue" action="<%= url('issue') %>" method="get">
   <h3>State</h3>
-  <ul><% form.each_state(*current_states) do |value, checked, content| %>
-  <li><input type="checkbox" name="state[]" value="<%= value %>"<%= html.check(checked) %>><%= content %></input></li><% end %>
+  <ul><% form.each_state(*current_states) do |value, selection, content| %>
+  <li><input type="checkbox" name="state[]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
   </ul>
   
   <h3>Tags</h3>
-  <ul><% form.each_tag(*current_tags) do |value, checked, content| %>
-  <li><input type="checkbox" name="tags[]" value="<%= value %>"<%= html.check(checked) %>><%= content %></input></li><% end %>
+  <ul><% form.each_tag(*current_tags) do |value, selection, content| %>
+  <li><input type="checkbox" name="tags[]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
   </ul>
   
   <h3>Sort</h3>
