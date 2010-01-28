@@ -87,7 +87,7 @@ class AppTest < Test::Unit::TestCase
     get("/timeline")
     
     assert last_response.body =~ /#{issue}.*ee9a1ca4441ab2bf937808b26eab784f3d041643.*ee9a1ca4441ab2bf937808b26eab784f3d041643.*#{issue}/m
-    assert last_response.body =~ /update.*comment.*comment.*issue/m
+    assert last_response.body =~ /Update.*Comment.*Comment.*Issue/m
   end
   
   def test_timeline_shows_helpful_message_if_no_results_are_available

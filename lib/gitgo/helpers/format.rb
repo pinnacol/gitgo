@@ -1,4 +1,5 @@
 require 'rack/utils'
+require 'redcloth'
 
 module Gitgo
   module Helpers
@@ -21,7 +22,7 @@ module Gitgo
       
       def text(str)
         str = escape_html(str)
-        str.gsub!(/[a-f0-9]{40}/) {|sha| sha_a(sha) }
+        str.gsub!(/[A-Fa-f\d]{40}/) {|sha| sha_a(sha) }
         str
       end
       
@@ -90,6 +91,25 @@ module Gitgo
 
         yield(base) if base
         paths
+      end
+      
+      def each_activity(timeline)
+        timeline.reverse_each do |doc|
+          type_a= case doc['type']
+          when 'comment'
+            sha_a doc['re']
+          when 'issue'
+            issue_a doc
+          when 'update'   
+            issue_doc = controller.cache[doc['re']]
+            issue_a issue_doc
+          else 
+            sha_a doc.sha
+          end
+          
+          type = (doc['type'] || 'unknown').capitalize
+          yield(escape_html(type), type_a, author(doc.author), date(doc.date))
+        end
       end
       
       #

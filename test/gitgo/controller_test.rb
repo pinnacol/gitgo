@@ -40,6 +40,33 @@ class ControllerTest < Test::Unit::TestCase
   end
   
   #
+  # url test
+  #
+  
+  def test_url_returns_path
+    setup_app
+    app.extend SetMountPoint
+    app.mount_point = '/'
+    
+    assert_equal "/", app.url("/")
+    assert_equal "/path/to/resource", app.url("/path/to/resource")
+  end
+  
+  module SetMountPoint
+    attr_writer :mount_point
+  end
+  
+  def test_url_relative_to_mount_point
+    setup_app
+    app.extend SetMountPoint
+    app.mount_point = '/mount/point'
+    
+    assert_equal "/mount/point/", app.url("/")
+    assert_equal "/mount/point/path/to/resource", app.url("/path/to/resource")
+  end
+  
+  
+  #
   # author test
   #
   

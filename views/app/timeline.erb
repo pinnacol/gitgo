@@ -1,0 +1,26 @@
+<h1>Gitgo Activity<% unless author.empty? %> for <%= escape_html author %><% end %></h1>
+<ul>
+<li class="newer"><% if timeline && page >= 1 %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page - 1, :per_page => per_page) %>">newer</a><% else %>(newer)<% end %></li>
+<li class="older"><% if timeline && timeline.length == per_page %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page + 1, :per_page => per_page) %>">older</a><% else %>(older)<% end %></li>
+</ul>
+
+<ul>
+<li><a href="<%= url('timeline') %>">All Authors</a></li><% authors.each do |author| %>
+<li><a href="<%= url('timeline') %>?<%= build_query(:author => author) %>"><%= escape_html(author) %></a></li><% end %>
+</ul>
+<% if timeline.nil? %>
+<h2>Welcome to Gitgo!</h2>
+<p>New activity will be listed here after you visit the <a href='<%= url('repo') %>'>repo</a> page and setup a <%= format.branch repo.branch %> branch.</p><% elsif timeline.empty? %>
+<p>No results to show...</p><% else %>
+<ul class="timeline"><% format.each_activity(timeline) do |type, link, author, date| %>
+<li>
+  <dl class="activity">
+  <dt class="type"><%= type %></dt>
+  <dd class="type"><%= link %></dd>
+  <dt class="author">Author</dt>
+  <dd class="author"><%= author %></dd>
+  <dt class="date">Date</dt>
+  <dd class="date"><%= date %></dd>
+  </dl>
+</li><% end %>
+</ul><% end %>

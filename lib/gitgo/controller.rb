@@ -2,9 +2,7 @@ require 'erb'
 require 'sinatra/base'
 require 'gitgo/repo'
 require 'gitgo/helpers'
-require 'gitgo/helpers/format'
-require 'gitgo/helpers/form'
-require 'gitgo/helpers/html'
+require 'gitgo/constants'
 
 module Gitgo
   class Controller < Sinatra::Base
@@ -27,8 +25,6 @@ module Gitgo
       erb :error, :views => path("views"), :locals => {:err => err, :resetable => resetable}
     end
     
-    include Helpers
-
     # The standard document content parameter
     CONTENT = 'content'
     
