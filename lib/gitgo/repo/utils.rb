@@ -1,42 +1,59 @@
+require 'grit/actor'
+require 'shellwords'
+
 module Gitgo
   class Repo
-    
-    # A variety of utility methods separated into a module to simplify
-    # testing. These methods are included into and used internally by Repo.
     module Utils
       module_function
       
-      def with_env(env={})
-        overrides = {}
-        begin
-          ENV.keys.each do |key|
-            if key =~ /^GIT_/
-              overrides[key] = ENV.delete(key)
-            end
-          end
-
-          env.each_pair do |key, value|
-            overrides[key] ||= nil
-            ENV[key] = value
-          end
-
-          yield
-        ensure
-          overrides.each_pair do |key, value|
-            if value
-              ENV[key] = value
-            else
-              ENV.delete(key)
-            end
-          end
-        end
+      def blank?(value)
+        value.nil? || (value.to_s.strip.empty?)
       end
       
-      def path_segments(path)
-        segments = path.kind_of?(String) ? path.split("/") : path.dup
-        segments.shift if segments[0] && segments[0].empty?
-        segments.pop   if segments[-1] && segments[-1].empty?
-        segments
+      def deserialize(str, sha=nil)
+        attrs, content = str.split(/\n--- \n/m, 2)
+        unless attrs.nil? || attrs.empty?
+          attrs = YAML.load(attrs.to_s)
+        end
+
+        unless attrs.kind_of?(Hash)
+          return nil
+        end
+        
+        attrs['content'] = content
+        attrs
+      end
+      
+      # Serializes the document into an attributes section and a content
+      # section, joined as a YAML document plus a string:
+      #
+      #   --- 
+      #   author: John Doe <john.doe@email.com>
+      #   date: 1252508400.123
+      #   type: document
+      #   --- 
+      #   content...
+      #
+      def serialize(attrs)
+        hash = {}
+        attrs.each_pair do |key, value|
+          hash[key] = value unless blank?(value)
+        end
+        content = hash.delete('content')
+
+        hash.extend(SortedToYaml)
+        "#{hash.to_yaml}--- \n#{content}"
+      end
+      
+      # Creates a nested sha path like:
+      #
+      #   ab/
+      #     xyz...
+      #
+      def sha_path(sha, *paths)
+        paths.unshift sha[2,38]
+        paths.unshift sha[0,2]
+        paths
       end
       
       # Flattens an ancestry hash of (parent, [children]) pairs.  For example:
@@ -62,7 +79,10 @@ module Gitgo
       # modifiying the "b" array will propagate to the "a" ancestry.
       def flatten(ancestry)
         ancestry.each_pair do |parent, children|
+          next unless children
+          
           children.collect! {|child| ancestry[child] }
+          children.compact!
           children.unshift(parent)
         end
         ancestry
@@ -86,6 +106,23 @@ module Gitgo
         end
 
         result
+      end
+    end
+    
+    # A module to replace the Hash#to_yaml function to serialize with sorted keys.
+    #
+    # From: http://snippets.dzone.com/posts/show/5811
+    # The original function is in: /usr/lib/ruby/1.8/yaml/rubytypes.rb
+    #
+    module SortedToYaml # :nodoc:
+      def to_yaml( opts = {} )
+        YAML::quick_emit( object_id, opts ) do |out|
+          out.map( taguri, to_yaml_style ) do |map|
+            sort.each do |k, v|
+              map.add( k, v )
+            end
+          end
+        end
       end
     end
   end

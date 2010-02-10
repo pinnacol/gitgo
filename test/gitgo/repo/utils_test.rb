@@ -4,24 +4,28 @@ require 'gitgo/repo/utils'
 class RepoUtilsTest < Test::Unit::TestCase
   include Gitgo::Repo::Utils
   
-  def render(comments, lines=[], indent="")
+  #
+  # Repo#ancestry test
+  #
+  
+  def render(tree, lines=[], indent="")
     lines << "#{indent}<ul>"
 
-    comments.each do |comment|
-      if comment.kind_of?(Array)
+    tree.each do |branch|
+      if branch.kind_of?(Array)
         lines << "#{indent}<li>"
-        render(comment, lines, indent + "  ")
+        render(branch, lines, indent + "  ")
         lines << "#{indent}</li>"
       else
-        lines << "#{indent}<li>#{comment}</li>"
+        lines << "#{indent}<li>#{branch}</li>"
       end
     end
 
     lines << "#{indent}</ul>"
     lines
   end
-  
-  def test_comments_documentation_in_repo
+
+  def test_ancestry_documentation_in_document
     ancestry = {
       "a" => ["b"],
       "b" => ["c", "d"],
@@ -31,8 +35,8 @@ class RepoUtilsTest < Test::Unit::TestCase
     }
   
     ancestry_for_a = flatten(ancestry)['a']
-    comments = collapse(ancestry_for_a)
-    assert_equal ["a", "b", ["c"], ["d", "e"]], comments
+    tree = collapse(ancestry_for_a)
+    assert_equal ["a", "b", ["c"], ["d", "e"]], tree
     
     expected = %q{
 <ul>
@@ -51,7 +55,7 @@ class RepoUtilsTest < Test::Unit::TestCase
 </li>
 </ul>
 }
-    assert_equal expected, "\n" + render(comments).join("\n") + "\n"
+    assert_equal expected, "\n" + render(tree).join("\n") + "\n"
   end
   
   #
