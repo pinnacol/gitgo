@@ -1,12 +1,12 @@
 module Gitgo
-  class Repo
+  class Git
     
     # Tree represents an in-memory working tree for git. Trees are initialized
     # with a Grit::Tree.  In general tree contents are represented as (path,
     # [:mode,sha]) pairs, but subtrees can be expanded into (path, Tree)
     # pairs.
     #
-    # See Repo for an example of Tree usage in practice.
+    # See Git for an example of Tree usage in practice.
     #
     # === Efficiency
     #
@@ -40,6 +40,7 @@ module Gitgo
           @string_table ||= Hash.new {|hash, key| hash[key] = key.freeze }
         end
       end
+      include Enumerable
       
       # The tree mode.
       attr_reader :mode
@@ -59,7 +60,7 @@ module Gitgo
       end
       
       # Sets mode, symbolizing if necessary.  Mode may be set to nil in which
-      # case the Repo::DEFAULT_TREE_MODE is adopted when a repo is commited.
+      # case the Git::DEFAULT_TREE_MODE is adopted when a repo is commited.
       def mode=(mode)
         @mode = mode ? mode.to_sym : nil
       end
@@ -131,6 +132,15 @@ module Gitgo
         # add/remove content modifies self so
         # the sha can and should be invalidated
         @sha = nil
+      end
+      
+      # Yields each (path, entry) pair to the block, as an array, ordered by
+      # path. Implemented to get access to the enumerable methods.
+      def each
+        each_pair do |key, value|
+          yield [key, value]
+        end
+        self
       end
       
       # Yields each (path, entry) pair to the block, ordered by path.  Entries

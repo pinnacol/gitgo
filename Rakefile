@@ -163,7 +163,7 @@ desc 'Default: Run tests.'
 task :default => :test
 
 desc 'Run the tests'
-task :test => ['test:gitgo', 'test:model']
+task :test => ['test:gitgo', 'test:data_model']
 
 def run_tests(tests)
   tests = tests.select {|path| File.file?(path) }
@@ -181,22 +181,38 @@ namespace :test do
     run_tests Dir.glob("test/gitgo/#{pattern}")
   end
   
-  task :repo => :bundle do
-    run_tests Dir.glob("test/gitgo/repo/*_test.rb") + ["test/gitgo/repo_test.rb"]
+  task :git => :bundle do
+    run_tests Dir.glob("test/gitgo/git/*_test.rb") + ["test/gitgo/git_test.rb"]
   end
   
   task :index => :bundle do
     run_tests Dir.glob("test/gitgo/index/*_test.rb") + ["test/gitgo/index_test.rb"]
   end
   
+  task :repo => :bundle do
+    run_tests ["test/gitgo/repo_test.rb"] + Dir.glob("test/gitgo/repo/*_test.rb")
+  end
+  
+  task :document => :bundle do
+    run_tests ["test/gitgo/document_test.rb"] + Dir.glob("test/gitgo/document/*_test.rb")
+  end
+  
+  task :documents => :bundle do
+    run_tests Dir.glob("test/gitgo/documents/*_test.rb")
+  end
+  
   task :controllers => :bundle do
-    run_tests Dir.glob("test/gitgo/controllers/*_test.rb") + ["test/gitgo/controller_test.rb"]
+    run_tests ["test/gitgo/controller_test.rb"] + Dir.glob("test/gitgo/controllers/code_test.rb")
+  end
+  
+  task :helpers => :bundle do
+    run_tests Dir.glob("test/gitgo/helpers/*_test.rb")
   end
   
   desc 'Run data model tests'
-  task :model => :bundle do
+  task :data_model => :bundle do
     pattern = ENV['PATTERN'] || "**/*_test.rb"
-    run_tests Dir.glob("test/model/#{pattern}")
+    run_tests Dir.glob("test/data_model/#{pattern}")
   end
   
   desc 'Run benchmark tests'
