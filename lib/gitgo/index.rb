@@ -37,26 +37,18 @@ module Gitgo
       File.join(@path, *segments)
     end
     
-    # Adds the document sha to each index file the doc belongs to.  Changes
-    # are solely in-memory until write is called.
-    def add(doc, sha=doc.sha)
-      each(doc) {|key, value| cache[key][value].push(sha) }
+    def [](key)
+      cache[key]
+    end
+    
+    def add(key, value, sha)
+      cache[key][value] << sha
       self
     end
     
-    # Removes the document sha from each index file the doc belongs to. 
-    # Changes are solely in-memory until write is called.
-    def rm(doc, sha=doc.sha)
-      each(doc) {|key, value| cache[key][value].delete(sha) }
+    def rm(key, value, sha)
+      cache[key][value].delete(sha)
       self
-    end
-    
-    # Yields each indexable (key, value) attribute pair for the document.
-    def each(doc)
-      doc.each_index do |key, value|
-        value = value.to_s
-        yield(key, value) unless value.empty?
-      end
     end
     
     # Returns a list of possible index keys.
@@ -87,18 +79,37 @@ module Gitgo
       values
     end
     
-    def all(key='author')
+    def all(*keys)
       results = []
-      values(key).each do |value|
-        results.concat(cache[key][value])
+      keys.collect do |key|
+        values(key).each do |value|
+          results.concat(cache[key][value])
+        end
       end
+      results.uniq!
       results
     end
     
-    # Returns an array of shas for documents indexed by the specified
-    # key-value pair and stores them in the cache.
-    def read(key, value)
-      cache[key][value]
+    def join(key, *values)
+      values.collect {|value| cache[key][value] }.flatten
+    end
+    
+    def select(shas, criteria={})
+      criteria.each_pair do |key, values|
+        shas = shas & join(key, *values)
+        break if shas.empty?
+      end
+      
+      shas
+    end
+    
+    def filter(shas, criteria={})
+      criteria.each_pair do |key, values|
+        shas -= join(key, *values)
+        break if shas.empty?
+      end
+      
+      shas
     end
     
     def clean
@@ -139,6 +150,5 @@ module Gitgo
       end
       reset
     end
-    
   end
 end
