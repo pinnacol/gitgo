@@ -44,7 +44,7 @@ module Gitgo
       read(sha)
     end
     
-    def create(attrs={}, date=Time.now)
+    def store(attrs={}, date=Time.now)
       sha = git.set(:blob, JSON.generate(attrs))
       
       path = date.utc.strftime("%Y/%m%d/#{sha}")
@@ -63,63 +63,94 @@ module Gitgo
     
     def link(parent, child)
       if parent == child
-        raise "cannot link to self"
+        raise "cannot link to self: #{parent} -> #{child}"
       end
       
-      git[sha_path(parent, child)] = empty_sha
+      current = linkage(parent, child)
+      if current && current != empty_sha
+        raise "cannot link to an update: #{parent} -> #{child}"
+      end
+      
+      git[sha_path(parent, child)] = empty_sha.to_sym
       self
     end
-  
+    
     def update(old_sha, new_sha)
-      unless old_sha == new_sha
-        git[sha_path(old_sha, new_sha)] = old_sha.to_sym
+      if old_sha == new_sha
+        raise "cannot update with self: #{old_sha} -> #{new_sha}"
       end
       
+      if linked?(old_sha, new_sha)
+        raise "cannot update with a child: #{old_sha} -> #{new_sha}"
+      end
+      
+      if update?(new_sha)
+        raise "cannot update with an update: #{old_sha} -> #{new_sha}"
+      end
+      
+      git[sha_path(old_sha, new_sha)] = old_sha.to_sym
+      git[sha_path(new_sha, new_sha)] = old_sha.to_sym
       self
     end
     
-    def commit(msg)
-      git.commit(msg)
-    end
-    
-    def commit!(msg)
-      git.commit!(msg)
-    end
-    
-    # Returns an array of parents that link to the child.  Note this is a very
-    # expensive operation because it fully expands the in-memory working tree.
-    def parents(child)
-      # seek /ab/xyz/sha where sha == child
-      parents = []
-      git.tree.each_tree(true) do |ab, ab_tree|
-        next if ab.length != 2
+    def linkage(parent, child)
+      links = git.tree.subtree(sha_path(parent))
+      return nil unless links
       
-        ab_tree.each_tree(true) do |xyz, xyz_tree|
-          next if xyz.length != 38
-        
-          if xyz_tree.keys.any? {|sha| sha.to_s == child }
-            parents << "#{ab}#{xyz}"
-          end
+      mode, sha = links[child]
+      sha
+    end
+    
+    def linked?(parent, child)
+      linkage(parent, child) == empty_sha
+    end
+    
+    def original(sha)
+      linkage(sha, sha) || sha
+    end
+    
+    def original?(sha)
+      original(sha) == sha
+    end
+    
+    def update?(sha)
+      linkage(sha, sha) ? true : false
+    end
+    
+    def each_link(sha)
+      links = git.tree.subtree(sha_path(sha)) || {}
+      links.each_pair do |link, (mode, ref)|
+        # sha == link (parent == child): indicates back reference to origin
+        unless sha == link
+          
+          # sha == ref (parent == ref): indicates update
+          yield(link, sha == ref)
         end
       end
-      parents
     end
-
-    # Returns an array of children linked to the parent.
+    
     def children(parent)
-      children = []
-      each_link(parent) do |child, update|
-        children << child unless update
+      children = original?(parent) ? [] : children(original(parent))
+      each_link(parent) do |link, update|
+        children << link unless update
       end
+      
       children
     end
 
     def updates(sha)
       updates = []
-      each_link(sha) do |child, update|
-        updates << child if update
+      each_link(sha) do |link, update|
+        updates << link if update
       end
       updates
+    end
+    
+    def updated?(sha)
+      each_link(sha) do |link, update|
+        return true if update
+      end
+      false
     end
 
     def tree(sha, &block)
@@ -133,13 +164,6 @@ module Gitgo
       tree
     end
 
-    def list_tree(sha, &block)
-      list_tree = flatten tree(sha, &block)
-      list_tree = collapse(list_tree[nil])
-      list_tree.shift
-      list_tree
-    end
-  
     # Yields the sha of each document in the repo, ordered by date (with day
     # resolution), regardless of whether they are indexed or not.
     def each
@@ -178,21 +202,20 @@ module Gitgo
       end
     end
     
+    def commit(msg)
+      git.commit(msg)
+    end
+    
+    def commit!(msg)
+      git.commit!(msg)
+    end
+    
     protected
   
     # Returns the sha for an empty string, and ensures the corresponding
     # object is set in the repo.
     def empty_sha
-      @empty_sha ||= git.set(:blob, "").to_sym
-    end
-  
-    # yields each linkage to the specified document with a flag indicating
-    # whether the link indicates a update
-    def each_link(sha) # :nodoc:
-      links = git.tree.subtree(sha_path(sha)) || {}
-      links.each_pair do |child, (mode, ref)|
-        yield(child, sha == ref)
-      end
+      @empty_sha ||= git.set(:blob, "")
     end
   
      # a recursive helper method to collect a tree of parent-child links
