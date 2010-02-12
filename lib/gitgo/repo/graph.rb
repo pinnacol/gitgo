@@ -14,7 +14,7 @@ module Gitgo
       def versions(sha)
         @versions[sha] ||= collect_versions(sha)
       end
-    
+      
       def children(sha)
         tree[sha]
       end

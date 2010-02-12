@@ -221,7 +221,7 @@ class RepoTest < Test::Unit::TestCase
   # tail? test
   #
   
-  def test_tail_check_returns_true_if_sha_has_no_children
+  def test_tail_check_returns_true_if_sha_has_no_links
     a, b, c = create_docs('a', 'b', 'c')
     repo.link(a, b)
     repo.link(b, c)
@@ -298,27 +298,27 @@ class RepoTest < Test::Unit::TestCase
   end
 
   #
-  # children test
+  # links test
   #
 
-  def test_children_returns_array_of_linked_children
+  def test_links_returns_array_of_linked_shas
     a, b, c = create_docs('a', 'b', 'c')
     repo.link(a, b)
     repo.link(a, c)
 
-    assert_equal [b, c].sort, repo.children(a).sort
-    assert_equal [], repo.children(b)
+    assert_equal [b, c].sort, repo.links(a).sort
+    assert_equal [], repo.links(b)
   end
   
-  def test_children_does_not_return_updates
+  def test_links_does_not_return_updates
     a, b, c = create_docs('a', 'b', 'c')
     repo.link(a, b)
     repo.update(a, c)
     
-    assert_equal [b], repo.children(a)
+    assert_equal [b], repo.links(a)
   end
   
-  def test_children_concats_children_of_original_for_update
+  def test_links_concats_links_of_previous_for_update
     a, b, c, x, y, z = create_docs('a', 'b', 'c', 'x', 'y', 'z')
     repo.update(a, b)
     repo.update(b, c)
@@ -326,9 +326,9 @@ class RepoTest < Test::Unit::TestCase
     repo.link(b, y)
     repo.link(c, z)
     
-    assert_equal [x], repo.children(a)
-    assert_equal [x, y].sort, repo.children(b).sort
-    assert_equal [x, y, z].sort, repo.children(c).sort
+    assert_equal [x], repo.links(a)
+    assert_equal [x, y].sort, repo.links(b).sort
+    assert_equal [x, y, z].sort, repo.links(c).sort
   end
   
   #
@@ -342,12 +342,12 @@ class RepoTest < Test::Unit::TestCase
     repo.update(a, d)
     
     updates = []
-    children = []
+    links = []
     repo.each_link(a) do |sha, update|
-      (update ? updates : children) << sha
+      (update ? updates : links) << sha
     end
     
-    assert_equal [b, c].sort, children.sort
+    assert_equal [b, c].sort, links.sort
     assert_equal [d], updates.sort
   end
 

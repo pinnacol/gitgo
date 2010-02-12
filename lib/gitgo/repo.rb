@@ -165,6 +165,18 @@ module Gitgo
       true
     end
     
+    def links(parent, target=[])
+      if update?(parent)
+        links(previous(parent), target)
+      end
+      
+      each_link(parent) do |link, update|
+        target << link unless update
+      end
+      
+      target
+    end
+    
     def original(sha)
       previous = self.previous(sha)
       previous ? original(previous) : sha
@@ -193,18 +205,6 @@ module Gitgo
       
       unless updated
         target << sha
-      end
-      
-      target
-    end
-    
-    def children(parent, target=[])
-      if update?(parent)
-        children(previous(parent), target)
-      end
-      
-      each_link(parent) do |link, update|
-        target << link unless update
       end
       
       target
