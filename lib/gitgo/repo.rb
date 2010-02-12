@@ -181,38 +181,48 @@ module Gitgo
       updates
     end
     
-    def current(sha)
-      current = []
+    def current(sha, target=[])
+      updated = false
       each_link(sha) do |link, update|
-        current.concat current(link) if update
+        if update
+          current(link, target)
+          updated = true
+        end
       end
       
-      if current.empty?
-        current << sha
+      unless updated
+        target << sha
       end
       
-      current
+      target
     end
     
-    def children(parent)
-      children = update?(parent) ? children(previous(parent)) : []
+    def children(parent, target=[])
+      if update?(parent)
+        children(previous(parent), target)
+      end
+      
       each_link(parent) do |link, update|
-        children << link unless update
+        target << link unless update
       end
       
-      children
+      target
     end
     
-    def each_link(sha)
-      links = git.tree.subtree(sha_path(sha)) || {}
+    def each_link(sha, include_back_reference=false)
+      links = git.tree.subtree(sha_path(sha))
+      
       links.each_pair do |link, (mode, ref)|
-        # sha == link (parent == child): indicates back reference to origin
-        unless sha == link
-          
+        if sha == link
+          # sha == link (parent == child): indicates back reference to origin
+          yield(ref, nil) if include_back_reference
+        else
           # sha == ref (parent == ref): indicates update
           yield(link, sha == ref)
         end
-      end
+      end if links
+      
+      self
     end
 
     # Yields the sha of each document in the repo, ordered by date (with day
@@ -237,28 +247,16 @@ module Gitgo
       end
     end
     
-    def ancestry(sha, &block)
-      ancestors = []
-      updates = []
-      tree = {nil => ancestors}
-      
-      collect_tree(sha, ancestors, updates, tree)
-      
-      updates.each do |parent|
-        tree[parent] = nil
-      end
-      
+    def tree(sha, &block)
+      tree = {}
+      tree[nil] = collect_nodes(sha, tree)
       tree.each_value do |children|
-        next unless children
-      
-        children.flatten!
-        children.uniq!
         children.sort!(&block)
       end
       
       tree
     end
-
+    
     def diff(b, a=head)
       case
       when a == b || a.nil?
@@ -287,45 +285,42 @@ module Gitgo
 
     # Returns the sha for an empty string, and ensures the corresponding
     # object is set in the repo.
-    def empty_sha
+    def empty_sha # :nodoc:
       @empty_sha ||= git.set(:blob, "")
     end
+    
+    # Helper to recursively collect the nodes for a tree. Returns and array of
+    # the current nodes representing sha.
+    #
+    #   update(a, b)
+    #   update(a, c)
+    #   update(c, d)
+    #   collect_nodes(a)  # => [b, d]
+    #
+    # The _nodes and _children caches were shown by benchmarking to
+    # significantly speed up collection of complex graphs, while minimally
+    # impacting simple graphs.
+    #
+    # This method is designed to detect and blow up when circular linkages are
+    # detected.  The tracking trails follow only the 'current' shas, they will
+    # not show the path through the updated shas.
+    def collect_nodes(sha, tree, _nodes={}, _children={}, trail=[]) # :nodoc:
+      _nodes[sha] ||= current(sha).each do |node|
+        circular = trail.include?(node)
+        trail.push node
 
-     # a recursive helper method to collect a tree of parent-child links
-    def collect_tree(node, siblings, updates, tree, lineage=[]) # :nodoc:
-      # check for circular linkages -- note that this algorithm allows a node
-      # to be visited multiple times, just not twice from the same line
-      
-      circular = lineage.include?(node)
-      lineage.push node
-    
-      if circular
-        raise "circular link detected:\n  #{lineage.join("\n  ")}\n"
-      end
-    
-      children = tree[node] ||= []
-    
-      # traverse the linked children.  if the child is an update, then
-      # collect the child as a sibling and mark the node as an update
-      # otherwise, collect the child into children.
-      each_link(node) do |child, update|
-        if update
-          collect_tree(child, siblings, updates, tree, lineage)
-          tree[child] << children
-          updates << node
-        else
-          collect_tree(child, children, updates, tree, lineage)
+        if circular
+          raise "circular link detected:\n  #{trail.join("\n  ")}\n"
         end
+        
+        nodes = []
+        (_children[node] ||= children(node)).each do |child|
+          nodes.concat collect_nodes(child, tree, _nodes, _children, trail)
+        end
+
+        tree[node] = nodes
+        trail.pop
       end
-    
-      # visit children first to ensure updates are detected before the
-      # node is added as a sibling
-      unless updates.include?(node)
-        siblings << node
-      end
-    
-      lineage.pop
-      tree
     end
   end
 end

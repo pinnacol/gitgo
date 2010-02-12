@@ -382,10 +382,10 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # ancestry test
+  # tree test
   #
 
-  def assert_ancestry_equal(expected, actual)
+  def assert_tree_equal(expected, actual)
     expected.each_value {|value| value.sort! if value }
     if expected == actual
       assert true
@@ -394,9 +394,9 @@ class RepoTest < Test::Unit::TestCase
     end
   end
 
-  def normalize(ancestry)
+  def normalize(tree)
     hash = {}
-    ancestry.each_pair do |key, values|
+    tree.each_pair do |key, values|
       hash[content(key)] = values ? values.collect {|value| content(value) } : nil
     end
     hash
@@ -406,7 +406,7 @@ class RepoTest < Test::Unit::TestCase
     sha ? repo.read(sha)['content'] : nil
   end
   
-  def test_ancestry_returns_an_tree_of_shas
+  def test_tree_returns_an_tree_of_shas
     a, b, c = create_docs('a', 'b', 'c')
     repo.link(a, b)
     repo.link(b, c)
@@ -418,10 +418,10 @@ class RepoTest < Test::Unit::TestCase
       c => []
     }
 
-    assert_ancestry_equal expected, repo.ancestry(a)
+    assert_tree_equal expected, repo.tree(a)
   end
 
-  def test_ancestry_allows_merge_linkages
+  def test_tree_allows_merge_linkages
     a, b, c, d = create_docs('a', 'b', 'c', 'd')
     repo.link(a, b).link(b, d)
     repo.link(a, c).link(c, d)
@@ -434,10 +434,10 @@ class RepoTest < Test::Unit::TestCase
       d => []
     }
 
-    assert_ancestry_equal expected, repo.ancestry(a)
+    assert_tree_equal expected, repo.tree(a)
   end
 
-  def test_ancestry_sorts_by_block
+  def test_tree_sorts_by_block
     a, b, c, d = create_docs('a', 'b', 'c', 'd')
     repo.link(a, b)
     repo.link(a, c)
@@ -450,12 +450,12 @@ class RepoTest < Test::Unit::TestCase
       c => [],
       d => []
     }
-    actual = repo.ancestry(a) {|a, b| b <=> a }
+    actual = repo.tree(a) {|a, b| b <=> a }
 
     assert_equal expected, actual
   end
 
-  def test_ancestry_deconvolutes_updates
+  def test_tree_deconvolutes_updates
     a, b, c, d, m, n, x, y = create_docs('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
     repo.link(a, b)
     repo.link(b, c)
@@ -465,8 +465,6 @@ class RepoTest < Test::Unit::TestCase
 
     expected = {
       nil => [x],
-      a => nil,
-      b => nil,
       c => [d],
       d => [],
       x => [y, m],
@@ -475,10 +473,10 @@ class RepoTest < Test::Unit::TestCase
       n => []
     }
 
-    assert_ancestry_equal expected, repo.ancestry(a)
+    assert_tree_equal expected, repo.tree(a)
   end
 
-  def test_ancestry_with_multiple_heads
+  def test_tree_with_multiple_heads
     a, b, m, n, x, y = create_docs('a', 'b', 'm', 'n', 'x', 'y')
     repo.link(a, b).update(a, m).update(a, x)
     repo.link(m, n)
@@ -486,7 +484,6 @@ class RepoTest < Test::Unit::TestCase
 
     expected = {
       nil => [m, x],
-      a => nil,
       b => [],
       x => [y, b],
       y => [],
@@ -494,10 +491,10 @@ class RepoTest < Test::Unit::TestCase
       n => []
     }
 
-    assert_ancestry_equal expected, repo.ancestry(a)
+    assert_tree_equal expected, repo.tree(a)
   end
 
-  def test_ancestry_with_merged_lineages
+  def test_tree_with_merged_lineages
     a, b, c, d, m, n, x, y = create_docs('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
     repo.link(a, b).link(a, x)
     repo.link(b, c)
@@ -510,7 +507,6 @@ class RepoTest < Test::Unit::TestCase
     expected = {
       nil => [a],
       a => [m, x],
-      b => nil,
       c => [],
       m => [n, c],
       n => [],
@@ -518,10 +514,10 @@ class RepoTest < Test::Unit::TestCase
       y => []
     }
 
-    assert_ancestry_equal expected, repo.ancestry(a)
+    assert_tree_equal expected, repo.tree(a)
   end
 
-  def test_ancestry_with_merged_lineages_and_multiple_updates
+  def test_tree_with_merged_lineages_and_multiple_updates
     a, b, c, d, m, n, x, y, p, q = create_docs('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y', 'p', 'q')
     repo.link(a, b).link(a, x)
     repo.link(b, c)
@@ -536,9 +532,7 @@ class RepoTest < Test::Unit::TestCase
     expected = {
       nil => [a],
       a => [p, x],
-      b => nil,
       c => [],
-      m => nil,
       n => [],
       x => [p, y],
       y => [],
@@ -546,53 +540,52 @@ class RepoTest < Test::Unit::TestCase
       q => []
     }
 
-    assert_ancestry_equal expected, repo.ancestry(a)
+    assert_tree_equal expected, repo.tree(a)
+  end
+  
+  def test_tree_detects_circular_linkage
+    a, b, c = create_docs('a', 'b', 'c')
+    repo.link(a, b)
+    repo.link(b, c)
+    repo.link(c, a)
+
+    err = assert_raises(RuntimeError) { repo.tree(a) }
+    assert_equal %Q{circular link detected:
+  #{a}
+  #{b}
+  #{c}
+  #{a}
+}, err.message
   end
 
-#   def test_ancestry_detects_circular_linkage
-#     a, b, c = create_docs('a', 'b', 'c')
-#     repo.link(a, b)
-#     repo.link(b, c)
-#     repo.link(c, a)
-# 
-#     err = assert_raises(RuntimeError) { repo.ancestry(a) }
-#     assert_equal %Q{circular link detected:
-#   #{a}
-#   #{b}
-#   #{c}
-#   #{a}
-# }, err.message
-#   end
-# 
-#   def test_ancestry_detects_circular_linkage_with_replacement
-#     a, b, c = create_docs('a', 'b', 'c')
-#     repo.link(a, b)
-#     repo.update(b, c)
-#     repo.link(b, a)
-# 
-#     err = assert_raises(RuntimeError) { repo.ancestry(a) }
-#     assert_equal %Q{circular link detected:
-#   #{a}
-#   #{b}
-#   #{a}
-# }, err.message
-#   end
-# 
-#   def test_ancestry_detects_circular_linkage_through_replacement
-#     a, b, c = create_docs('a', 'b', 'c')
-#     repo.link(a, b)
-#     repo.update(b, c)
-#     repo.link(c, a)
-# 
-#     err = assert_raises(RuntimeError) { repo.ancestry(a) }
-#     assert_equal %Q{circular link detected:
-#   #{a}
-#   #{b}
-#   #{c}
-#   #{a}
-# }, err.message
-#   end
-#   
+  def test_tree_detects_circular_linkage_with_replacement
+    a, b, c = create_docs('a', 'b', 'c')
+    repo.link(a, b)
+    repo.update(b, c)
+    repo.link(b, a)
+
+    err = assert_raises(RuntimeError) { repo.tree(a) }
+    assert_equal %Q{circular link detected:
+  #{a}
+  #{c}
+  #{a}
+}, err.message
+  end
+
+  def test_tree_detects_circular_linkage_through_replacement
+    a, b, c = create_docs('a', 'b', 'c')
+    repo.link(a, b)
+    repo.update(b, c)
+    repo.link(c, a)
+
+    err = assert_raises(RuntimeError) { repo.tree(a) }
+    assert_equal %Q{circular link detected:
+  #{a}
+  #{c}
+  #{a}
+}, err.message
+  end
+  
   #
   # diff test
   #
