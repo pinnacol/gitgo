@@ -162,6 +162,76 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # original? test
+  #
+  
+  def test_original_check_returns_true_if_sha_is_the_head_of_an_update_chain
+    a, b, c = create_docs('a', 'b', 'c')
+    repo.update(a, b)
+    repo.update(b, c)
+    
+    assert_equal true, repo.original?(a)
+    assert_equal false, repo.original?(b)
+    assert_equal false, repo.original?(c)
+  end
+  
+  #
+  # update? test
+  #
+  
+  def test_update_check_returns_true_if_sha_is_an_update
+    a, b, c = create_docs('a', 'b', 'c')
+    repo.update(a, b)
+    repo.update(b, c)
+    
+    assert_equal false, repo.update?(a)
+    assert_equal true, repo.update?(b)
+    assert_equal true, repo.update?(c)
+  end
+  
+  #
+  # updated? test
+  #
+  
+  def test_updated_check_returns_true_if_sha_has_been_udpated
+    a, b, c = create_docs('a', 'b', 'c')
+    repo.update(a, b)
+    repo.update(b, c)
+    
+    assert_equal true, repo.updated?(a)
+    assert_equal true, repo.updated?(b)
+    assert_equal false, repo.updated?(c)
+  end
+  
+  #
+  # current? test
+  #
+  
+  def test_current_check_returns_true_if_sha_is_a_tail_of_an_update_chain
+    a, b, c = create_docs('a', 'b', 'c')
+    repo.update(a, b)
+    repo.update(b, c)
+    
+    assert_equal false, repo.current?(a)
+    assert_equal false, repo.current?(b)
+    assert_equal true, repo.current?(c)
+  end
+  
+  #
+  # tail? test
+  #
+  
+  def test_tail_check_returns_true_if_sha_has_no_children
+    a, b, c = create_docs('a', 'b', 'c')
+    repo.link(a, b)
+    repo.link(b, c)
+    
+    assert_equal false, repo.tail?(a)
+    assert_equal false, repo.tail?(b)
+    assert_equal true, repo.tail?(c)
+  end
+  
+  #
   # original test
   #
   
@@ -170,57 +240,63 @@ class RepoTest < Test::Unit::TestCase
     assert_equal a, repo.original(a)
   end
   
-  def test_original_returns_sha_for_original_document
-    a, b = create_docs('a', 'b')
+  def test_original_returns_sha_for_the_head_of_an_update_chain
+    a, b, c = create_docs('a', 'b', 'c')
     repo.update(a, b)
+    repo.update(b, c)
     
     assert_equal a, repo.original(b)
+    assert_equal a, repo.original(c)
   end
   
   #
-  # original? test
+  # previous test
   #
   
-  def test_original_check_returns_true_if_sha_has_not_been_updated
-    a, b = create_docs('a', 'b')
-    repo.update(a, b)
-    
-    assert_equal true, repo.original?(a)
-    assert_equal false, repo.original?(b)
-  end
-  
-  #
-  # update? test
-  #
-  
-  def test_update_check_returns_true_if_the_sha_is_an_update
-    a, b = create_docs('a', 'b')
-    repo.update(a, b)
-    
-    assert_equal false, repo.update?(a)
-    assert_equal true, repo.update?(b)
-  end
-  
-  #
-  # each_link test
-  #
-  
-  def test_each_link_yields_each_forward_linkage_with_flag_for_update
+  def test_previous_returns_backreference_to_updated_sha
     a, b, c, d = create_docs('a', 'b', 'c', 'd')
-    repo.link(a, b)
-    repo.link(a, c)
-    repo.update(a, d)
+    repo.update(a, b)
+    repo.update(a, c)
+    repo.update(c, d)
     
-    updates = []
-    children = []
-    repo.each_link(a) do |sha, update|
-      (update ? updates : children) << sha
-    end
-    
-    assert_equal [b, c].sort, children.sort
-    assert_equal [d], updates.sort
+    assert_equal nil, repo.previous(a)
+    assert_equal a, repo.previous(b)
+    assert_equal a, repo.previous(c)
+    assert_equal c, repo.previous(d)
   end
   
+  #
+  # updates test
+  #
+
+  def test_updates_returns_array_of_updates_to_sha
+    a, b, c, d = create_docs('a', 'b', 'c', 'd')
+    repo.update(a, b)
+    repo.update(a, c)
+    repo.update(c, d)
+    
+    assert_equal [b, c].sort, repo.updates(a).sort
+    assert_equal [], repo.updates(b)
+    assert_equal [d], repo.updates(c)
+    assert_equal [], repo.updates(d)
+  end
+  
+  #
+  # current test
+  #
+
+  def test_current_returns_array_of_current_revisions
+    a, b, c, d = create_docs('a', 'b', 'c', 'd')
+    repo.update(a, b)
+    repo.update(a, c)
+    repo.update(c, d)
+    
+    assert_equal [b, d].sort, repo.current(a).sort
+    assert_equal [b], repo.current(b)
+    assert_equal [d], repo.current(c)
+    assert_equal [d], repo.current(d)
+  end
+
   #
   # children test
   #
@@ -256,29 +332,25 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # updates test
+  # each_link test
   #
-
-  def test_updates_returns_array_of_updates
+  
+  def test_each_link_yields_each_forward_linkage_with_flag_for_update
     a, b, c, d = create_docs('a', 'b', 'c', 'd')
-    repo.update(a, b)
-    repo.update(a, c)
-    repo.update(c, d)
-    
-    assert_equal [b, c].sort, repo.updates(a).sort
-    assert_equal [], repo.updates(b)
-    assert_equal [d], repo.updates(c)
-    assert_equal [], repo.updates(d)
-  end
-  
-  def test_updates_does_not_return_children
-    a, b, c = create_docs('a', 'b', 'c')
     repo.link(a, b)
-    repo.update(a, c)
+    repo.link(a, c)
+    repo.update(a, d)
     
-    assert_equal [c], repo.updates(a)
+    updates = []
+    children = []
+    repo.each_link(a) do |sha, update|
+      (update ? updates : children) << sha
+    end
+    
+    assert_equal [b, c].sort, children.sort
+    assert_equal [d], updates.sort
   end
-  
+
   #
   # each test
   #
@@ -309,6 +381,218 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [a, b, c], results
   end
   
+  #
+  # ancestry test
+  #
+
+  def assert_ancestry_equal(expected, actual)
+    expected.each_value {|value| value.sort! if value }
+    if expected == actual
+      assert true
+    else
+      assert_equal normalize(expected), normalize(actual)
+    end
+  end
+
+  def normalize(ancestry)
+    hash = {}
+    ancestry.each_pair do |key, values|
+      hash[content(key)] = values ? values.collect {|value| content(value) } : nil
+    end
+    hash
+  end
+
+  def content(sha)
+    sha ? repo.read(sha)['content'] : nil
+  end
+  
+  def test_ancestry_returns_an_tree_of_shas
+    a, b, c = create_docs('a', 'b', 'c')
+    repo.link(a, b)
+    repo.link(b, c)
+
+    expected = {
+      nil => [a],
+      a => [b], 
+      b => [c], 
+      c => []
+    }
+
+    assert_ancestry_equal expected, repo.ancestry(a)
+  end
+
+  def test_ancestry_allows_merge_linkages
+    a, b, c, d = create_docs('a', 'b', 'c', 'd')
+    repo.link(a, b).link(b, d)
+    repo.link(a, c).link(c, d)
+
+    expected = {
+      nil => [a],
+      a => [b, c].sort,
+      b => [d],
+      c => [d],
+      d => []
+    }
+
+    assert_ancestry_equal expected, repo.ancestry(a)
+  end
+
+  def test_ancestry_sorts_by_block
+    a, b, c, d = create_docs('a', 'b', 'c', 'd')
+    repo.link(a, b)
+    repo.link(a, c)
+    repo.link(a, d)
+
+    expected = {
+      nil => [a],
+      a => [b, c, d].sort.reverse,
+      b => [],
+      c => [],
+      d => []
+    }
+    actual = repo.ancestry(a) {|a, b| b <=> a }
+
+    assert_equal expected, actual
+  end
+
+  def test_ancestry_deconvolutes_updates
+    a, b, c, d, m, n, x, y = create_docs('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
+    repo.link(a, b)
+    repo.link(b, c)
+    repo.link(c, d)
+    repo.update(a, x).link(x, y)
+    repo.update(b, m).link(m, n)
+
+    expected = {
+      nil => [x],
+      a => nil,
+      b => nil,
+      c => [d],
+      d => [],
+      x => [y, m],
+      y => [],
+      m => [n, c],
+      n => []
+    }
+
+    assert_ancestry_equal expected, repo.ancestry(a)
+  end
+
+  def test_ancestry_with_multiple_heads
+    a, b, m, n, x, y = create_docs('a', 'b', 'm', 'n', 'x', 'y')
+    repo.link(a, b).update(a, m).update(a, x)
+    repo.link(m, n)
+    repo.link(x, y)
+
+    expected = {
+      nil => [m, x],
+      a => nil,
+      b => [],
+      x => [y, b],
+      y => [],
+      m => [n, b],
+      n => []
+    }
+
+    assert_ancestry_equal expected, repo.ancestry(a)
+  end
+
+  def test_ancestry_with_merged_lineages
+    a, b, c, d, m, n, x, y = create_docs('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
+    repo.link(a, b).link(a, x)
+    repo.link(b, c)
+
+    repo.link(x, y)
+
+    repo.update(b, m).link(m, n)
+    repo.link(x, m)
+
+    expected = {
+      nil => [a],
+      a => [m, x],
+      b => nil,
+      c => [],
+      m => [n, c],
+      n => [],
+      x => [m, y],
+      y => []
+    }
+
+    assert_ancestry_equal expected, repo.ancestry(a)
+  end
+
+  def test_ancestry_with_merged_lineages_and_multiple_updates
+    a, b, c, d, m, n, x, y, p, q = create_docs('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y', 'p', 'q')
+    repo.link(a, b).link(a, x)
+    repo.link(b, c)
+
+    repo.link(x, y)
+    repo.link(p, q)
+
+    repo.update(b, m).link(m, n)
+    repo.link(x, m)
+    repo.update(m, p)
+
+    expected = {
+      nil => [a],
+      a => [p, x],
+      b => nil,
+      c => [],
+      m => nil,
+      n => [],
+      x => [p, y],
+      y => [],
+      p => [c, n, q],
+      q => []
+    }
+
+    assert_ancestry_equal expected, repo.ancestry(a)
+  end
+
+#   def test_ancestry_detects_circular_linkage
+#     a, b, c = create_docs('a', 'b', 'c')
+#     repo.link(a, b)
+#     repo.link(b, c)
+#     repo.link(c, a)
+# 
+#     err = assert_raises(RuntimeError) { repo.ancestry(a) }
+#     assert_equal %Q{circular link detected:
+#   #{a}
+#   #{b}
+#   #{c}
+#   #{a}
+# }, err.message
+#   end
+# 
+#   def test_ancestry_detects_circular_linkage_with_replacement
+#     a, b, c = create_docs('a', 'b', 'c')
+#     repo.link(a, b)
+#     repo.update(b, c)
+#     repo.link(b, a)
+# 
+#     err = assert_raises(RuntimeError) { repo.ancestry(a) }
+#     assert_equal %Q{circular link detected:
+#   #{a}
+#   #{b}
+#   #{a}
+# }, err.message
+#   end
+# 
+#   def test_ancestry_detects_circular_linkage_through_replacement
+#     a, b, c = create_docs('a', 'b', 'c')
+#     repo.link(a, b)
+#     repo.update(b, c)
+#     repo.link(c, a)
+# 
+#     err = assert_raises(RuntimeError) { repo.ancestry(a) }
+#     assert_equal %Q{circular link detected:
+#   #{a}
+#   #{b}
+#   #{c}
+#   #{a}
+# }, err.message
+#   end
+#   
   #
   # diff test
   #

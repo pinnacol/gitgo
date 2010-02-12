@@ -4,6 +4,39 @@ require 'gitgo/index'
 require 'gitgo/repo/utils'
 
 module Gitgo
+  # No merge conflict (a != b != c)
+  #          
+  #   A (link a -> b) {a => b()}
+  #   B (link a -> c) {a => c()}
+  #             
+  #   A (link a -> b)   {a => b()}
+  #   B (update a -> c) {a => c(a), c => c(a)}
+  #        
+  #   A (update a -> b) {a => b(a), b => b(a)}
+  #   B (update a -> c) {a => c(a), c => c(a)}
+  #
+  # Merge conflict if (a != b != c):
+  #          
+  #   A (link a -> b)   {a => b()}
+  #   B (update a -> b) {a => b(a), b => b(a)}
+  #             
+  #   A (update a -> b) {a => b(), b => b(a)}
+  #   B (update c -> b) {c => b(), b => b(c)}
+  #    
+  # These conflicts are prevented within a given repo (ie A == B), and will
+  # normally not happen remotely because it would require independent
+  # generation of the same 'b' document.  Given that documents have a
+  # timestamp and an author, this is unlikely, but care should be taken to
+  # make sure the same document will not be generated twice and moreover that
+  # existing documents cannot be re-linked or re-assigned as an update after
+  # creation.
+  #
+  # Note too that conflicts can arise if (a == b); no linking or updating with
+  # self is allowed.
+  #
+  #   A (link a -> a)   {a => a()}
+  #   B (update a -> a) {a => a(a)}
+  #
   class Repo
     class << self
       def init(path, options={})
@@ -26,10 +59,6 @@ module Gitgo
     def initialize(env)
       @git = env[GIT]
       @idx = env[IDX]
-    end
-    
-    def head
-      git.head
     end
     
     def author
@@ -101,12 +130,9 @@ module Gitgo
       sha
     end
     
+    # Returns true if the two shas are linked as parent and child.
     def linked?(parent, child)
       linkage(parent, child) == empty_sha
-    end
-    
-    def original(sha)
-      linkage(sha, sha) || sha
     end
     
     def original?(sha)
@@ -114,7 +140,67 @@ module Gitgo
     end
     
     def update?(sha)
-      linkage(sha, sha) ? true : false
+      previous(sha) ? true : false
+    end
+    
+    def updated?(sha)
+      each_link(sha) do |link, update|
+        return true if update
+      end
+      false
+    end
+    
+    def current?(sha)
+      each_link(sha) do |link, update|
+        return false if update
+      end
+      true
+    end
+    
+    def tail?(sha)
+      each_link(sha) do |link, update|
+        return false unless update
+      end
+      true
+    end
+    
+    def original(sha)
+      previous = self.previous(sha)
+      previous ? original(previous) : sha
+    end
+    
+    def previous(sha)
+      linkage(sha, sha)
+    end
+    
+    def updates(sha)
+      updates = []
+      each_link(sha) do |link, update|
+        updates << link if update
+      end
+      updates
+    end
+    
+    def current(sha)
+      current = []
+      each_link(sha) do |link, update|
+        current.concat current(link) if update
+      end
+      
+      if current.empty?
+        current << sha
+      end
+      
+      current
+    end
+    
+    def children(parent)
+      children = update?(parent) ? children(previous(parent)) : []
+      each_link(parent) do |link, update|
+        children << link unless update
+      end
+      
+      children
     end
     
     def each_link(sha)
@@ -127,41 +213,6 @@ module Gitgo
           yield(link, sha == ref)
         end
       end
-    end
-    
-    def children(parent)
-      children = original?(parent) ? [] : children(original(parent))
-      each_link(parent) do |link, update|
-        children << link unless update
-      end
-      
-      children
-    end
-
-    def updates(sha)
-      updates = []
-      each_link(sha) do |link, update|
-        updates << link if update
-      end
-      updates
-    end
-    
-    def updated?(sha)
-      each_link(sha) do |link, update|
-        return true if update
-      end
-      false
-    end
-
-    def tree(sha, &block)
-      tree = collect_tree(sha)
-      tree.values.each do |children|
-        next unless children
-      
-        children.flatten! 
-        children.sort!(&block)
-      end
-      tree
     end
 
     # Yields the sha of each document in the repo, ordered by date (with day
@@ -185,7 +236,29 @@ module Gitgo
         end
       end
     end
-  
+    
+    def ancestry(sha, &block)
+      ancestors = []
+      updates = []
+      tree = {nil => ancestors}
+      
+      collect_tree(sha, ancestors, updates, tree)
+      
+      updates.each do |parent|
+        tree[parent] = nil
+      end
+      
+      tree.each_value do |children|
+        next unless children
+      
+        children.flatten!
+        children.uniq!
+        children.sort!(&block)
+      end
+      
+      tree
+    end
+
     def diff(b, a=head)
       case
       when a == b || a.nil?
@@ -201,53 +274,57 @@ module Gitgo
         git.diff_tree(a, b)['A']
       end
     end
-    
+
     def commit(msg)
       git.commit(msg)
     end
-    
+
     def commit!(msg)
       git.commit!(msg)
     end
-    
+
     protected
-  
+
     # Returns the sha for an empty string, and ensures the corresponding
     # object is set in the repo.
     def empty_sha
       @empty_sha ||= git.set(:blob, "")
     end
-  
+
      # a recursive helper method to collect a tree of parent-child links
-    def collect_tree(node, siblings=[], tree={nil => siblings}, visited=[]) # :nodoc:
-      circular = visited.include?(node)
-      visited.push node
+    def collect_tree(node, siblings, updates, tree, lineage=[]) # :nodoc:
+      # check for circular linkages -- note that this algorithm allows a node
+      # to be visited multiple times, just not twice from the same line
+      
+      circular = lineage.include?(node)
+      lineage.push node
     
       if circular
-        raise "circular link detected:\n  #{visited.join("\n  ")}\n"
+        raise "circular link detected:\n  #{lineage.join("\n  ")}\n"
       end
     
-      children = []
-      tree[node] = children
+      children = tree[node] ||= []
     
-      # traverse the linked children.  if the child is an alias for node, then
-      # collect the child as a sibling and remove node from the tree.
+      # traverse the linked children.  if the child is an update, then
+      # collect the child as a sibling and mark the node as an update
       # otherwise, collect the child into children.
-      each_link(node) do |child, replacement|
-        if replacement
-          collect_tree(child, siblings, tree, visited)
+      each_link(node) do |child, update|
+        if update
+          collect_tree(child, siblings, updates, tree, lineage)
           tree[child] << children
-          tree[node] = nil
+          updates << node
         else
-          collect_tree(child, children, tree, visited)
+          collect_tree(child, children, updates, tree, lineage)
         end
       end
     
-      if tree[node]
+      # visit children first to ensure updates are detected before the
+      # node is added as a sibling
+      unless updates.include?(node)
         siblings << node
       end
     
-      visited.pop
+      lineage.pop
       tree
     end
   end
