@@ -193,6 +193,10 @@ namespace :test do
     run_tests ["test/gitgo/repo_test.rb"] + Dir.glob("test/gitgo/repo/*_test.rb")
   end
   
+  task :graph => :bundle do
+    run_tests ["test/gitgo/graph_test.rb"]
+  end
+  
   task :document => :bundle do
     run_tests ["test/gitgo/document_test.rb"] + Dir.glob("test/gitgo/document/*_test.rb")
   end

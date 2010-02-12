@@ -1,22 +1,20 @@
 require File.dirname(__FILE__) + "/../test_helper"
-require 'gitgo/repo'
+require 'gitgo/graph'
 require 'benchmark'
 
-class RepoBenchmark < Test::Unit::TestCase
+class GraphBenchmark < Test::Unit::TestCase
   acts_as_subset_test
   acts_as_file_test
   
-  Git = Gitgo::Git
-  Index = Gitgo::Index
   Repo = Gitgo::Repo
+  Graph = Gitgo::Graph
   
-  attr_accessor :git, :idx, :repo
+  attr_accessor :repo, :graph
   
   def setup
     super
-    @git = Git.init method_root.path(:repo)
-    @idx = Index.new method_root.path(:index)
-    @repo = Repo.new(Repo::GIT => git, Repo::IDX => idx)
+    @repo = Repo.init method_root.path(:repo)
+    @graph = Graph.new @repo
   end
   
   def create_docs(*contents)
@@ -38,7 +36,7 @@ class RepoBenchmark < Test::Unit::TestCase
       repo.link(f, g)
     
       bm.report("1k (7 links)") do
-        1000.times { repo.tree(a) }
+        1000.times { graph.tree(a, true) }
       end
     end
   end
@@ -57,7 +55,7 @@ class RepoBenchmark < Test::Unit::TestCase
       repo.update(m, p)
     
       bm.report("1k") do
-        1000.times { repo.tree(a) }
+        1000.times { graph.tree(a, true) }
       end
     end
   end

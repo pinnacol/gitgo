@@ -247,16 +247,6 @@ module Gitgo
       end
     end
     
-    def tree(sha, &block)
-      tree = {}
-      tree[nil] = collect_nodes(sha, tree)
-      tree.each_value do |children|
-        children.sort!(&block)
-      end
-      
-      tree
-    end
-    
     def diff(b, a=head)
       case
       when a == b || a.nil?
@@ -287,40 +277,6 @@ module Gitgo
     # object is set in the repo.
     def empty_sha # :nodoc:
       @empty_sha ||= git.set(:blob, "")
-    end
-    
-    # Helper to recursively collect the nodes for a tree. Returns and array of
-    # the current nodes representing sha.
-    #
-    #   update(a, b)
-    #   update(a, c)
-    #   update(c, d)
-    #   collect_nodes(a)  # => [b, d]
-    #
-    # The _nodes and _children caches were shown by benchmarking to
-    # significantly speed up collection of complex graphs, while minimally
-    # impacting simple graphs.
-    #
-    # This method is designed to detect and blow up when circular linkages are
-    # detected.  The tracking trails follow only the 'current' shas, they will
-    # not show the path through the updated shas.
-    def collect_nodes(sha, tree, _nodes={}, _children={}, trail=[]) # :nodoc:
-      _nodes[sha] ||= current(sha).each do |node|
-        circular = trail.include?(node)
-        trail.push node
-
-        if circular
-          raise "circular link detected:\n  #{trail.join("\n  ")}\n"
-        end
-        
-        nodes = []
-        (_children[node] ||= children(node)).each do |child|
-          nodes.concat collect_nodes(child, tree, _nodes, _children, trail)
-        end
-
-        tree[node] = nodes
-        trail.pop
-      end
     end
   end
 end
