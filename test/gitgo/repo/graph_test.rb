@@ -1,18 +1,16 @@
-require File.dirname(__FILE__) + "/../test_helper"
-require 'gitgo/graph'
+require File.dirname(__FILE__) + "/../../test_helper"
+require 'gitgo/repo'
 
 class GraphTest < Test::Unit::TestCase
   acts_as_file_test
   
   Repo = Gitgo::Repo
-  Graph = Gitgo::Graph
   
-  attr_accessor :repo, :graph
+  attr_accessor :repo
   
   def setup
     super
     @repo = Repo.init method_root.path(:repo)
-    @graph = Graph.new @repo
   end
   
   def create_docs(*contents)
@@ -57,7 +55,7 @@ class GraphTest < Test::Unit::TestCase
       c => []
     }
 
-    assert_graph_equal expected, graph.tree(a)
+    assert_graph_equal expected, repo.graph(a).tree
   end
 
   def test_tree_allows_merge_linkages
@@ -73,7 +71,7 @@ class GraphTest < Test::Unit::TestCase
       d => []
     }
 
-    assert_graph_equal expected, graph.tree(a)
+    assert_graph_equal expected, repo.graph(a).tree
   end
 
   def test_tree_deconvolutes_updates
@@ -94,7 +92,7 @@ class GraphTest < Test::Unit::TestCase
       n => []
     }
 
-    assert_graph_equal expected, graph.tree(a)
+    assert_graph_equal expected, repo.graph(a).tree
   end
 
   def test_tree_with_multiple_heads
@@ -112,7 +110,7 @@ class GraphTest < Test::Unit::TestCase
       n => []
     }
 
-    assert_graph_equal expected, graph.tree(a)
+    assert_graph_equal expected, repo.graph(a).tree
   end
 
   def test_tree_with_merged_lineages
@@ -135,7 +133,7 @@ class GraphTest < Test::Unit::TestCase
       y => []
     }
 
-    assert_graph_equal expected, graph.tree(a)
+    assert_graph_equal expected, repo.graph(a).tree
   end
 
   def test_tree_with_merged_lineages_and_multiple_updates
@@ -161,7 +159,7 @@ class GraphTest < Test::Unit::TestCase
       q => []
     }
 
-    assert_graph_equal expected, graph.tree(a)
+    assert_graph_equal expected, repo.graph(a).tree
   end
   
   def test_tree_detects_circular_linkage
@@ -170,7 +168,7 @@ class GraphTest < Test::Unit::TestCase
     repo.link(b, c)
     repo.link(c, a)
 
-    err = assert_raises(RuntimeError) { graph.tree(a) }
+    err = assert_raises(RuntimeError) { repo.graph(a).tree }
     assert_equal %Q{circular link detected:
   #{a}
   #{b}
@@ -185,7 +183,7 @@ class GraphTest < Test::Unit::TestCase
     repo.update(b, c)
     repo.link(b, a)
 
-    err = assert_raises(RuntimeError) { graph.tree(a) }
+    err = assert_raises(RuntimeError) { repo.graph(a).tree }
     assert_equal %Q{circular link detected:
   #{a}
   #{c}
@@ -199,11 +197,38 @@ class GraphTest < Test::Unit::TestCase
     repo.update(b, c)
     repo.link(c, a)
 
-    err = assert_raises(RuntimeError) { graph.tree(a) }
+    err = assert_raises(RuntimeError) { repo.graph(a).tree }
     assert_equal %Q{circular link detected:
   #{a}
   #{c}
   #{a}
 }, err.message
+  end
+  
+  def test_tree_detects_circular_linkage_causes_by_replacement
+    a, b, c, d = create_docs('a', 'b', 'c', 'd')
+    repo.link(a, b)
+    repo.link(b, c)
+    
+    repo.link(a, c)
+    repo.link(c, d)
+    
+    repo.update(b, d)
+    
+    err = assert_raises(RuntimeError) { repo.graph(a).tree }
+    expected = [
+%Q{circular link detected:
+  #{a}
+  #{c}
+  #{d}
+  #{c}
+}, 
+%Q{circular link detected:
+  #{a}
+  #{d}
+  #{c}
+  #{d}
+}]
+    assert_equal true, expected.include?(err.message)
   end
 end

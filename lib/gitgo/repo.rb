@@ -1,6 +1,7 @@
 require 'json'
 require 'gitgo/git'
 require 'gitgo/index'
+require 'gitgo/repo/graph'
 require 'gitgo/repo/utils'
 
 module Gitgo
@@ -245,6 +246,10 @@ module Gitgo
           end
         end
       end
+    end
+    
+    def graph(sha)
+      Graph.new(self, sha)
     end
     
     def diff(b, a=head)
