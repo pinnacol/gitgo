@@ -105,12 +105,24 @@ module Gitgo
       env[REPO]
     end
     
+    def idx
+      repo.idx
+    end
+    
     def [](key)
       attrs[key]
     end
     
     def []=(key, value)
       attrs[key] = value
+    end
+    
+    def origin
+      re || sha
+    end
+        
+    def origin?
+      re.nil?
     end
     
     def merge(attrs)
@@ -127,26 +139,34 @@ module Gitgo
     end
     
     def normalize!
-      self.author ||= begin
+      attrs['author'] ||= begin
         author = repo.author
         "#{author.name} <#{author.email}>"
       end
       
-      self.date ||= Time.now.iso8601
-      self.re = repo.resolve(re) if re
-      self.at = repo.resolve(at) if at
+      attrs['date'] ||= Time.now.iso8601
       
-      if parents = self.parents
+      if re = attrs['re']
+        attrs['re'] = repo.resolve(re)
+      end
+      
+      if at = attrs['at']
+        attrs['at'] = repo.resolve(at)
+      end
+      
+      if parents = attrs['parents']
         parents = arrayify(parents)
-        self.parents = parents.collect {|parent| repo.resolve(parent) }
+        attrs['parents'] = parents.collect {|parent| repo.resolve(parent) }
       end
       
-      if children = self.children
+      if children = attrs['children']
         children = arrayify(children)
-        self.children = children.collect {|child| repo.resolve(child) }
+        attrs['children'] = children.collect {|child| repo.resolve(child) }
       end
       
-      self.tags = arrayify(tags) if tags
+      if tags = attrs['tags']
+        attrs['tags'] = arrayify(tags)
+      end
       self
     end
     
@@ -178,15 +198,44 @@ module Gitgo
       parents  = attrs.delete('parents')
       children = attrs.delete('children')
       
-      sha = repo.store(attrs)
+      self.sha = repo.store(attrs)
       parents.each {|parent| repo.link(parent, sha) } if parents
       children.each {|child| repo.link(sha, child) } if children
+      each_index {|key, value| idx.add(key, value, sha) }
       
-      self.sha = sha
+      self
     end
     
     def saved?
       @sha.nil? ? false : true
+    end
+    
+    def each_index
+      if author = attrs['author']
+        actor = Grit::Actor.from_string(author)
+        yield('email', actor.email)
+      end
+      
+      if re = attrs['re']
+        yield('re', re)
+      end
+      
+      if at = attrs['at']
+        yield('at', at)
+      end
+      
+      if tags = attrs['tags']
+        tags.each do |tag|
+          yield('tags', tag)
+        end
+      end
+      
+      if type = attrs['type']
+        yield('type', type) if origin?
+        yield('tail', type) if saved? && tail?(sha)
+      end
+      
+      self
     end
     
     def initialize_copy(orig)

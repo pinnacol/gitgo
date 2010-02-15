@@ -244,6 +244,31 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
+  # origin test
+  #
+  
+  def test_origin_returns_re
+    doc.re = :re
+    assert_equal :re, doc.origin 
+  end
+  
+  def test_origin_returns_sha_if_re_is_not_specified
+    assert_equal nil, doc.origin
+    doc.sha = :sha
+    assert_equal :sha, doc.origin
+  end
+  
+  #
+  # origin? test
+  #
+  
+  def test_origin_check_returns_true_if_re_is_nil
+    assert_equal true, doc.origin?
+    doc.re = :re
+    assert_equal false, doc.origin?
+  end
+  
+  #
   # merge test
   #
   
@@ -438,6 +463,13 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [b], repo.links(doc.sha)
   end
   
+  def test_save_indexes_doc
+    doc['tags'] = 'one'
+    doc.save
+    
+    assert_equal [doc.sha], repo.idx['tags']['one']
+  end
+  
   class SaveDoc < Document
     validate(:key) {|key| raise("no key") if key.nil? }
   end
@@ -483,5 +515,61 @@ class DocumentTest < Test::Unit::TestCase
     
     doc.sha = :sha
     assert_equal true, doc.saved?
+  end
+  
+  #
+  # each_index test
+  #
+  
+  def test_each_index_yields_author_email_to_block
+    doc['author'] = 'Jane Doe <jane.doe@email.com>'
+    
+    pairs = []
+    doc.each_index {|key, value| pairs << [key, value]}
+    assert_equal [['email', 'jane.doe@email.com']], pairs
+  end
+  
+  def test_each_index_yields_each_tag_to_block
+    doc['tags'] = ['one', 'two']
+    
+    pairs = []
+    doc.each_index {|key, value| pairs << [key, value]}
+    assert_equal [
+      ['tags', 'one'],
+      ['tags', 'two']
+    ], pairs
+  end
+  
+  def test_each_index_yields_at_to_block
+    doc['at'] = 'sha'
+    
+    pairs = []
+    doc.each_index {|key, value| pairs << [key, value]}
+    assert_equal [['at', 'sha']], pairs
+  end
+  
+  def test_each_index_yields_re_to_block
+    doc['re'] = 'sha'
+    
+    pairs = []
+    doc.each_index {|key, value| pairs << [key, value]}
+    assert_equal [['re', 'sha']], pairs
+  end
+  
+  def test_each_index_yields_type_to_block_if_origin
+    doc['type'] = 'doc'
+    assert_equal true, doc.origin?
+    
+    pairs = []
+    doc.each_index {|key, value| pairs << [key, value]}
+    assert_equal [['type', 'doc']], pairs
+    
+    #
+    doc['re'] = 'sha'
+    assert_equal false, doc.origin?
+    
+    pairs = []
+    doc.each_index {|key, value| pairs << [key, value]}
+    assert_equal [['re', 'sha']], pairs
   end
 end
