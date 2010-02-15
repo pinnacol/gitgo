@@ -2,294 +2,269 @@ require File.dirname(__FILE__) + "/../test_helper"
 require 'gitgo/document'
 
 class DocumentTest < Test::Unit::TestCase
+  acts_as_file_test
+  
+  Actor = Grit::Actor
+  Repo = Gitgo::Repo
   Document = Gitgo::Document
   InvalidDocumentError = Document::InvalidDocumentError
-  Actor = Grit::Actor
   
-  attr_accessor :author, :date, :doc
+  attr_accessor :author, :doc
   
   def setup
+    super
+    
     @author = Grit::Actor.new("John Doe", "john.doe@email.com")
-    @date = Time.now
-    @doc = Document.new("author" => author, "date" => date)
+    @current = Document.set_env(lazy_env)
+    @doc = Document.new
+  end
+  
+  def teardown
+    Document.set_env(@current)
+    super
+  end
+  
+  def repo
+    @repo ||= Repo.init method_root.path(:repo), :author => author
+  end
+  
+  def lazy_env
+    Hash.new do |hash, key|
+      if key == Document::REPO
+        hash[key] = repo
+      else
+        nil
+      end
+    end
   end
   
   #
-  # parse test
+  # Document.with_env test
   #
   
-  def test_parse_parses_a_document
-    str = %q{--- 
-author: John Doe <john.doe@email.com>
-date: 1252508400 -0600
-key: value
---- 
-mulit-
-  line 
-content
-}
-
-    doc = Document.parse(str, "1234")
-    assert_equal "John Doe", doc.author.name
-    assert_equal "john.doe@email.com", doc.author.email
-    assert_equal 1252508400, doc.date.to_i
-    assert_equal "mulit-\n  line \ncontent\n", doc.content
-    assert_equal("value", doc.attributes["key"])
-    assert_equal "1234", doc.sha
+  def test_with_env_sets_env_during_block
+    Document.with_env(:a) do
+      assert_equal :a, Document.env
+      
+      Document.with_env(:z) do
+        assert_equal :z, Document.env
+      end
+      
+      assert_equal :a, Document.env
+    end
   end
   
-  def test_parsed_document_content_may_be_empty
-    str = %q{--- 
-author: John Doe <john.doe@email.com>
-date: 1252508400 -0600
-key: value
---- 
-}
-
-    doc = Document.parse(str, "1234")
-    assert_equal "", doc.content
+  #
+  # Document.env test
+  #
+  
+  def test_env_returns_thread_specific_env
+    current = Thread.current[Document::ENV]
+    begin
+      Thread.current[Document::ENV] = :env
+      assert_equal :env, Document.env
+    ensure
+      Thread.current[Document::ENV] = current
+    end
   end
   
-  def test_parse_raises_error_for_invalid_docs
-    doc = ""
-    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
-    assert_equal "no attributes specified:\n#{doc}", err.message
+  def test_env_raises_error_when_no_env_is_in_scope
+    current = Thread.current[Document::ENV]
+    begin
+      Thread.current[Document::ENV] = nil
+      
+      err = assert_raises(RuntimeError) { Document.env }
+      assert_equal "no env in scope", err.message
+    ensure
+      Thread.current[Document::ENV] = current
+    end
+  end
+  
+  #
+  # Document.repo test
+  #
+  
+  def test_repo_returns_repo_set_in_env
+    Document.with_env(Document::REPO => :repo) do
+      assert_equal :repo, Document.repo
+    end
+  end
+  
+  def test_repo_raises_error_when_no_repo_is_set_in_env
+    Document.with_env({}) do
+      err = assert_raises(RuntimeError) { Document.repo }
+      assert_equal "no repo in env", err.message
+    end
+  end
+  
+  #
+  # Document.validators test
+  #
+
+  class ValidatorA < Document
+    validate(:a, :validator)
+    validate(:b)
     
-    doc = "just some string"
-    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
-    assert_equal "no attributes specified:\n#{doc}", err.message
+    def validator(value)
+      raise("got: #{value}")
+    end
+  end
+  
+  def test_validate_binds_validator_to_method_name
+    assert_equal :validator, ValidatorA.validators['a']
+  end
+  
+  def test_validate_infers_default_validator_name
+    assert_equal :validate_b, ValidatorA.validators['b']
+  end
+  
+  def test_validator_is_called_with_attrs_value_to_determine_errors
+    a = ValidatorA.new 'a' => 'value'
+    assert_equal 'got: value', a.errors['a'].message
+  end
+  
+  class ValidatorB < ValidatorA
+    validate(:c, :validator)
+  end
+  
+  def test_validators_are_inherited_down_but_not_up
+    a = ValidatorA.new 'a' => 'A', 'c' => 'C'
+    assert_equal 'got: A', a.errors['a'].message
+    assert_equal nil, a.errors['c']
     
-    doc = "--- \n--- \ncontent"
-    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
-    assert_equal "no attributes specified:\n#{doc}", err.message
+    b = ValidatorB.new 'a' => 'A', 'c' => 'C'
+    assert_equal 'got: A', b.errors['a'].message
+    assert_equal 'got: C', b.errors['c'].message
+  end
+  
+  #
+  # Document.define_attributes test
+  #
+  
+  class DefineAttributesA < Document
+    define_attributes do
+      attr_reader :reader
+      attr_writer :writer
+      attr_accessor :accessor
+    end
+  end
+  
+  def test_define_attributes_causes_attr_x_methods_to_read_and_write_attrs
+    a = DefineAttributesA.new
+
+    assert_equal true, a.respond_to?(:reader)
+    assert_equal false, a.respond_to?(:reader=)
+    assert_equal false, a.respond_to?(:writer)
+    assert_equal true, a.respond_to?(:writer=)
+    assert_equal true, a.respond_to?(:accessor)
+    assert_equal true, a.respond_to?(:accessor=)
     
-    doc = "\n--- \ncontent"
-    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
-    assert_equal "no attributes specified:\n#{doc}", err.message
+    a.attrs['reader'] = 'one'
+    assert_equal 'one', a.reader
     
-    doc = "key: value"
-    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
-    assert_equal "no content specified:\n#{doc}", err.message
+    a.writer = 'two'
+    assert_equal 'two', a.attrs['writer']
     
-    doc = "date: 1252508400 -0600\n--- \n"
-    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
-    assert_equal "invalid document: (author cannot be nil)\n#{doc}", err.message
+    a.accessor = 'three'
+    assert_equal 'three', a.attrs['accessor']
     
-    doc = "author: John Doe <john.doe@email.com>\n--- \n"
-    err = assert_raises(InvalidDocumentError) { Document.parse(doc) }
-    assert_equal "invalid document: (date cannot be nil)\n#{doc}", err.message
+    a.attrs['accessor'] = 'four'
+    assert_equal 'four', a.accessor
+  end
+  
+  class DefineAttributesB < Document
+    define_attributes do
+      attr_reader :not_validated
+      attr_writer(:validated) {|value| raise('msg') if value.nil? }
+      attr_accessor(:also_validated) {|value| raise('msg') if value.nil? }
+    end
+  end
+  
+  def test_define_attributes_causes_attr_writer_to_create_validator_from_block
+    assert_equal nil, DefineAttributesB.validators['not_validated']
+    assert_equal :validate_validated, DefineAttributesB.validators['validated']
+    assert_equal :validate_also_validated, DefineAttributesB.validators['also_validated']
   end
   
   #
   # initialize test
   #
   
-  def test_initialize_documentation
-    doc = Document.new(
-      "author" => "John Doe <john.doe@email.com>",
-      "date" => "1252508400.123")
-    
-    assert_equal "John Doe", doc.author.name
-    assert_equal 1252508400, doc.date.to_i
-    
-    author = Grit::Actor.new("John Doe", "john.doe@email.com")
-    date = Time.now
+  def test_initialize_does_not_parse_attributes
+    doc = Document.new('author' => 'Jane Doe <jane.doe@email.com>')
+    assert_equal({'author' => 'Jane Doe <jane.doe@email.com>'}, doc.attrs)
+  end
   
-    doc = Document.new("author" => author, "date" => date)
-    assert_equal "John Doe", doc.author.name
-    assert_equal date, doc.date
+  def test_initialize_uses_current_env_unless_specified
+    Document.with_env(Document::REPO => :repo) do 
+      doc = Document.new
+      assert_equal :repo, doc.repo
+    end
+  end
+  
+  def test_initialize_raises_error_if_no_env_is_specified_or_in_scope
+    current = Thread.current[Document::ENV]
+    begin
+      Thread.current[Document::ENV] = nil
+      
+      err = assert_raises(RuntimeError) { Document.new }
+      assert_equal "no env in scope", err.message
+    ensure
+      Thread.current[Document::ENV] = current
+    end
+  end
+  
+  #
+  # repo test
+  #
+  
+  def test_doc_repo_returns_repo_set_in_env
+    doc = Document.new({}, {Document::REPO => :repo})
+    assert_equal :repo, doc.repo
   end
   
   #
   # AGET test
   #
   
-  def test_AGET_returns_an_attribute
-    doc = Document.new(
-      "author" => author,
-      "date" => date,
-      "key" => "value")
-    
-    assert_equal author, doc["author"]
-    assert_equal date, doc["date"]
-    assert_equal "value", doc["key"]
-    assert_equal nil, doc["missing"]
+  def test_AGET_gets_attribute_from_attrs
+    doc = Document.new
+    doc.attrs['author'] = 'Jane Doe <jane.doe@email.com>'
+    assert_equal 'Jane Doe <jane.doe@email.com>', doc['author']
   end
   
   #
   # ASET test
   #
   
-  def test_ASET_sets_an_attribute
-    assert_equal({
-      "author" => author,
-      "date" => date
-    }, doc.attributes)
-    
-    alt_author = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
-    alt_date = date + 1
-    
-    doc["author"] = alt_author
-    doc["date"] = alt_date
-    doc["key"] = "value"
-    
-    assert_equal({
-      "author" => alt_author,
-      "date" => alt_date,
-      "key" => "value"
-    }, doc.attributes)
-  end
-  
-  def test_ASET_parses_author_from_string
-    doc['author'] =  "Jane Doe <jane.doe@email.com>"
-    
-    assert_equal "Jane Doe", doc.author.name
-    assert_equal "jane.doe@email.com", doc.author.email
-  end
-  
-  def test_ASET_parses_dates_from_numerics
-    doc['date'] = 100.1
-    assert_equal Time.at(100.1), doc['date']
-    
-    doc['date'] = 100
-    assert_equal Time.at(100), doc['date']
-  end
-  
-  def test_ASET_parses_dates_from_numeric_strings
-    doc['date'] = "100.1"
-    assert_equal Time.at(100.1), doc['date']
-    
-    doc['date'] = "100"
-    assert_equal Time.at(100), doc['date']
-  end
-  
-  def test_ASET_sets_array_tags_directly
-    doc['tags'] =  []
-    assert_equal nil, doc["tags"]
-    
-    doc['tags'] =  [""]
-    assert_equal [""], doc["tags"]
-    
-    doc['tags'] = ["a", "b", "c"]
-    assert_equal ["a", "b", "c"], doc["tags"]
-  end
-  
-  def test_ASET_parses_tags_from_string_as_shellwords
-    doc['tags'] =  ""
-    assert_equal nil, doc["tags"]
-    
-    doc['tags'] =  "a"
-    assert_equal ["a"], doc["tags"]
-    
-    doc['tags'] = "a b c"
-    assert_equal ["a", "b", "c"], doc["tags"]
-    
-    doc['tags'] = "a 'b c' \"'de'\""
-    assert_equal ["a", "b c", "'de'"], doc["tags"]
-  end
-  
-  def test_ASET_nilifies_nil_and_empty_values
-    doc['key'] =  ""
-    assert_equal nil, doc["key"]
-    
-    doc['key'] =  []
-    assert_equal nil, doc["key"]
-    
-    doc['key'] =  nil
-    assert_equal nil, doc["key"]
-    
-    doc = Document.new(
-      "author" => author, 
-      "date" => date, 
-      'nil' => nil, 
-      'empty' => [], 
-      'empty_str' => '', 
-      'key' => 'value',
-      'int' => 0)
-      
-    assert_equal nil, doc["nil"]
-    assert_equal nil, doc["empty"]
-    assert_equal nil, doc["empty_str"]
-    assert_equal 'value', doc["key"]
-    assert_equal 0, doc["int"]
+  def test_ASET_sets_attribute_into_attrs
+    doc = Document.new
+    doc['author'] = 'Jane Doe <jane.doe@email.com>'
+    assert_equal 'Jane Doe <jane.doe@email.com>', doc.attrs['author']
   end
   
   #
-  # each_index test
+  # merge test
   #
   
-  def test_each_index_yields_indexed_key_value_pairs_to_block
-    results = {}
-    doc.each_index do |key, value|
-      (results[key] ||= []) << value
-    end
+  def test_merge_duplicates_and_merge_bangs_attrs
+    doc.attrs['one'] = 'one'
+    doc.attrs['two'] = 'two'
+    dup = doc.merge('two' => 'TWO', 'three' => 'THREE')
     
-    assert_equal({
-      'author' => [author.email],
-    }, results)
-    
-    # more realistic case
-    doc = Document.new(
-      'author' => author,
-      'date' => date,
-      'state' => 'open',
-      'n' => 1,
-      'tags' => ['a', 'b', 'c'],
-      'attachments' => ['not', 'indexed']
-    )
-    
-    results = {}
-    doc.each_index do |key, value|
-      (results[key] ||= []) << value
-    end
-    
-    assert_equal({
-      'author' => [author.email],
-      'state' => ['open'],
-      'tags' => ['a', 'b', 'c'],
-    }, results)
+    assert_equal({'one' => 'one', 'two' => 'two'}, doc.attrs)
+    assert_equal({'one' => 'one', 'two' => 'TWO', 'three' => 'THREE'}, dup.attrs)
   end
   
   #
-  # diff test
+  # merge! test
   #
   
-  def test_diff_returns_empty_array_for_same_attrs
-    assert_equal({}, doc.diff(doc))
+  def test_merge_bang_merges_new_attrs_with_existing
+    doc.attrs['one'] = 'one'
+    doc.attrs['two'] = 'two'
+    doc.merge!('two' => 'TWO', 'three' => 'THREE')
     
-    a = doc.merge("key" => "value")
-    b = doc.merge("key" => "value")
-    
-    assert_equal a.attributes, b.attributes
-    assert_equal({}, a.diff(b))
-  end
-  
-  def test_diff_returns_changes_in_attrs
-    a = doc.merge("changed" => "A", "a_only" => "a", "unchanged" => "value")
-    b = doc.merge("changed" => "B", "b_only" => "b", "unchanged" => "value")
-    
-    assert_equal({'changed' => "A", "a_only" => "a", :b_only => "b"}, a.diff(b))
-    assert_equal({'changed' => "B", :a_only => "a", "b_only" => "b"}, b.diff(a))
-  end
-  
-  #
-  # to_s test
-  #
-  
-  def test_to_s_formats_doc_as_a_string
-    attrs = {
-      "author" => Actor.new("John Doe", "john.doe@email.com"),
-      "date" => Time.at(1252508400),
-      "key" => "value"
-    }
-    
-    expected = %Q{--- 
-author: John Doe <john.doe@email.com>
-date: 1252508400.0
-key: value
---- 
-content}
-
-    assert_equal expected, Document.new(attrs, "content").to_s
+    assert_equal({'one' => 'one', 'two' => 'TWO', 'three' => 'THREE'}, doc.attrs)
   end
 end
