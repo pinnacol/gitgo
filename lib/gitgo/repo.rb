@@ -67,7 +67,7 @@ module Gitgo
     end
     
     def resolve(sha)
-      git.resolve(sha)
+      git.resolve(sha) rescue sha
     end
     
     def [](sha)
