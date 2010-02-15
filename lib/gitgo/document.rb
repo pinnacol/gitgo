@@ -88,6 +88,8 @@ module Gitgo
       attr_accessor :re
       attr_accessor :at
       attr_accessor :tags
+      attr_writer :parents
+      attr_writer :children
     end
     
     def initialize(attrs={}, env=nil, sha=nil)
@@ -135,6 +137,23 @@ module Gitgo
         raise InvalidDocumentError.new(self, errors)
       end
       self
+    end
+    
+    def save
+      validate
+      
+      parents  = attrs.delete('parents')
+      children = attrs.delete('children')
+      
+      sha = repo.store(attrs)
+      parents.each {|parent| repo.link(parent, sha) } if parents
+      children.each {|child| repo.link(sha, child) } if children
+      
+      self.sha = sha
+    end
+    
+    def saved?
+      @sha.nil? ? false : true
     end
     
     def initialize_copy(orig)

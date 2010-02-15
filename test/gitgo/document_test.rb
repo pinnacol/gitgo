@@ -267,4 +267,60 @@ class DocumentTest < Test::Unit::TestCase
     
     assert_equal({'one' => 'one', 'two' => 'TWO', 'three' => 'THREE'}, doc.attrs)
   end
+  
+  #
+  # save test
+  #
+  
+  def test_save_stores_attrs_and_sets_sha
+    doc['key'] = 'value'
+    doc.save
+    
+    attrs = repo.read(doc.sha)
+    assert_equal 'value', attrs['key']
+  end
+  
+  def test_save_links_to_parents_to_doc
+    a = repo.store('content' => 'a')
+    doc['parents'] = [a]
+    doc.save
+    
+    assert_equal [doc.sha], repo.links(a)
+  end
+  
+  def test_save_links_doc_to_children
+    b = repo.store('content' => 'b')
+    doc['children'] = [b]
+    doc.save
+    
+    assert_equal [b], repo.links(doc.sha)
+  end
+  
+  class SaveDoc < Document
+    validate(:key) {|key| raise("no key") if key.nil? }
+  end
+  
+  def test_save_validates_doc
+    doc = SaveDoc.new
+    err = assert_raises(InvalidDocumentError) { doc.save }
+    assert_equal "no key", err.errors['key'].message
+    assert_equal nil, doc.sha
+    
+    doc['key'] = 'value'
+    doc.save
+    attrs = repo.read(doc.sha)
+    assert_equal 'value', attrs['key']
+  end
+  
+  #
+  # saved? test
+  #
+  
+  def test_saved_check_returns_true_if_sha_is_set
+    assert_equal nil, doc.sha
+    assert_equal false, doc.saved?
+    
+    doc.sha = :sha
+    assert_equal true, doc.saved?
+  end
 end
