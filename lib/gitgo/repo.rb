@@ -80,7 +80,7 @@ module Gitgo
     
     attr_reader :env
     
-    def initialize(env)
+    def initialize(env={})
       @env = env
     end
     
@@ -96,12 +96,16 @@ module Gitgo
       git.resolve(sha) rescue sha
     end
     
+    def path
+      env[PATH] ||= Dir.pwd
+    end
+    
     def git
-      env[GIT] ||= Git.init(env[PATH], env[OPTIONS] || {})
+      env[GIT] ||= Git.init(path, env[OPTIONS] || {})
     end
     
     def idx
-      env[IDX] ||= Index.new(git.path(Git::DEFAULT_DIR, 'index', git.branch))
+      env[IDX] ||= Index.new(File.join(git.work_dir, 'index', git.branch))
     end
     
     def cache
@@ -116,14 +120,10 @@ module Gitgo
       cache[sha] = attrs
     end
     
-    def path(date, sha)
-      date.utc.strftime("%Y/%m%d/#{sha}")
-    end
-    
     def store(attrs={}, date=Time.now)
       sha = git.set(:blob, JSON.generate(attrs))
       
-      git[path(date, sha)] = sha.to_sym
+      git[date_path(date, sha)] = sha.to_sym
       cache[sha] = attrs
       
       sha

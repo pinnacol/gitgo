@@ -154,7 +154,7 @@ module Gitgo
     DEFAULT_REMOTE_BRANCH = 'origin/gitgo'
     
     # The default directory for gitgo-related files
-    DEFAULT_DIR = 'gitgo'
+    DEFAULT_WORK_DIR = 'gitgo'
     
     # The default blob mode used for added content
     DEFAULT_BLOB_MODE = "100644".to_sym
@@ -180,6 +180,8 @@ module Gitgo
     # Returns the sha for the branch head
     attr_reader :head
     
+    attr_reader :work_dir
+    
     # The path to the temporary working tree
     attr_reader :work_tree
     
@@ -198,8 +200,9 @@ module Gitgo
       @grit = path.kind_of?(Grit::Repo) ? path : Grit::Repo.new(path, options)
       @sandbox = false
       @branch = nil
-      @work_tree  = options[:work_tree] || path(DEFAULT_DIR, 'tmp', object_id.to_s)
-      @index_file = options[:index_file] || path(DEFAULT_DIR, 'tmp', "#{object_id}.index")
+      @work_dir = path(options[:work_dir] || DEFAULT_WORK_DIR)
+      @work_tree  = options[:work_tree] || File.join(work_dir, 'tmp', object_id.to_s)
+      @index_file = options[:index_file] || File.join(work_dir, 'tmp', "#{object_id}.index")
       
       self.author = options[:author] || nil
       self.checkout options[:branch] || DEFAULT_BRANCH

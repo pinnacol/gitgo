@@ -93,6 +93,37 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # initialize test
+  #
+  
+  def test_repo_initializes_to_pwd_by_default
+    repo = Repo.new
+    assert_equal Dir.pwd, repo.path
+  end
+  
+  #
+  # git test
+  #
+  
+  def test_git_auto_initializes_using_path
+    assert_equal nil, repo.env[Repo::GIT]
+    git = repo.git
+    assert_equal git, repo.env[Repo::GIT]
+    assert_equal File.join(repo.path, '.git'), git.path
+  end
+  
+  #
+  # idx test
+  #
+  
+  def test_idx_auto_initializes_using_git_path_and_branch
+    assert_equal nil, repo.env[Repo::IDX]
+    idx = repo.idx
+    assert_equal idx, repo.env[Repo::IDX]
+    assert_equal File.join(git.work_dir, 'index', git.branch), idx.path
+  end
+  
+  #
   # cache test
   #
 

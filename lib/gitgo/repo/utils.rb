@@ -86,6 +86,10 @@ module Gitgo
         paths
       end
       
+      def date_path(date, sha)
+        date.utc.strftime("%Y/%m%d/#{sha}")
+      end
+      
       # Flattens an ancestry hash of (parent, [children]) pairs.  For example:
       #
       #   ancestry = {

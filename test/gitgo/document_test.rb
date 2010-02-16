@@ -40,6 +40,10 @@ class DocumentTest < Test::Unit::TestCase
     JSON.parse(str)
   end
   
+  def date_path(date, sha)
+    Repo::Utils.date_path(date, sha)
+  end
+  
   #
   # Document.validators test
   #
@@ -684,7 +688,7 @@ class DocumentTest < Test::Unit::TestCase
     doc['date'] = Time.at(100).iso8601
     sha = doc.save
     
-    assert_equal git.get(:blob, sha).data, git[repo.path(Time.now, sha)]
+    assert_equal git.get(:blob, sha).data, git[date_path(Time.now, sha)]
   end
   
   def test_multiple_sequential_saves_returns_same_sha
@@ -700,8 +704,8 @@ class DocumentTest < Test::Unit::TestCase
     doc.sha = sha
     
     assert_equal sha, doc.save
-    assert_equal git.get(:blob, sha).data, git[repo.path(Time.at(100), sha)]
-    assert_equal nil, git[repo.path(Time.now, sha)]
+    assert_equal git.get(:blob, sha).data, git[date_path(Time.at(100), sha)]
+    assert_equal nil, git[date_path(Time.now, sha)]
   end
   
   def test_forcing_save_stores_a_document_twice
@@ -710,8 +714,8 @@ class DocumentTest < Test::Unit::TestCase
     doc.sha = sha
     
     assert_equal sha, doc.save(true)
-    assert_equal git.get(:blob, sha).data, git[repo.path(Time.at(100), sha)]
-    assert_equal git.get(:blob, sha).data, git[repo.path(Time.now, sha)]
+    assert_equal git.get(:blob, sha).data, git[date_path(Time.at(100), sha)]
+    assert_equal git.get(:blob, sha).data, git[date_path(Time.now, sha)]
   end
 
   class SaveDoc < Document
@@ -806,8 +810,8 @@ class DocumentTest < Test::Unit::TestCase
     doc.sha = sha
     
     assert_equal sha, doc.update
-    assert_equal git.get(:blob, sha).data, git[repo.path(Time.at(100), sha)]
-    assert_equal git.get(:blob, sha).data, git[repo.path(Time.now, sha)]
+    assert_equal git.get(:blob, sha).data, git[date_path(Time.at(100), sha)]
+    assert_equal git.get(:blob, sha).data, git[date_path(Time.now, sha)]
   end
   
   #
