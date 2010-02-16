@@ -4,17 +4,21 @@ require 'gitgo/repo'
 class RepoTest < Test::Unit::TestCase
   acts_as_file_test
   
-  Git = Gitgo::Git
-  Index = Gitgo::Index
   Repo = Gitgo::Repo
   
-  attr_accessor :git, :idx, :repo
+  attr_accessor :repo
   
   def setup
     super
-    @git = Git.init method_root.path(:repo)
-    @idx = Index.new method_root.path(:index)
-    @repo = Repo.new(Repo::GIT => git, Repo::IDX => idx)
+    @repo = Repo.new(Repo::PATH => method_root.path(:repo))
+  end
+  
+  def git
+    repo.git
+  end
+  
+  def idx
+    repo.idx
   end
   
   def serialize(attrs)
@@ -26,6 +30,65 @@ class RepoTest < Test::Unit::TestCase
     contents.collect do |content|
       date += 1
       repo.store("content" => content, "date" => date)
+    end
+  end
+  
+  #
+  # Repo.with_env test
+  #
+  
+  def test_with_env_sets_env_during_block
+    Repo.with_env(:a) do
+      assert_equal :a, Repo.env
+      
+      Repo.with_env(:z) do
+        assert_equal :z, Repo.env
+      end
+      
+      assert_equal :a, Repo.env
+    end
+  end
+  
+  #
+  # Repo.env test
+  #
+  
+  def test_env_returns_thread_specific_env
+    current = Thread.current[Repo::ENVIRONMENT]
+    begin
+      Thread.current[Repo::ENVIRONMENT] = :env
+      assert_equal :env, Repo.env
+    ensure
+      Thread.current[Repo::ENVIRONMENT] = current
+    end
+  end
+  
+  def test_env_raises_error_when_no_env_is_in_scope
+    current = Thread.current[Repo::ENVIRONMENT]
+    begin
+      Thread.current[Repo::ENVIRONMENT] = nil
+      
+      err = assert_raises(RuntimeError) { Repo.env }
+      assert_equal "no env in scope", err.message
+    ensure
+      Thread.current[Repo::ENVIRONMENT] = current
+    end
+  end
+  
+  #
+  # Repo.current test
+  #
+  
+  def test_current_returns_repo_set_in_env
+    Repo.with_env(Repo::REPO => :repo) do
+      assert_equal :repo, Repo.current
+    end
+  end
+  
+  def test_current_auto_initializes_to_env
+    Repo.with_env({}) do
+      repo = Repo.current
+      assert_equal({Repo::REPO => repo}, Repo.env)
     end
   end
   

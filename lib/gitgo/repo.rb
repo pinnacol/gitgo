@@ -40,16 +40,37 @@ module Gitgo
   #
   class Repo
     class << self
-      def init(path, options={})
-        git = Git.init(path, options)
-        idx = Index.new git.path(Git::DEFAULT_DIR, 'index', git.branch)
-        new(GIT => git, IDX => idx)
+      def set_env(env)
+        current = Thread.current[ENVIRONMENT]
+        Thread.current[ENVIRONMENT] = env
+        current
+      end
+      
+      def with_env(env)
+        begin
+          current = set_env(env)
+          yield
+        ensure
+          set_env(current)
+        end
+      end
+      
+      def env
+        Thread.current[ENVIRONMENT] or raise("no env in scope")
+      end
+      
+      def current
+        env[REPO] ||= new(env)
       end
     end
     include Utils
     
+    ENVIRONMENT  = 'gitgo.env'
+    PATH = 'gitgo.path'
+    OPTIONS = 'gitgo.options'
     GIT = 'gitgo.git'
     IDX = 'gitgo.idx'
+    REPO = 'gitgo.repo'
     CACHE = 'gitgo.cache'
     
     YEAR = /\A\d{4,}\z/
@@ -58,11 +79,9 @@ module Gitgo
     DOCUMENT = /^(\d{4})\/(\d{4})\/(.{40})$/
     
     attr_reader :env
-    attr_reader :git
     
     def initialize(env)
       @env = env
-      @git = env[GIT]
     end
     
     def head
@@ -77,8 +96,12 @@ module Gitgo
       git.resolve(sha) rescue sha
     end
     
+    def git
+      env[GIT] ||= Git.init(env[PATH], env[OPTIONS] || {})
+    end
+    
     def idx
-      env[IDX]
+      env[IDX] ||= Index.new(git.path(Git::DEFAULT_DIR, 'index', git.branch))
     end
     
     def cache

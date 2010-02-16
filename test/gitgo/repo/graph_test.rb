@@ -10,7 +10,7 @@ class GraphTest < Test::Unit::TestCase
   
   def setup
     super
-    @repo = Repo.init method_root.path(:repo)
+    @repo = Repo.new(Repo::PATH => method_root.path(:repo))
   end
   
   def create_nodes(*contents)

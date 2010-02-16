@@ -4,9 +4,6 @@ require 'gitgo/document/invalid_document_error'
 
 module Gitgo
   class Document
-    ENV  = 'gitgo.env'
-    REPO = 'gitgo.repo'
-    
     class << self
       attr_reader :types
       attr_reader :validators
@@ -17,31 +14,8 @@ module Gitgo
         base.register_as base.to_s.split('::').last.downcase
       end
       
-      def set_env(env)
-        current = Thread.current[ENV]
-        Thread.current[ENV] = env
-        current
-      end
-      
-      def with_env(env)
-        begin
-          current = set_env(env)
-          yield
-        ensure
-          set_env(current)
-        end
-      end
-      
-      def env
-        Thread.current[ENV] or raise("no env in scope")
-      end
-      
       def repo
-        env[REPO] or raise("no repo in env")
-      end
-      
-      def idx
-        repo.idx
+        Repo.current
       end
       
       def type
@@ -49,7 +23,7 @@ module Gitgo
       end
       
       def create(attrs={})
-        doc = new(attrs, env)
+        doc = new(attrs, repo)
         doc.save
         doc
       end
@@ -64,7 +38,7 @@ module Gitgo
       def cast(attrs, sha)
         type = attrs['type']
         klass = types[type] or raise "unknown type: #{type}"
-        klass.new(attrs, env, sha)
+        klass.new(attrs, repo, sha)
       end
       
       def update(sha, attrs={})
@@ -78,12 +52,13 @@ module Gitgo
         
         # use type to determine basis -- note that idx.all('email') should
         # return all documents because all documents should have an email
+        idx = repo.idx
         basis = type ? idx.get('type', type) : idx.all('email')
         idx.select(basis, criteria).collect! {|sha| self[sha] }
       end
       
       def update_idx(reindex=false)
-        idx = self.idx
+        idx = repo.idx
         idx.clear if reindex
         repo_head, idx_head = repo.head, idx.head
         
@@ -157,7 +132,7 @@ module Gitgo
     @types = {}
     register_as(nil)
     
-    attr_reader :env
+    attr_reader :repo
     attr_reader :attrs
     attr_accessor :sha
     
@@ -172,14 +147,10 @@ module Gitgo
       attr_accessor(:type)
     end
     
-    def initialize(attrs={}, env=nil, sha=nil)
-      @env = env || self.class.env
+    def initialize(attrs={}, repo=nil, sha=nil)
+      @repo = repo || Repo.current
       @attrs = attrs
       @sha = sha
-    end
-    
-    def repo
-      env[REPO]
     end
     
     def idx

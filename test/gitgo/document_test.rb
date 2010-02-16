@@ -15,17 +15,17 @@ class DocumentTest < Test::Unit::TestCase
     super
     
     @author = Grit::Actor.new("John Doe", "john.doe@email.com")
-    @current = Document.set_env(lazy_env)
+    @current = Repo.set_env(Repo::PATH => method_root.path(:repo), Repo::OPTIONS => {:author => author})
     @doc = Document.new
   end
   
   def teardown
-    Document.set_env(@current)
+    Repo.set_env(@current)
     super
   end
   
   def repo
-    @repo ||= Repo.init method_root.path(:repo), :author => author
+    Repo.current
   end
   
   def git
@@ -36,77 +36,8 @@ class DocumentTest < Test::Unit::TestCase
     repo.idx
   end
   
-  def lazy_env
-    Hash.new do |hash, key|
-      if key == Document::REPO
-        hash[key] = repo
-      else
-        nil
-      end
-    end
-  end
-  
   def deserialize(str)
     JSON.parse(str)
-  end
-  
-  #
-  # Document.with_env test
-  #
-  
-  def test_with_env_sets_env_during_block
-    Document.with_env(:a) do
-      assert_equal :a, Document.env
-      
-      Document.with_env(:z) do
-        assert_equal :z, Document.env
-      end
-      
-      assert_equal :a, Document.env
-    end
-  end
-  
-  #
-  # Document.env test
-  #
-  
-  def test_env_returns_thread_specific_env
-    current = Thread.current[Document::ENV]
-    begin
-      Thread.current[Document::ENV] = :env
-      assert_equal :env, Document.env
-    ensure
-      Thread.current[Document::ENV] = current
-    end
-  end
-  
-  def test_env_raises_error_when_no_env_is_in_scope
-    current = Thread.current[Document::ENV]
-    begin
-      Thread.current[Document::ENV] = nil
-      
-      err = assert_raises(RuntimeError) { Document.env }
-      assert_equal "no env in scope", err.message
-    ensure
-      Thread.current[Document::ENV] = current
-    end
-  end
-  
-  #
-  # Document.repo test
-  #
-  
-  def test_repo_returns_repo_set_in_env
-    Document.with_env(Document::REPO => :repo) do
-      assert_equal :repo, Document.repo
-    end
-  end
-  
-  def test_repo_raises_error_when_no_repo_is_set_in_env
-    Document.with_env({}) do
-      err = assert_raises(RuntimeError) { Document.repo }
-      assert_equal "no repo in env", err.message
-    end
   end
   
   #
@@ -409,32 +340,9 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal({'author' => 'Jane Doe <jane.doe@email.com>'}, doc.attrs)
   end
   
-  def test_initialize_uses_current_env_unless_specified
-    Document.with_env(Document::REPO => :repo) do 
-      doc = Document.new
-      assert_equal :repo, doc.repo
-    end
-  end
-  
-  def test_initialize_raises_error_if_no_env_is_specified_or_in_scope
-    current = Thread.current[Document::ENV]
-    begin
-      Thread.current[Document::ENV] = nil
-      
-      err = assert_raises(RuntimeError) { Document.new }
-      assert_equal "no env in scope", err.message
-    ensure
-      Thread.current[Document::ENV] = current
-    end
-  end
-  
-  #
-  # repo test
-  #
-  
-  def test_doc_repo_returns_repo_set_in_env
-    doc = Document.new({}, {Document::REPO => :repo})
-    assert_equal :repo, doc.repo
+  def test_initialize_uses_current_repo_unless_specified
+    doc = Document.new
+    assert_equal Repo.current, doc.repo
   end
   
   #
