@@ -6,6 +6,7 @@ module Gitgo
   class Document
     ENV  = 'gitgo.env'
     REPO = 'gitgo.repo'
+    DOCS = 'gitgo.docs'
     
     class << self
       attr_reader :types
@@ -42,6 +43,13 @@ module Gitgo
       
       def idx
         repo.idx
+      end
+      
+      def docs
+        env[DOCS] ||= Hash.new do |hash, sha|
+          doc = Document.read(sha)
+          doc ? hash[doc.sha] = doc : nil
+        end
       end
       
       def type
@@ -86,6 +94,10 @@ module Gitgo
         
         idx.write(repo.head)
         shas
+      end
+      
+      def [](sha)
+        docs[sha]
       end
       
       protected

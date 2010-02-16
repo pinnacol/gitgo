@@ -110,6 +110,30 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
+  # Document.docs test
+  #
+  
+  def test_docs_returns_docs_set_in_env
+    Document.with_env(Document::DOCS => :docs) do
+      assert_equal :docs, Document.docs
+    end
+  end
+  
+  def test_docs_auto_initializes_to_documents_hash
+    Document.with_env({}) do
+      assert_equal Hash, Document.docs.class
+    end
+  end
+  
+  def test_docs_reads_and_caches_documents
+    a = Document.create('content' => 'a')
+    b = Document.docs[a.sha]
+    
+    assert_equal 'a', b['content']
+    assert_equal b.object_id, Document.docs[a.sha].object_id
+  end
+  
+  #
   # Document.validators test
   #
 
@@ -264,6 +288,18 @@ class DocumentTest < Test::Unit::TestCase
     
     result = Document.read(doc.sha)
     assert_equal ReadClass, result.class
+  end
+  
+  #
+  # Document[] test
+  #
+  
+  def test_Document_AGET_reads_and_caches_doc
+    a = Document.create('content' => 'a')
+    b = Document[a.sha]
+    
+    assert_equal 'a', b['content']
+    assert_equal({a.sha => b}, Document.docs)
   end
   
   #
