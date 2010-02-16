@@ -54,8 +54,8 @@ module Gitgo
     
     YEAR = /\A\d{4,}\z/
     MMDD = /\A\d{4}\z/
-    LINK = /^.{2}\/.{38}\/.{40}$/
-    DOCUMENT = /^\d{4}\/\d{4}\/(.{40})$/
+    LINK = /^(.{2})\/(.{38})\/(.{40})$/
+    DOCUMENT = /^(\d{4})\/(\d{4})\/(.{40})$/
     
     attr_reader :env
     attr_reader :git
@@ -287,12 +287,54 @@ module Gitgo
         diff = []
         git.ls_tree(b).each do |path|
           next unless path =~ DOCUMENT
-          diff << $1
+          diff << $3
         end
         diff
       else
         git.diff_tree(a, b)['A']
       end
+    end
+    
+    def status
+      lines = []
+      git.status.each_pair do |path, state|
+        state = case state
+        when :add then '+'
+        when :rm  then '-'
+        else '~'
+        end
+        
+        case path
+        when DOCUMENT
+          sha = $3
+          attrs = self[sha]
+          type, origin = attrs['type'], attrs['re']
+          if block_given?
+            sha = yield(sha)
+            origin = yield(origin) if origin
+          end
+          lines << [state, type || 'doc', origin ? "#{sha} re  #{origin}" : sha]
+          
+        when LINK
+          parent, sha = "#{$1}#{$2}", $3
+          # skip back refs
+          next if parent == sha
+          
+          mode, ref = git.tree.subtree([$1, $2])[$3]
+          is_update = ref.to_s == parent
+          sha, parent = yield(sha), yield(parent) if block_given?
+          lines << (is_update ? [state, 'update', "#{sha} was #{parent}"] : [state, 'link', "#{parent} to  #{sha}"])
+          
+        else
+          lines << [state, 'unknown', path]
+        end
+      end
+      
+      indent = lines.collect {|(state, type, msg)| type.length }.max
+      format = "%s %-#{indent}s %s"
+      lines.collect! {|ary| format % ary }
+      lines.sort!
+      lines
     end
     
     def commit(msg)
@@ -304,7 +346,7 @@ module Gitgo
     end
 
     protected
-
+    
     # Returns the sha for an empty string, and ensures the corresponding
     # object is set in the repo.
     def empty_sha # :nodoc:

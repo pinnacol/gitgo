@@ -6,10 +6,6 @@ module Gitgo
     module Utils
       module_function
       
-      def blank?(value)
-        value.nil? || (value.to_s.strip.empty?)
-      end
-      
       def deserialize(str, sha=nil)
         attrs, content = str.split(/\n--- \n/m, 2)
         unless attrs.nil? || attrs.empty?

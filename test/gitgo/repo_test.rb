@@ -442,4 +442,41 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [one], repo.diff(nil, a)
     assert_equal [], repo.diff(a, nil)
   end
+  
+  #
+  # status test
+  #
+  
+  def test_status_returns_formatted_lines_of_status
+    assert_equal [], repo.status
+    
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.link(a, b)
+    repo.update(b, c)
+    
+    assert_equal [
+      "+ doc    #{a}",
+      "+ doc    #{b}",
+      "+ doc    #{c}",
+      "+ link   #{a} to  #{b}",
+      "+ update #{c} was #{b}"
+    ].sort, repo.status
+  end
+  
+  def test_status_converts_shas_as_determined_by_block
+    assert_equal [], repo.status
+    
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.link(a, b)
+    repo.update(b, c)
+    
+    actual = repo.status {|sha| sha[0,8] }
+    assert_equal [
+      "+ doc    #{a[0,8]}",
+      "+ doc    #{b[0,8]}",
+      "+ doc    #{c[0,8]}",
+      "+ link   #{a[0,8]} to  #{b[0,8]}",
+      "+ update #{c[0,8]} was #{b[0,8]}"
+    ].sort, actual
+  end
 end
