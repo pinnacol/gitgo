@@ -76,6 +76,12 @@ module Gitgo
         klass.new(attrs, env, sha)
       end
       
+      def update(sha, attrs={})
+        doc = read(sha).merge!(attrs)
+        doc.update
+        doc
+      end
+      
       def find(criteria={}, update_idx=true)
         self.update_idx if update_idx
         
@@ -311,11 +317,17 @@ module Gitgo
       children.each {|child| repo.link(sha, child) } if children
       each_index {|key, value| idx.add(key, value, sha) }
       
-      self
+      sha
     end
     
     def saved?
       @sha.nil? ? false : true
+    end
+    
+    def update(old_sha=sha)
+      new_sha = save
+      repo.update(old_sha, new_sha) if old_sha
+      new_sha
     end
     
     def indexes

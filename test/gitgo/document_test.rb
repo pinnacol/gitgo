@@ -291,15 +291,22 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
-  # Document[] test
+  # Document.update test
   #
   
-  def test_Document_AGET_reads_and_caches_doc
-    a = Document.create('content' => 'a')
-    b = Document[a.sha]
+  def test_update_merges_attrs_saves_and_returns_new_doc
+    a = Document.create('content' => 'a', 'tags' => 'one')
+    b = Document.update(a.sha, 'content' => 'b')
     
-    assert_equal 'a', b['content']
-    assert_equal({a.sha => b}, Document.docs)
+    assert_equal 'a', a['content']
+    assert_equal 'b', b['content']
+    assert_equal ['one'], b['tags']
+  end
+  
+  def test_update_indexes_document
+    a = Document.create
+    b = Document.update(a.sha, 'tags' => 'tag')
+    assert_equal [b.sha], idx['tags']['tag']
   end
   
   #
@@ -398,6 +405,18 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal ['sha'], idx.get('key', 'value')
     Document.update_idx(true)
     assert_equal [], idx.get('key', 'value')
+  end
+  
+  #
+  # Document[] test
+  #
+  
+  def test_Document_AGET_reads_and_caches_doc
+    a = Document.create('content' => 'a')
+    b = Document[a.sha]
+    
+    assert_equal 'a', b['content']
+    assert_equal({a.sha => b}, Document.docs)
   end
   
   #
@@ -817,6 +836,38 @@ class DocumentTest < Test::Unit::TestCase
     
     doc.sha = :sha
     assert_equal true, doc.saved?
+  end
+  
+  #
+  # update test
+  #
+  
+  def test_update_saves_and_updates_old_sha_with_self
+    a = Document.new('content' => 'a').save
+    b = Document.new('content' => 'b').update(a)
+    
+    attrs = deserialize(git.get(:blob, b).data)
+    assert_equal 'b', attrs['content']
+    assert_equal [b], repo.updates(a)
+    assert_equal true, repo.updated?(a)
+  end
+  
+  def test_update_is_equivalent_to_save_if_old_sha_is_nil
+    a = Document.new('content' => 'a').update(nil)
+    assert_equal false, repo.updated?(a)
+  end
+  
+  def test_update_updates_self_sha_by_default
+    doc['content'] = 'a'
+    a = doc.save
+    
+    doc['content'] = 'b'
+    b = doc.update
+    
+    attrs = deserialize(git.get(:blob, b).data)
+    assert_equal 'b', attrs['content']
+    assert_equal [b], repo.updates(a)
+    assert_equal true, repo.updated?(a)
   end
   
   #
