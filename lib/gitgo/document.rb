@@ -76,6 +76,13 @@ module Gitgo
         klass.new(attrs, env, sha)
       end
       
+      def find(criteria={}, update_idx=true)
+        self.update_idx if update_idx
+
+        basis = type ? idx.get('type', type) : idx.all('email')
+        idx.select(basis, criteria).collect! {|sha| docs[sha] }
+      end
+      
       def update_idx(reindex=false)
         idx = self.idx
         idx.clear if reindex
@@ -87,7 +94,7 @@ module Gitgo
         
         shas = repo.diff(idx_head, repo_head)
         shas.each do |sha|
-          read(sha).each_index do |key, value|
+          docs[sha].each_index do |key, value|
             idx.add(key, value, sha)
           end
         end

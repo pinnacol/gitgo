@@ -303,6 +303,51 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
+  # Document.find test
+  #
+  
+  def test_find_returns_documents_matching_criteria
+    a = Document.create('content' => 'a', 'tags' => ['one'])
+    b = Document.create('content' => 'b', 'tags' => ['one', 'two'])
+    c = Document.create('content' => 'c', 'tags' => ['two'])
+    
+    results = Document.find.collect {|doc| doc['content'] }
+    assert_equal ['a', 'b', 'c'], results
+    
+    results = Document.find('tags' => 'one').collect {|doc| doc['content'] }
+    assert_equal ['a', 'b'], results
+    
+    results = Document.find('tags' => 'three').collect {|doc| doc['content'] }
+    assert_equal [], results
+    
+    results = Document.find('tags' => ['two', 'three']).collect {|doc| doc['content'] }
+    assert_equal ['b', 'c'], results
+  end
+  
+  def test_find_caches_documents
+    a = Document.create('content' => 'a', 'tags' => ['one'])
+    
+    results = Document.find
+    assert_equal 'a', results[0]['content']
+    assert_equal({a.sha => results[0]}, Document.docs)
+  end
+  
+  class FindDoc < Document
+  end
+  
+  def test_find_filters_by_type_if_specified
+    a = Document.create('content' => 'a')
+    b = FindDoc.create('content' => 'b')
+    c = FindDoc.create('content' => 'c')
+    
+    results = Document.find.collect {|doc| doc['content'] }
+    assert_equal ['a', 'b', 'c'], results
+    
+    results = FindDoc.find.collect {|doc| doc['content'] }
+    assert_equal ['b', 'c'], results
+  end
+  
+  #
   # update_idx test
   #
   
