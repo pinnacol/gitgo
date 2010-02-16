@@ -233,16 +233,6 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 'a', attrs['content']
   end
   
-  def test_create_commits_doc_if_specified
-    assert_equal nil, repo.head
-    
-    Document.create({'content' => 'a'}, false)
-    assert_equal nil, repo.head
-    
-    Document.create({'content' => 'b'}, true)
-    assert_match Document::SHA, repo.head
-  end
-  
   def test_create_caches_document_attrs
     assert_equal({}, repo.cache)
 
@@ -342,14 +332,14 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_update_idx_indexes_docs_between_index_head_to_repo_head
-    a = Document.create({'content' => 'a', 'tags' => ['one']}, true).sha
-    one = repo.head
+    a = Document.create({'content' => 'a', 'tags' => ['one']}).sha
+    one = repo.commit
     
-    b = Document.create({'content' => 'c', 'tags' => ['one']}, true).sha
-    two = repo.head
+    b = Document.create({'content' => 'c', 'tags' => ['one']}).sha
+    two = repo.commit
     
-    c = Document.create({'content' => 'b', 'tags' => ['one']}, true).sha
-    three = repo.head
+    c = Document.create({'content' => 'b', 'tags' => ['one']}).sha
+    three = repo.commit
     
     idx.clear
     Document.update_idx

@@ -48,14 +48,9 @@ module Gitgo
         types[self]
       end
       
-      def create(attrs={}, commit=false)
+      def create(attrs={})
         doc = new(attrs, env)
         doc.save
-        
-        if commit
-          repo.commit!("create: #{doc.sha}")
-        end
-        
         doc
       end
       

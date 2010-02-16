@@ -448,7 +448,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_status_returns_formatted_lines_of_status
-    assert_equal [], repo.status
+    assert_equal "", repo.status
     
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
@@ -460,12 +460,10 @@ class RepoTest < Test::Unit::TestCase
       "+ doc    #{c}",
       "+ link   #{a} to  #{b}",
       "+ update #{c} was #{b}"
-    ].sort, repo.status
+    ].sort, repo.status.split("\n")
   end
   
   def test_status_converts_shas_as_determined_by_block
-    assert_equal [], repo.status
-    
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.update(b, c)
@@ -477,6 +475,18 @@ class RepoTest < Test::Unit::TestCase
       "+ doc    #{c[0,8]}",
       "+ link   #{a[0,8]} to  #{b[0,8]}",
       "+ update #{c[0,8]} was #{b[0,8]}"
-    ].sort, actual
+    ].sort, actual.split("\n")
+  end
+  
+  #
+  # commit test
+  #
+  
+  def test_commit_commits_with_status_by_default
+    a, b = create_nodes('a', 'b')
+    status = repo.status
+    sha = repo.commit
+    
+    assert_equal status, git.get(:commit, sha).message
   end
 end

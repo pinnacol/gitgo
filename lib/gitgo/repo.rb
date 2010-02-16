@@ -295,53 +295,35 @@ module Gitgo
       end
     end
     
-    def status
+    def status(&block)
+      block ||= lambda {|sha| sha}
+      
       lines = []
       git.status.each_pair do |path, state|
-        state = case state
-        when :add then '+'
-        when :rm  then '-'
-        else '~'
+        status = case path
+        when DOCUMENT
+          doc_status($3, self[$3], &block)
+        when LINK
+          mode, ref = git.tree.subtree([$1, $2])[$3]
+          link_status("#{$1}#{$2}", $3, ref.to_s, &block)
+        else
+          ['unknown', path]
         end
         
-        case path
-        when DOCUMENT
-          sha = $3
-          attrs = self[sha]
-          type, origin = attrs['type'], attrs['re']
-          if block_given?
-            sha = yield(sha)
-            origin = yield(origin) if origin
-          end
-          lines << [state, type || 'doc', origin ? "#{sha} re  #{origin}" : sha]
-          
-        when LINK
-          parent, sha = "#{$1}#{$2}", $3
-          # skip back refs
-          next if parent == sha
-          
-          mode, ref = git.tree.subtree([$1, $2])[$3]
-          is_update = ref.to_s == parent
-          sha, parent = yield(sha), yield(parent) if block_given?
-          lines << (is_update ? [state, 'update', "#{sha} was #{parent}"] : [state, 'link', "#{parent} to  #{sha}"])
-          
-        else
-          lines << [state, 'unknown', path]
+        if status
+          status.unshift state_str(state)
+          lines << status
         end
       end
       
-      indent = lines.collect {|(state, type, msg)| type.length }.max
-      format = "%s %-#{indent}s %s"
-      lines.collect! {|ary| format % ary }
-      lines.sort!
-      lines
+      format_status(lines).join("\n")
     end
     
-    def commit(msg)
+    def commit(msg=status)
       git.commit(msg)
     end
 
-    def commit!(msg)
+    def commit!(msg=status)
       git.commit!(msg)
     end
 
