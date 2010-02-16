@@ -252,6 +252,10 @@ module Gitgo
       Graph.new(self, sha)
     end
     
+    def rev_list(sha)
+      git.rev_list(sha)
+    end
+    
     def diff(b, a=head)
       case
       when a == b || a.nil?

@@ -129,6 +129,11 @@ module Gitgo
       re.nil?
     end
     
+    def active?(commit=nil)
+      return true if at.nil? || commit.nil?
+      repo.rev_list(commit).include?(at)
+    end
+    
     def graph(reset=false)
       @graph = nil if reset
       @graph ||= (saved? ? repo.graph(origin) : nil)

@@ -269,6 +269,37 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
+  # active? test
+  #
+  
+  def test_active_returns_true_if_at_is_in_rev_list_for_commit
+    repo.git['one'] = 'A'
+    one = repo.git.commit("added one")
+    
+    repo.git['two'] = 'B'
+    two = repo.git.commit("added two")
+    
+    doc.at = one
+    assert_equal true, doc.active?(one)
+    assert_equal true, doc.active?(two)
+    
+    doc.at = two
+    assert_equal false, doc.active?(one)
+    assert_equal true, doc.active?(two)
+  end
+  
+  def test_active_returns_true_if_commit_is_nil
+    assert_equal true, doc.active?(nil)
+  end
+  
+  def test_active_returns_true_if_at_is_not_set
+    repo.git['one'] = 'A'
+    one = repo.git.commit("added one")
+    
+    assert_equal true, doc.active?(one)
+  end
+  
+  #
   # parents test
   #
   
