@@ -395,11 +395,11 @@ class RepoTest < Test::Unit::TestCase
     three = repo.store("content" => "three")
     c = git.commit!("added three")
     
-    assert_equal [two, three].sort, repo.diff(c, a).sort
-    assert_equal [], repo.diff(a, c)
+    assert_equal [two, three].sort, repo.diff(a, c).sort
+    assert_equal [], repo.diff(c, a)
     
-    assert_equal [three].sort, repo.diff(c, b)
-    assert_equal [], repo.diff(b, c)
+    assert_equal [three].sort, repo.diff(b, c)
+    assert_equal [], repo.diff(c, b)
     
     assert_equal [], repo.diff(a, a)
     assert_equal [], repo.diff(c, c)

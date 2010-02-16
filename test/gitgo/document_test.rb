@@ -28,6 +28,14 @@ class DocumentTest < Test::Unit::TestCase
     @repo ||= Repo.init method_root.path(:repo), :author => author
   end
   
+  def git
+    repo.git
+  end
+  
+  def idx
+    repo.idx
+  end
+  
   def lazy_env
     Hash.new do |hash, key|
       if key == Document::REPO
@@ -221,8 +229,18 @@ class DocumentTest < Test::Unit::TestCase
     a = Document.create('content' => 'a')
     assert_equal true, a.saved?
     
-    attrs = deserialize(repo.git.get(:blob, a.sha).data)
+    attrs = deserialize(git.get(:blob, a.sha).data)
     assert_equal 'a', attrs['content']
+  end
+  
+  def test_create_commits_doc_if_specified
+    assert_equal nil, repo.head
+    
+    Document.create({'content' => 'a'}, false)
+    assert_equal nil, repo.head
+    
+    Document.create({'content' => 'b'}, true)
+    assert_match Document::SHA, repo.head
   end
   
   #
@@ -246,6 +264,59 @@ class DocumentTest < Test::Unit::TestCase
     
     result = Document.read(doc.sha)
     assert_equal ReadClass, result.class
+  end
+  
+  #
+  # update_idx test
+  #
+  
+  def test_update_idx_indexes_docs_between_index_head_to_repo_head
+    a = Document.create({'content' => 'a', 'tags' => ['one']}, true).sha
+    one = repo.head
+    
+    b = Document.create({'content' => 'c', 'tags' => ['one']}, true).sha
+    two = repo.head
+    
+    c = Document.create({'content' => 'b', 'tags' => ['one']}, true).sha
+    three = repo.head
+    
+    idx.clear
+    Document.update_idx
+    assert_equal [a, b, c].sort, idx['tags']['one'].sort
+    
+    idx.clear
+    idx.write(one)
+    Document.update_idx
+    assert_equal [b, c].sort, idx['tags']['one'].sort
+    
+    idx.clear
+    idx.write(one)
+    git.checkout(two)
+    Document.update_idx
+    assert_equal [b].sort, idx['tags']['one'].sort
+  end
+  
+  def test_update_idx_updates_index_head_to_repo_head
+    Document.create
+    idx.clear
+    
+    assert_equal nil, idx.head
+    Document.update_idx
+    assert_equal repo.head, idx.head
+  end
+  
+  def test_update_idx_does_not_update_index_head_if_repo_head_is_nil
+    assert_equal nil, idx.head
+    Document.update_idx
+    assert_equal nil, idx.head
+  end
+  
+  def test_update_idx_clears_existing_index_if_specified
+    idx.set('key', 'value', 'sha')
+    
+    assert_equal ['sha'], idx.get('key', 'value')
+    Document.update_idx(true)
+    assert_equal [], idx.get('key', 'value')
   end
   
   #
@@ -335,11 +406,11 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_active_returns_true_if_at_is_in_rev_list_for_commit
-    repo.git['one'] = 'A'
-    one = repo.git.commit("added one")
+    git['one'] = 'A'
+    one = git.commit("added one")
     
-    repo.git['two'] = 'B'
-    two = repo.git.commit("added two")
+    git['two'] = 'B'
+    two = git.commit("added two")
     
     doc.at = one
     assert_equal true, doc.active?(one)
@@ -355,8 +426,8 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_active_returns_true_if_at_is_not_set
-    repo.git['one'] = 'A'
-    one = repo.git.commit("added one")
+    git['one'] = 'A'
+    one = git.commit("added one")
     
     assert_equal true, doc.active?(one)
   end
@@ -521,8 +592,8 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_normalize_bang_resolves_at_if_set
-    a = repo.git['a'] = 'content'
-    repo.git.commit('added blob')
+    a = git['a'] = 'content'
+    git.commit('added blob')
     
     doc.at = a[0, 8]
     doc.normalize!
@@ -537,8 +608,8 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_normalize_bang_resolves_parents
-    a = repo.git['a'] = 'content'
-    repo.git.commit('added blob')
+    a = git['a'] = 'content'
+    git.commit('added blob')
     
     doc.parents = [a[0,8], a[0,8]]
     doc.normalize!
@@ -553,8 +624,8 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_normalize_bang_resolves_children
-    a = repo.git['a'] = 'content'
-    repo.git.commit('added blob')
+    a = git['a'] = 'content'
+    git.commit('added blob')
     
     doc.children = [a[0,8], a[0,8]]
     doc.normalize!
@@ -617,7 +688,7 @@ class DocumentTest < Test::Unit::TestCase
     doc['tags'] = 'one'
     doc.save
     
-    assert_equal [doc.sha], repo.idx['tags']['one']
+    assert_equal [doc.sha], idx['tags']['one']
   end
   
   class SaveDoc < Document

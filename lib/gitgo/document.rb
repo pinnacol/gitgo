@@ -40,13 +40,23 @@ module Gitgo
         env[REPO] or raise("no repo in env")
       end
       
+      def idx
+        repo.idx
+      end
+      
       def type
         types[self]
       end
       
-      def create(attrs={})
+      def create(attrs={}, commit=false)
         doc = new(attrs, env)
         doc.save
+        
+        if commit
+          repo.commit!("create: #{doc.sha}")
+        end
+        
+        doc
       end
       
       def read(sha)
@@ -56,6 +66,26 @@ module Gitgo
         type = attrs['type']
         klass = types[type] or raise "unknown type: #{type}"
         klass.new(attrs, env, sha)
+      end
+      
+      def update_idx(reindex=false)
+        idx = self.idx
+        idx.clear if reindex
+        repo_head, idx_head = repo.head, idx.head
+        
+        if repo_head.nil? || repo_head == idx_head
+          return []
+        end
+        
+        shas = repo.diff(idx_head, repo_head)
+        shas.each do |sha|
+          read(sha).each_index do |key, value|
+            idx.add(key, value, sha)
+          end
+        end
+        
+        idx.write(repo.head)
+        shas
       end
       
       protected

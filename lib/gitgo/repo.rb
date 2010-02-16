@@ -62,6 +62,10 @@ module Gitgo
       @idx = env[IDX]
     end
     
+    def head
+      git.head
+    end
+    
     def author
       git.author
     end
@@ -256,13 +260,13 @@ module Gitgo
       git.rev_list(sha)
     end
     
-    def diff(b, a=head)
+    def diff(a, b)
       case
-      when a == b || a.nil?
+      when a == b || b.nil?
         []
-      when b.nil?
+      when a.nil?
         diff = []
-        git.ls_tree(a).each do |path|
+        git.ls_tree(b).each do |path|
           next unless path =~ /^\d{4}\/\d{4}\/(.{40})$/
           diff << $1
         end

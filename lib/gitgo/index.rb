@@ -37,8 +37,19 @@ module Gitgo
       File.join(@path, *segments)
     end
     
+    #--
+    # note be careful not to modify idx[k][v], it is the actual storage
     def [](key)
       cache[key]
+    end
+    
+    def get(key, value)
+      cache[key][value].dup
+    end
+    
+    def set(key, value, *shas)
+      cache[key][value] = shas
+      self
     end
     
     def add(key, value, sha)
