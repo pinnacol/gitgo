@@ -8,10 +8,13 @@ module Gitgo
     REPO = 'gitgo.repo'
     
     class << self
+      attr_reader :types
       attr_reader :validators
       
       def inherited(base)
         base.instance_variable_set(:@validators, validators.dup)
+        base.instance_variable_set(:@types, types)
+        base.register_as base.to_s.split('::').last.downcase
       end
       
       def set_env(env)
@@ -37,7 +40,30 @@ module Gitgo
         env[REPO] or raise("no repo in env")
       end
       
+      def type
+        types[self]
+      end
+      
+      def create(attrs={})
+        doc = new(attrs, env)
+        doc.save
+      end
+      
+      def read(sha)
+        sha = repo.resolve(sha)
+        attrs = repo.read(sha)
+        
+        type = attrs['type']
+        klass = types[type] or raise "unknown type: #{type}"
+        klass.new(attrs, env, sha)
+      end
+      
       protected
+      
+      def register_as(type)
+        types[type] = self
+        types[self] = type
+      end
       
       def define_attributes(&block)
         begin
@@ -80,6 +106,8 @@ module Gitgo
     
     @define_attributes = false
     @validators = {}
+    @types = {}
+    register_as(nil)
     
     attr_reader :env
     attr_reader :attrs
@@ -93,6 +121,7 @@ module Gitgo
       attr_accessor(:tags)   {|tags| validate_array_or_nil(tags) }
       attr_writer(:parents)  {|parents| validate_array_or_nil(parents) }
       attr_writer(:children) {|children| validate_array_or_nil(children) }
+      attr_accessor(:type)
     end
     
     def initialize(attrs={}, env=nil, sha=nil)
@@ -189,6 +218,12 @@ module Gitgo
       if tags = attrs['tags']
         attrs['tags'] = arrayify(tags)
       end
+      
+      unless type = attrs['type']
+        default_type = self.class.type
+        attrs['type'] = default_type if default_type
+      end
+      
       self
     end
     
@@ -254,7 +289,7 @@ module Gitgo
       
       if type = attrs['type']
         yield('type', type) if origin?
-        yield('tail', type) if saved? && tail?(sha)
+        yield('tail', type) if saved? && repo.tail?(sha)
       end
       
       self

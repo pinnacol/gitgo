@@ -38,6 +38,10 @@ class DocumentTest < Test::Unit::TestCase
     end
   end
   
+  def deserialize(str)
+    JSON.parse(str)
+  end
+  
   #
   # Document.with_env test
   #
@@ -184,6 +188,64 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal nil, DefineAttributesB.validators['not_validated']
     assert_equal :validate_validated, DefineAttributesB.validators['validated']
     assert_equal :validate_also_validated, DefineAttributesB.validators['also_validated']
+  end
+  
+  #
+  # Document.register_as test
+  #
+  
+  class RegisterClass < Document
+    register_as 'type'
+  end
+  
+  def test_register_as_registers_class_to_type
+    assert_equal RegisterClass, Document.types['type']
+  end
+  
+  def test_types_are_shared_among_all_documents
+    assert_equal Document.types.object_id, RegisterClass.types.object_id
+  end
+  
+  class AutoRegisterClass < Document
+  end
+  
+  def test_subclasses_are_automatically_registered_by_downcased_const_name
+    assert_equal AutoRegisterClass, Document.types['autoregisterclass']
+  end
+  
+  #
+  # Document.create test
+  #
+  
+  def test_create_initializes_doc_and_saves
+    a = Document.create('content' => 'a')
+    assert_equal true, a.saved?
+    
+    attrs = deserialize(repo.git.get(:blob, a.sha).data)
+    assert_equal 'a', attrs['content']
+  end
+  
+  #
+  # Document.read test
+  #
+  
+  def test_read_reads_document
+    doc['content'] = 'a'
+    doc.save
+    
+    assert_equal 'a', Document.read(doc.sha)['content']
+  end
+  
+  class ReadClass < Document
+    register_as 'read_type'
+  end
+  
+  def test_read_casts_document_to_registered_type
+    doc.type = 'read_type'
+    doc.save
+    
+    result = Document.read(doc.sha)
+    assert_equal ReadClass, result.class
   end
   
   #
@@ -503,6 +565,24 @@ class DocumentTest < Test::Unit::TestCase
     doc.tags = 'tag'
     doc.normalize!
     assert_equal ['tag'], doc.tags
+  end
+  
+  class RegisterDoc < Document
+    register_as 'reg_doc'
+  end
+  
+  def test_normalize_bang_sets_type_registered_to_class
+    doc = RegisterDoc.new
+    doc.normalize!
+    assert_equal 'reg_doc', doc.type
+  end
+  
+  def test_normalize_bang_does_not_set_type_if_class_is_not_registered
+    assert_equal nil, Document.type
+    
+    doc.normalize!
+    assert_equal nil, doc.type
+    assert_equal false, doc.attrs.has_key?('type')
   end
   
   #
