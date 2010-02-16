@@ -78,12 +78,13 @@ module Gitgo
       read(sha)
     end
     
+    def path(date, sha)
+      date.utc.strftime("%Y/%m%d/#{sha}")
+    end
+    
     def store(attrs={}, date=Time.now)
       sha = git.set(:blob, JSON.generate(attrs))
-      
-      path = date.utc.strftime("%Y/%m%d/#{sha}")
-      git[path] = sha.to_sym
-      
+      git[path(date, sha)] = sha.to_sym
       sha
     end
     

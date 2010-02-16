@@ -791,6 +791,40 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [doc.sha], idx['tags']['one']
   end
   
+  def test_save_stores_according_to_present_date
+    doc['date'] = Time.at(100).iso8601
+    sha = doc.save
+    
+    assert_equal git.get(:blob, sha).data, git[repo.path(Time.now, sha)]
+  end
+  
+  def test_multiple_sequential_saves_returns_same_sha
+    a = doc.save
+    b = doc.save
+    
+    assert_equal a, b
+  end
+  
+  def test_re_saving_a_saved_document_does_not_store_document_twice
+    doc.validate
+    sha = repo.store(doc.attrs, Time.at(100))
+    doc.sha = sha
+    
+    assert_equal sha, doc.save
+    assert_equal git.get(:blob, sha).data, git[repo.path(Time.at(100), sha)]
+    assert_equal nil, git[repo.path(Time.now, sha)]
+  end
+  
+  def test_forcing_save_stores_a_document_twice
+    doc.validate
+    sha = repo.store(doc.attrs, Time.at(100))
+    doc.sha = sha
+    
+    assert_equal sha, doc.save(true)
+    assert_equal git.get(:blob, sha).data, git[repo.path(Time.at(100), sha)]
+    assert_equal git.get(:blob, sha).data, git[repo.path(Time.now, sha)]
+  end
+
   class SaveDoc < Document
     validate(:key) {|key| raise("no key") if key.nil? }
   end
@@ -868,6 +902,23 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 'b', attrs['content']
     assert_equal [b], repo.updates(a)
     assert_equal true, repo.updated?(a)
+  end
+  
+  def test_multiple_sequential_updates_returns_same_sha
+    a = doc.update
+    b = doc.update
+    
+    assert_equal a, b
+  end
+  
+  def test_updating_a_document_always_stores_the_document
+    doc.validate
+    sha = repo.store(doc.attrs, Time.at(100))
+    doc.sha = sha
+    
+    assert_equal sha, doc.update
+    assert_equal git.get(:blob, sha).data, git[repo.path(Time.at(100), sha)]
+    assert_equal git.get(:blob, sha).data, git[repo.path(Time.now, sha)]
   end
   
   #

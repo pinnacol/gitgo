@@ -306,7 +306,9 @@ module Gitgo
       self
     end
     
-    def save
+    def save(force=false)
+      return sha if saved? && !force
+      
       validate
       
       parents  = attrs.delete('parents')
@@ -325,8 +327,12 @@ module Gitgo
     end
     
     def update(old_sha=sha)
-      new_sha = save
-      repo.update(old_sha, new_sha) if old_sha
+      new_sha = save(true)
+      
+      unless old_sha.nil? || old_sha == new_sha
+        repo.update(old_sha, new_sha)
+      end
+      
       new_sha
     end
     
