@@ -1,11 +1,17 @@
 require 'erb'
 require 'sinatra/base'
-require 'gitgo/repo'
 require 'gitgo/helpers'
-require 'gitgo/constants'
+require 'gitgo/document'
 
 module Gitgo
   class Controller < Sinatra::Base
+    # The expanded path to the Gitgo root directory, used for resolving paths to
+    # views, public files, etc.
+    ROOT = File.expand_path(File.dirname(__FILE__) + "/../..")
+    
+    HEAD = 'gitgo.head'
+    MOUNT_POINT = 'gitgo.mount'
+    
     set :root, ROOT
     set :raise_errors, Proc.new { test? }
     set :dump_errors, true
@@ -25,49 +31,45 @@ module Gitgo
       erb :error, :views => path("views"), :locals => {:err => err, :resetable => resetable}
     end
     
-    # The standard document content parameter
-    CONTENT = 'content'
-    
-    # The standard document attributes parameter
-    ATTRIBUTES = 'doc'
-    
-    attr_writer :repo
-    
-    # Initializes a new instance of self.  The repo may also be specified as a
-    # a testing convenience; normally the repo is set in the request
-    # environment by upstream middleware.
     def initialize(app=nil, repo=nil)
       super(app)
       @repo = repo
     end
     
-    # Returns the Gitgo::Repo specified in the env, if not already specified
-    # during initialization.
+    # Returns the path expanded relative to the Gitgo::ROOT directory.  Paths
+    # often need to be expanded like this so that they will be correct when
+    # Gitgo is running as a gem.
+    def path(path)
+      File.expand_path(path, ROOT)
+    end
+    
     def repo
-      @repo ||= request.env[REPO_ENV_VAR]
+      @repo ||= Repo.current
     end
     
-    # Convenience method; memoizes and returns the repo grit object.
+    def git
+      @git ||= repo.git
+    end
+    
     def grit
-      @grit ||= repo.grit
+      @grit ||= git.grit
     end
     
-    # Convenience method; memoizes and returns the repo author.
-    def author
-      @author ||= repo.author
+    def call(env)
+      env[Repo::REPO] ||= @repo
+      Repo.with_env(env) { super(env) }
     end
     
-    # Convenience method; memoizes and returns the repo cache.
-    def cache
-      @cache ||= repo.cache
+    def head
+      @head ||= (session[HEAD] ||= grit.head.commit)
     end
     
     def mount_point
-      @mount_point ||= (request.env[MOUNT_ENV_VAR] || '/')
+      @mount_point ||= (request.env[MOUNT_POINT] || '/')
     end
     
-    def refs
-      @refs ||= repo.grit.refs.sort {|a, b| a.name <=> b.name }
+    def url(paths)
+      File.join(mount_point, *paths)
     end
     
     def format
@@ -80,74 +82,6 @@ module Gitgo
     
     def html
       Helpers::Html
-    end
-    
-    def url(*paths)
-      File.join(mount_point, *paths)
-    end
-    
-    def session
-      @session ||= (request.env['rack.session'] || {})
-    end
-    
-    def active_commit
-      @active_commit ||= (session['at'] || grit.head.name)
-    end
-    
-    # Returns an array of session-specific active shas.
-    def active_shas
-      @active_shas ||= repo.rev_list(active_commit)
-    end
-    
-    # Returns true if the sha is nil (ie unspecified) or if active_shas
-    # include the sha.
-    def active?(sha)
-      return nil if sha.nil?
-      active_shas.include?(sha)
-    end
-    
-    # Parses and returns the document specified in the request, according to
-    # the ATTRIBUTES and CONTENT parameters.
-    def document(overrides=nil)
-      attrs = request[ATTRIBUTES] || {}
-      attrs['author'] ||= author
-      attrs['date'] ||= Time.now
-      
-      attrs.merge!(overrides) if overrides
-      Document.new(attrs, request[CONTENT])
-    end
-    
-    # Returns the path expanded relative to the Gitgo::ROOT directory.  Paths
-    # often need to be expanded like this so that they will be correct when
-    # Gitgo is running as a gem.
-    def path(path)
-      File.expand_path(path, ROOT)
-    end
-    
-    # Renders template as erb, then formats using RedCloth.
-    def textile(template, options={}, locals={})
-      require_warn('RedCloth') unless defined?(::RedCloth)
-      
-      # extract generic options
-      layout = options.delete(:layout)
-      layout = :layout if layout.nil? || layout == true
-      views = options.delete(:views) || self.class.views || "./views"
-      locals = options.delete(:locals) || locals || {}
-
-      # render template
-      data, options[:filename], options[:line] = lookup_template(:textile, template, views)
-      output = render_erb(template, data, options, locals)
-      output = ::RedCloth.new(output).to_html
-      
-      # render layout
-      if layout
-        data, options[:filename], options[:line] = lookup_layout(:erb, layout, views)
-        if data
-          output = render_erb(layout, data, options, locals) { output }
-        end
-      end
-
-      output
     end
   end
 end

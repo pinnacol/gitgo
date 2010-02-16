@@ -13,7 +13,7 @@ module Gitgo
       end
       
       def url(*paths)
-        controller.url(*paths)
+        controller.url(paths)
       end
       
       #
@@ -28,6 +28,10 @@ module Gitgo
       
       def sha(sha)
         escape_html(sha)
+      end
+      
+      def textile(str)
+        ::RedCloth.new(str).to_html
       end
       
       #
@@ -63,11 +67,11 @@ module Gitgo
       end
       
       def issue_a(doc)
-        title = doc['title']
+        title = doc.title
         title = "(nameless issue)" if title.to_s.empty?
-        state = doc['state']
+        state = doc.state
         
-        "<a class=\"#{escape_html state}\" id=\"#{doc.sha}\" active=\"#{doc[:active]}\" href=\"#{url('issue', doc.sha)}\">#{escape_html title}</a>"
+        "<a class=\"#{escape_html state}\" id=\"#{doc.sha}\" active=\"#{doc.active?}\" href=\"#{url('issue', doc.sha)}\">#{escape_html title}</a>"
       end
       
       def index_key_a(key)
@@ -95,19 +99,19 @@ module Gitgo
       
       def each_activity(timeline)
         timeline.reverse_each do |doc|
-          type_a= case doc['type']
+          type_a = case doc.type
           when 'comment'
-            sha_a doc['re']
+            sha_a doc.re
           when 'issue'
             issue_a doc
           when 'update'   
-            issue_doc = controller.cache[doc['re']]
+            issue_doc = Document[doc.re]
             issue_a issue_doc
           else 
             sha_a doc.sha
           end
           
-          type = (doc['type'] || 'unknown').capitalize
+          type = (doc.type || 'unknown').capitalize
           yield(escape_html(type), type_a, author(doc.author), date(doc.date))
         end
       end
@@ -122,7 +126,7 @@ module Gitgo
       end
       
       def content(str)
-        ::RedCloth.new(text(str)).to_html
+        textile text(str)
       end
       
       def author(author)
@@ -133,14 +137,12 @@ module Gitgo
         "<abbr title=\"#{date.iso8601}\">#{date.strftime('%Y/%m/%d %H:%M %p')}</abbr>"
       end
       
-      def at(sha)
-        return '(unknown)' unless sha
-        
-        refs = controller.refs.select {|ref| ref.commit.sha == sha }
-        refs.collect! {|ref| escape_html ref.name }
-        
-        ref_names = refs.empty? ? nil : " (#{refs.join(', ')})"
-        "#{sha_a(sha)}#{ref_names}"
+      def at(at)
+        sha(at)
+      end
+      
+      def re(re)
+        sha(re)
       end
       
       def tags(tags)
@@ -180,4 +182,3 @@ module Gitgo
     end
   end
 end
-      

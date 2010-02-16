@@ -14,15 +14,19 @@ module Gitgo
       end
       
       def url(*paths)
-        controller.url(*paths)
+        controller.url(paths)
+      end
+      
+      def refs
+        @refs ||= controller.grit.refs.sort {|a, b| a.name <=> b.name }
       end
       
       def states
-        @states ||= (DEFAULT_STATES + controller.repo.index.values("states")).uniq
+        @states ||= (DEFAULT_STATES + controller.idx.values("states")).uniq
       end
     
       def tags
-        @tags ||= controller.repo.index.values("tags")
+        @tags ||= controller.idx.values("tags")
       end
       
       #
@@ -36,6 +40,16 @@ module Gitgo
       #
       # documents
       #
+      
+      def at(sha)
+        return '(unknown)' unless sha
+        
+        refs = refs.select {|ref| ref.commit.sha == sha }
+        refs.collect! {|ref| escape_html ref.name }
+        
+        ref_names = refs.empty? ? nil : " (#{refs.join(', ')})"
+        "#{sha_a(sha)}#{ref_names}"
+      end
       
       def author_value(author)
         escape_html(author)
@@ -66,19 +80,19 @@ module Gitgo
       end
       
       def each_ref(selected_name) # :yields: value, select_or_check, content
-        controller.refs.each do |ref|
+        refs.each do |ref|
           yield escape_html(ref.commit), selected_name == ref.name, escape_html(ref.name)
         end
       end
       
       def each_ref_name(selected_name) # :yields: value, select_or_check, content
-        controller.refs.each do |ref|
+        refs.each do |ref|
           yield escape_html(ref.name), selected_name == ref.name, escape_html(ref.name)
         end
       end
       
       def each_remote_name(selected_name) # :yields: value, select_or_check, content
-        controller.refs.each do |ref|
+        refs.each do |ref|
           next unless ref.kind_of?(Grit::Remote)
           yield escape_html(ref.name), selected_name == ref.name, escape_html(ref.name)
         end

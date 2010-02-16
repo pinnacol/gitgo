@@ -40,6 +40,11 @@ module Gitgo
   #
   class Repo
     class << self
+      def init(path, options={})
+        git = Git.init(path, options)
+        new(GIT => git)
+      end
+      
       def set_env(env)
         current = Thread.current[ENVIRONMENT]
         Thread.current[ENVIRONMENT] = env
@@ -66,12 +71,12 @@ module Gitgo
     include Utils
     
     ENVIRONMENT  = 'gitgo.env'
-    PATH = 'gitgo.path'
-    OPTIONS = 'gitgo.options'
-    GIT = 'gitgo.git'
-    IDX = 'gitgo.idx'
-    REPO = 'gitgo.repo'
-    CACHE = 'gitgo.cache'
+    PATH         = 'gitgo.path'
+    OPTIONS      = 'gitgo.options'
+    GIT          = 'gitgo.git'
+    IDX          = 'gitgo.idx'
+    REPO         = 'gitgo.repo'
+    CACHE        = 'gitgo.cache'
     
     YEAR = /\A\d{4,}\z/
     MMDD = /\A\d{4}\z/
@@ -97,7 +102,7 @@ module Gitgo
     end
     
     def path
-      env[PATH] ||= Dir.pwd
+      env[PATH] ||= (env.has_key?(GIT) ? env[GIT].path : Dir.pwd)
     end
     
     def git

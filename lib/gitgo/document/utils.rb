@@ -11,6 +11,12 @@ module Gitgo
         obj.nil? || obj.to_s.strip.empty?
       end
       
+      def validate_not_blank(str)
+        if blank?(str)
+          raise 'nothing specified'
+        end
+      end
+      
       def validate_format(value, format)
         if value.nil?
           raise 'missing'
