@@ -78,7 +78,9 @@ module Gitgo
       
       def find(criteria={}, update_idx=true)
         self.update_idx if update_idx
-
+        
+        # use type to determine basis -- note that idx.all('email') should
+        # return all documents because all documents should have an email
         basis = type ? idx.get('type', type) : idx.all('email')
         idx.select(basis, criteria).collect! {|sha| docs[sha] }
       end
@@ -316,10 +318,16 @@ module Gitgo
       @sha.nil? ? false : true
     end
     
+    def indexes
+      indexes = []
+      each_index {|key, value| indexes << [key, value] }
+      indexes
+    end
+    
     def each_index
       if author = attrs['author']
         actor = Grit::Actor.from_string(author)
-        yield('email', actor.email)
+        yield('email', blank?(actor.email) ? 'unknown' : actor.email)
       end
       
       if re = attrs['re']

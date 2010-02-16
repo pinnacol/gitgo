@@ -7,6 +7,10 @@ module Gitgo
       DATE = /\A\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d-\d\d:\d\d\z/
       SHA = Git::SHA
       
+      def blank?(obj)
+        obj.nil? || obj.to_s.strip.empty?
+      end
+      
       def validate_format(value, format)
         if value.nil?
           raise 'missing'
