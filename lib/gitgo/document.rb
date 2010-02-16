@@ -58,7 +58,7 @@ module Gitgo
       
       def create(attrs={}, commit=false)
         doc = new(attrs, env)
-        doc.save
+        docs[doc.save] = doc
         
         if commit
           repo.commit!("create: #{doc.sha}")
@@ -78,7 +78,7 @@ module Gitgo
       
       def update(sha, attrs={})
         doc = read(sha).merge!(attrs)
-        doc.update
+        docs[doc.update] = doc
         doc
       end
       

@@ -267,6 +267,13 @@ class DocumentTest < Test::Unit::TestCase
     assert_match Document::SHA, repo.head
   end
   
+  def test_create_stores_document_in_docs
+    assert_equal({}, Document.docs)
+
+    a = Document.create('content' => 'a')
+    assert_equal({a.sha => a}, Document.docs)
+  end
+  
   #
   # Document.read test
   #
@@ -405,6 +412,14 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal ['sha'], idx.get('key', 'value')
     Document.update_idx(true)
     assert_equal [], idx.get('key', 'value')
+  end
+  
+  def test_update_stores_document_in_docs
+    assert_equal({}, Document.docs)
+
+    a = Document.create('content' => 'a')
+    b = Document.update(a.sha, 'content' => 'b')
+    assert_equal({a.sha => a, b.sha => b}, Document.docs)
   end
   
   #
