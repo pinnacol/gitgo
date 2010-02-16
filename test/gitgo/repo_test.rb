@@ -21,12 +21,35 @@ class RepoTest < Test::Unit::TestCase
     JSON.generate(attrs)
   end
   
-  def create_docs(*contents)
+  def create_nodes(*contents)
     date = Time.now
     contents.collect do |content|
       date += 1
       repo.store("content" => content, "date" => date)
     end
+  end
+  
+  #
+  # cache test
+  #
+
+  def test_cache_returns_CACHE_set_in_env
+    repo.env[Repo::CACHE] = :cache
+    assert_equal :cache, repo.cache
+  end
+
+  def test_cache_auto_initializes_to_hash
+    assert_equal false, repo.env.has_key?(Repo::CACHE)
+    assert_equal Hash, repo.cache.class
+    assert_equal true, repo.env.has_key?(Repo::CACHE)
+  end
+
+  def test_cache_reads_and_caches_attrs
+    a = repo.store('content' => 'a')
+    b = repo.cache[a]
+
+    assert_equal 'a', b['content']
+    assert_equal b.object_id, repo.cache[a].object_id
   end
   
   #
@@ -42,6 +65,13 @@ class RepoTest < Test::Unit::TestCase
     sha = repo.store
     date = Time.now.utc
     assert_equal git.get(:blob, sha).data, git[date.strftime("%Y/%m%d/#{sha}")]
+  end
+  
+  def test_store_caches_attrs
+    attrs = {'content' => 'a'}
+    a = repo.store(attrs)
+    
+    assert_equal({a => attrs}, repo.cache)
   end
   
   #
@@ -65,7 +95,7 @@ class RepoTest < Test::Unit::TestCase
   #
 
   def test_link_links_parent_to_child_using_an_empty_sha
-    a, b = create_docs('a', 'b')
+    a, b = create_nodes('a', 'b')
     repo.link(a, b)
     
     assert_equal '', git[Repo::Utils.sha_path(a, b)]
@@ -78,7 +108,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_update_raises_an_error_when_linking_to_update
-    a, b = create_docs('a', 'b')
+    a, b = create_nodes('a', 'b')
     repo.update(a, b)
     
     err = assert_raises(RuntimeError) { repo.link(a, b) }
@@ -90,14 +120,14 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_update_links_original_to_update_using_original_sha
-    a, b = create_docs('a', 'b')
+    a, b = create_nodes('a', 'b')
     repo.update(a, b)
     
     assert_equal git.get(:blob, a).data, git[Repo::Utils.sha_path(a, b)]
   end
   
   def test_update_creates_a_back_reference_to_original_sha
-    a, b = create_docs('a', 'b')
+    a, b = create_nodes('a', 'b')
     repo.update(a, b)
     
     assert_equal git.get(:blob, a).data, git[Repo::Utils.sha_path(b, b)]
@@ -110,7 +140,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_update_raises_an_error_when_updating_with_a_child
-    a, b = create_docs('a', 'b')
+    a, b = create_nodes('a', 'b')
     repo.link(a, b)
     
     err = assert_raises(RuntimeError) { repo.update(a, b) }
@@ -118,7 +148,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_update_raises_an_error_when_updating_with_an_existing_update
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.update(a, b)
     
     err = assert_raises(RuntimeError) { repo.update(c, b) }
@@ -130,7 +160,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_linkage_returns_the_sha_for_the_linkage
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.update(b, c)
     
@@ -141,7 +171,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_linkage_returns_nil_if_no_such_link_exists
-    a, b = create_docs('a', 'b')
+    a, b = create_nodes('a', 'b')
     
     assert_equal nil, repo.linkage(a, a)
     assert_equal nil, repo.linkage(a, b)
@@ -152,7 +182,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_linked_check_returns_true_if_the_shas_are_linked_as_parent_child
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.update(b, c)
     
@@ -166,7 +196,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_original_check_returns_true_if_sha_is_the_head_of_an_update_chain
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.update(a, b)
     repo.update(b, c)
     
@@ -180,7 +210,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_update_check_returns_true_if_sha_is_an_update
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.update(a, b)
     repo.update(b, c)
     
@@ -194,7 +224,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_updated_check_returns_true_if_sha_has_been_udpated
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.update(a, b)
     repo.update(b, c)
     
@@ -208,7 +238,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_current_check_returns_true_if_sha_is_a_tail_of_an_update_chain
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.update(a, b)
     repo.update(b, c)
     
@@ -222,7 +252,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_tail_check_returns_true_if_sha_has_no_links
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.link(b, c)
     
@@ -241,7 +271,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_original_returns_sha_for_the_head_of_an_update_chain
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.update(a, b)
     repo.update(b, c)
     
@@ -254,7 +284,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_previous_returns_backreference_to_updated_sha
-    a, b, c, d = create_docs('a', 'b', 'c', 'd')
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
     repo.update(a, b)
     repo.update(a, c)
     repo.update(c, d)
@@ -270,7 +300,7 @@ class RepoTest < Test::Unit::TestCase
   #
 
   def test_updates_returns_array_of_updates_to_sha
-    a, b, c, d = create_docs('a', 'b', 'c', 'd')
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
     repo.update(a, b)
     repo.update(a, c)
     repo.update(c, d)
@@ -286,7 +316,7 @@ class RepoTest < Test::Unit::TestCase
   #
 
   def test_current_returns_array_of_current_revisions
-    a, b, c, d = create_docs('a', 'b', 'c', 'd')
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
     repo.update(a, b)
     repo.update(a, c)
     repo.update(c, d)
@@ -302,7 +332,7 @@ class RepoTest < Test::Unit::TestCase
   #
 
   def test_links_returns_array_of_linked_shas
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.link(a, c)
 
@@ -311,7 +341,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_links_does_not_return_updates
-    a, b, c = create_docs('a', 'b', 'c')
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.update(a, c)
     
@@ -319,7 +349,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_links_concats_links_of_previous_for_update
-    a, b, c, x, y, z = create_docs('a', 'b', 'c', 'x', 'y', 'z')
+    a, b, c, x, y, z = create_nodes('a', 'b', 'c', 'x', 'y', 'z')
     repo.update(a, b)
     repo.update(b, c)
     repo.link(a, x)
@@ -336,7 +366,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_each_link_yields_each_forward_linkage_with_flag_for_update
-    a, b, c, d = create_docs('a', 'b', 'c', 'd')
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
     repo.link(a, b)
     repo.link(a, c)
     repo.update(a, d)

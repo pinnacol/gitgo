@@ -6,7 +6,6 @@ module Gitgo
   class Document
     ENV  = 'gitgo.env'
     REPO = 'gitgo.repo'
-    DOCS = 'gitgo.docs'
     
     class << self
       attr_reader :types
@@ -45,20 +44,13 @@ module Gitgo
         repo.idx
       end
       
-      def docs
-        env[DOCS] ||= Hash.new do |hash, sha|
-          doc = Document.read(sha)
-          doc ? hash[doc.sha] = doc : nil
-        end
-      end
-      
       def type
         types[self]
       end
       
       def create(attrs={}, commit=false)
         doc = new(attrs, env)
-        docs[doc.save] = doc
+        doc.save
         
         if commit
           repo.commit!("create: #{doc.sha}")
@@ -71,6 +63,10 @@ module Gitgo
         sha = repo.resolve(sha)
         attrs = repo.read(sha)
         
+        cast(attrs, sha)
+      end
+      
+      def cast(attrs, sha)
         type = attrs['type']
         klass = types[type] or raise "unknown type: #{type}"
         klass.new(attrs, env, sha)
@@ -78,7 +74,7 @@ module Gitgo
       
       def update(sha, attrs={})
         doc = read(sha).merge!(attrs)
-        docs[doc.update] = doc
+        doc.update
         doc
       end
       
@@ -88,7 +84,7 @@ module Gitgo
         # use type to determine basis -- note that idx.all('email') should
         # return all documents because all documents should have an email
         basis = type ? idx.get('type', type) : idx.all('email')
-        idx.select(basis, criteria).collect! {|sha| docs[sha] }
+        idx.select(basis, criteria).collect! {|sha| self[sha] }
       end
       
       def update_idx(reindex=false)
@@ -102,7 +98,7 @@ module Gitgo
         
         shas = repo.diff(idx_head, repo_head)
         shas.each do |sha|
-          docs[sha].each_index do |key, value|
+          self[sha].each_index do |key, value|
             idx.add(key, value, sha)
           end
         end
@@ -112,7 +108,7 @@ module Gitgo
       end
       
       def [](sha)
-        docs[sha]
+        cast(repo[sha], sha)
       end
       
       protected

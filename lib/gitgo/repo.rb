@@ -50,16 +50,19 @@ module Gitgo
     
     GIT = 'gitgo.git'
     IDX = 'gitgo.idx'
+    CACHE = 'gitgo.cache'
     
     YEAR = /\A\d{4,}\z/
     MMDD = /\A\d{4}\z/
+    LINK = /^.{2}\/.{38}\/.{40}$/
+    DOCUMENT = /^\d{4}\/\d{4}\/(.{40})$/
     
+    attr_reader :env
     attr_reader :git
-    attr_reader :idx
     
     def initialize(env)
+      @env = env
       @git = env[GIT]
-      @idx = env[IDX]
     end
     
     def head
@@ -74,8 +77,20 @@ module Gitgo
       git.resolve(sha) rescue sha
     end
     
+    def idx
+      env[IDX]
+    end
+    
+    def cache
+      env[CACHE] ||= Hash.new {|hash, sha| hash[sha] = read(sha) }
+    end
+    
     def [](sha)
-      read(sha)
+      cache[sha]
+    end
+    
+    def []=(sha, attrs)
+      cache[sha] = attrs
     end
     
     def path(date, sha)
@@ -84,7 +99,10 @@ module Gitgo
     
     def store(attrs={}, date=Time.now)
       sha = git.set(:blob, JSON.generate(attrs))
+      
       git[path(date, sha)] = sha.to_sym
+      cache[sha] = attrs
+      
       sha
     end
     
@@ -268,7 +286,7 @@ module Gitgo
       when a.nil?
         diff = []
         git.ls_tree(b).each do |path|
-          next unless path =~ /^\d{4}\/\d{4}\/(.{40})$/
+          next unless path =~ DOCUMENT
           diff << $1
         end
         diff
@@ -276,7 +294,7 @@ module Gitgo
         git.diff_tree(a, b)['A']
       end
     end
-
+    
     def commit(msg)
       git.commit(msg)
     end

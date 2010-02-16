@@ -110,30 +110,6 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
-  # Document.docs test
-  #
-  
-  def test_docs_returns_docs_set_in_env
-    Document.with_env(Document::DOCS => :docs) do
-      assert_equal :docs, Document.docs
-    end
-  end
-  
-  def test_docs_auto_initializes_to_documents_hash
-    Document.with_env({}) do
-      assert_equal Hash, Document.docs.class
-    end
-  end
-  
-  def test_docs_reads_and_caches_documents
-    a = Document.create('content' => 'a')
-    b = Document.docs[a.sha]
-    
-    assert_equal 'a', b['content']
-    assert_equal b.object_id, Document.docs[a.sha].object_id
-  end
-  
-  #
   # Document.validators test
   #
 
@@ -267,11 +243,11 @@ class DocumentTest < Test::Unit::TestCase
     assert_match Document::SHA, repo.head
   end
   
-  def test_create_stores_document_in_docs
-    assert_equal({}, Document.docs)
+  def test_create_caches_document_attrs
+    assert_equal({}, repo.cache)
 
     a = Document.create('content' => 'a')
-    assert_equal({a.sha => a}, Document.docs)
+    assert_equal({a.sha => a.attrs}, repo.cache)
   end
   
   #
@@ -341,9 +317,9 @@ class DocumentTest < Test::Unit::TestCase
   def test_find_caches_documents
     a = Document.create('content' => 'a', 'tags' => ['one'])
     
-    results = Document.find
-    assert_equal 'a', results[0]['content']
-    assert_equal({a.sha => results[0]}, Document.docs)
+    results = Document.find.collect {|doc| doc['content'] }
+    assert_equal ['a'], results
+    assert_equal({a.sha => a.attrs}, repo.cache)
   end
   
   class FindDoc < Document
@@ -414,24 +390,24 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [], idx.get('key', 'value')
   end
   
-  def test_update_stores_document_in_docs
-    assert_equal({}, Document.docs)
+  def test_update_caches_doc_attrs
+    assert_equal({}, repo.cache)
 
     a = Document.create('content' => 'a')
     b = Document.update(a.sha, 'content' => 'b')
-    assert_equal({a.sha => a, b.sha => b}, Document.docs)
+    assert_equal({a.sha => a.attrs, b.sha => b.attrs}, repo.cache)
   end
   
   #
   # Document[] test
   #
   
-  def test_Document_AGET_reads_and_caches_doc
+  def test_Document_AGET_reads_attrs_from_cache_and_casts_to_document
     a = Document.create('content' => 'a')
     b = Document[a.sha]
     
     assert_equal 'a', b['content']
-    assert_equal({a.sha => b}, Document.docs)
+    assert_equal({a.sha => b.attrs}, repo.cache)
   end
   
   #
