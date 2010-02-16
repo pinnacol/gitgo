@@ -142,8 +142,21 @@ module Gitgo
       attr_accessor(:re)     {|re| validate_format_or_nil(re, SHA) }
       attr_accessor(:at)     {|at| validate_format_or_nil(at, SHA) }
       attr_accessor(:tags)   {|tags| validate_array_or_nil(tags) }
-      attr_writer(:parents)  {|parents| validate_array_or_nil(parents) }
-      attr_writer(:children) {|children| validate_array_or_nil(children) }
+      
+      attr_writer(:parents)  do |parents|
+        validate_array_or_nil(parents)
+        parents.each do |parent|
+          validate_origins(Document[parent], self)
+        end if parents
+      end
+      
+      attr_writer(:children) do |children|
+        validate_array_or_nil(children)
+        children.each do |child|
+          validate_origins(self, Document[child])
+        end if children
+      end
+      
       attr_accessor(:type)
     end
     

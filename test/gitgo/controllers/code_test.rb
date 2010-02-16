@@ -299,7 +299,7 @@ tag of project with one, two, three only
     a = last_comment
     
     err = assert_raises(InvalidDocumentError) { post('/comment', 'doc[re]' => 'd0ad25', 'doc[content]' => 'comment b', 'doc[parents]' => [a]) }
-    assert_equal ["invalid parent: #{a}"], err.errors
+    assert_equal "parent and child have different origins", err.errors['parents'].message
   end
   
   def test_post_raises_error_for_no_content

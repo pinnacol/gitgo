@@ -37,6 +37,12 @@ module Gitgo
         end
       end
       
+      def validate_origins(parent, child)
+        unless parent.origin == child.origin
+          raise 'parent and child have different origins'
+        end
+      end
+      
       def arrayify(obj)
         case obj
         when Array then obj

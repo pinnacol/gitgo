@@ -456,8 +456,10 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_children_queries_graph_for_children_if_children_are_not_set_and_doc_is_saved
-    b = repo.store
+    a = repo.store
+    b = repo.store('re' => a)
     doc.children = [b]
+    doc.re = a
     doc.save
     
     doc.children = nil
@@ -538,9 +540,39 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 'not an array', doc.errors['parents'].message
   end
   
+  def test_errors_detects_parents_with_different_origins
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b', 're' => a)
+    c = repo.store('content' => 'c')
+    
+    doc.parents = [b]
+    assert_equal 'parent and child have different origins', doc.errors['parents'].message
+    
+    doc.re = c
+    assert_equal 'parent and child have different origins', doc.errors['parents'].message
+    
+    doc.re = a
+    assert_equal nil, doc.errors['parents']
+  end
+  
   def test_errors_detects_non_array_children
     doc.children = 'child'
     assert_equal 'not an array', doc.errors['children'].message
+  end
+  
+  def test_errors_detects_children_with_different_origins
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b', 're' => a)
+    c = repo.store('content' => 'c')
+
+    doc.children = [b]
+    assert_equal 'parent and child have different origins', doc.errors['children'].message
+    
+    doc.re = c
+    assert_equal 'parent and child have different origins', doc.errors['children'].message
+    
+    doc.re = a
+    assert_equal nil, doc.errors['children']
   end
   
   def test_errors_detects_non_array_tags
@@ -664,14 +696,17 @@ class DocumentTest < Test::Unit::TestCase
   def test_save_links_to_parents_to_doc
     a = repo.store('content' => 'a')
     doc['parents'] = [a]
+    doc['re'] = a
     doc.save
     
     assert_equal [doc.sha], repo.links(a)
   end
   
   def test_save_links_doc_to_children
-    b = repo.store('content' => 'b')
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b', 're' => a)
     doc['children'] = [b]
+    doc['re'] = a
     doc.save
     
     assert_equal [b], repo.links(doc.sha)
