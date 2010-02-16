@@ -91,8 +91,8 @@ module Gitgo
       attr_accessor(:re)     {|re| validate_format_or_nil(re, SHA) }
       attr_accessor(:at)     {|at| validate_format_or_nil(at, SHA) }
       attr_accessor(:tags)   {|tags| validate_array_or_nil(tags) }
-      attr_accessor(:parents)  {|parents| validate_array_or_nil(parents) }
-      attr_accessor(:children) {|children| validate_array_or_nil(children) }
+      attr_writer(:parents)  {|parents| validate_array_or_nil(parents) }
+      attr_writer(:children) {|children| validate_array_or_nil(children) }
     end
     
     def initialize(attrs={}, env=nil, sha=nil)
@@ -120,9 +120,26 @@ module Gitgo
     def origin
       re || sha
     end
-        
+    
+    def origin=(sha)
+      self.re = sha
+    end
+    
     def origin?
       re.nil?
+    end
+    
+    def graph(reset=false)
+      @graph = nil if reset
+      @graph ||= (saved? ? repo.graph(origin) : nil)
+    end
+    
+    def parents
+      attrs['parents'] || (saved? ? graph.parents(sha) : nil)
+    end
+    
+    def children
+      attrs['children'] || (saved? ? graph.children(sha) : nil)
     end
     
     def merge(attrs)
@@ -241,6 +258,7 @@ module Gitgo
     def initialize_copy(orig)
       super
       @attrs = orig.attrs.dup
+      @graph = nil
       @sha = nil
     end
     

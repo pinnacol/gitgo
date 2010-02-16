@@ -269,6 +269,45 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
+  # parents test
+  #
+  
+  def test_parents_returns_parents_in_attrs
+    assert_equal nil, doc.parents
+    doc['parents'] = ['parent']
+    assert_equal ['parent'], doc.parents
+  end
+  
+  def test_parents_queries_graph_for_parents_if_parents_are_not_set_and_doc_is_saved
+    a = repo.store
+    doc.origin = a
+    doc.parents = [a]
+    doc.save
+    
+    doc.parents = nil
+    assert_equal [a], doc.parents
+  end
+  
+  #
+  # children test
+  #
+  
+  def test_children_returns_children_in_attrs
+    assert_equal nil, doc.children
+    doc['children'] = ['child']
+    assert_equal ['child'], doc.children
+  end
+  
+  def test_children_queries_graph_for_children_if_children_are_not_set_and_doc_is_saved
+    b = repo.store
+    doc.children = [b]
+    doc.save
+    
+    doc.children = nil
+    assert_equal [b], doc.children
+  end
+  
+  #
   # merge test
   #
   

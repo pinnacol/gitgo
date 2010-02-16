@@ -15,8 +15,30 @@ module Gitgo
         @versions[sha] ||= collect_versions(sha)
       end
       
+      def parents(sha)
+        unless tree.has_key?(sha)
+          collect_nodes(sha, tree)
+        end
+        
+        tree.keys.select do |key|
+          current?(key) && tree[key].include?(sha)
+        end
+      end
+      
       def children(sha)
+        unless tree.has_key?(sha)
+          collect_nodes(sha, tree)
+        end
+        
         tree[sha]
+      end
+      
+      def current?(sha)
+        sha ? updates(sha).empty? : false
+      end
+      
+      def tail?(sha)
+        current?(sha) && links(sha).empty?
       end
     
       def tree
@@ -93,21 +115,27 @@ module Gitgo
       # not show the path through the updated shas.
       def collect_tree(sha, tree, trail=[]) # :nodoc:
         versions(sha).each do |node|
-          circular = trail.include?(node)
-          trail.push node
+          collect_nodes(node, tree, trail)
+        end
+      end
+      
+      def collect_nodes(node, tree, trail=[])
+        circular = trail.include?(node)
+        trail.push node
 
-          if circular
-            raise "circular link detected:\n  #{trail.join("\n  ")}\n"
-          end
+        if circular
+          raise "circular link detected:\n  #{trail.join("\n  ")}\n"
+        end
         
+        tree[node] ||= begin
           nodes = []
           links(node).each do |child|
             nodes.concat collect_tree(child, tree, trail)
           end
-
-          tree[node] = nodes
-          trail.pop
+          nodes
         end
+        
+        trail.pop
       end
     end
   end
