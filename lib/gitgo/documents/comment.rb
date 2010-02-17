@@ -8,7 +8,7 @@ module Gitgo
       end
       
       def validate_re(re)
-        raise 'no re specified' if re.nil?
+        raise 'missing' if re.nil?
         super
       end
     end

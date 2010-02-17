@@ -206,24 +206,26 @@ class CodeTest < Test::Unit::TestCase
     # commit
     get('/obj/ee9a1ca4441ab2bf937808b26eab784f3d041643', :content => true)
     assert_equal 'text/plain', last_response['Content-Type']
-    assert_equal %q{tree 71719943af3c7a12804c1a9946913392cac3a55e
+    assert_equal %q{
+tree 71719943af3c7a12804c1a9946913392cac3a55e
 parent 990191ea92e4dc85f598203e123849df1f8bd124
 author Simon Chiang <simon.chiang@pinnacol.com> 1255115805 -0600
 committer Simon Chiang <simon.chiang@pinnacol.com> 1255115805 -0600
 
 added files x, y, and z
-}, last_response.body
+}, "\n" + last_response.body
 
     # tag
     get('/obj/d0ad2534e98f0a2b9573af0355d7371468eb77f1', :content => true)
     assert_equal 'text/plain', last_response['Content-Type']
-    assert_equal %q{object 449b5502e8dc49264d862b4fc0c01ba115fc9f82
+    assert_equal %q{
+object 449b5502e8dc49264d862b4fc0c01ba115fc9f82
 type commit
 tag only-123
 tagger Simon Chiang <simon.chiang@pinnacol.com> 1255115917 -0600
 
 tag of project with one, two, three only
-}, last_response.body
+}, "\n" + last_response.body
   end
 
   def test_obj_downloads_true_raw_data_if_specified
@@ -242,25 +244,27 @@ tag of project with one, two, three only
     # commit
     get('/obj/ee9a1ca4441ab2bf937808b26eab784f3d041643', :download => true)
     assert_equal 'text/plain', last_response['Content-Type']
-    assert_equal %Q{commit 252\000tree 71719943af3c7a12804c1a9946913392cac3a55e
+    assert_equal %Q{
+commit 252\000tree 71719943af3c7a12804c1a9946913392cac3a55e
 parent 990191ea92e4dc85f598203e123849df1f8bd124
 author Simon Chiang <simon.chiang@pinnacol.com> 1255115805 -0600
 committer Simon Chiang <simon.chiang@pinnacol.com> 1255115805 -0600
 
 added files x, y, and z
-}, last_response.body
+}, "\n" + last_response.body
     assert_equal 'ee9a1ca4441ab2bf937808b26eab784f3d041643', Digest::SHA1.hexdigest(last_response.body)
 
     # tag
     get('/obj/d0ad2534e98f0a2b9573af0355d7371468eb77f1', :download => true)
     assert_equal 'text/plain', last_response['Content-Type']
-    assert_equal %Q{tag 180\000object 449b5502e8dc49264d862b4fc0c01ba115fc9f82
+    assert_equal %Q{
+tag 180\000object 449b5502e8dc49264d862b4fc0c01ba115fc9f82
 type commit
 tag only-123
 tagger Simon Chiang <simon.chiang@pinnacol.com> 1255115917 -0600
 
 tag of project with one, two, three only
-}, last_response.body
+}, "\n" + last_response.body
     assert_equal 'd0ad2534e98f0a2b9573af0355d7371468eb77f1', Digest::SHA1.hexdigest(last_response.body)
   end
     

@@ -4,7 +4,6 @@ require 'gitgo/document'
 class DocumentTest < Test::Unit::TestCase
   acts_as_file_test
   
-  Actor = Grit::Actor
   Repo = Gitgo::Repo
   Document = Gitgo::Document
   InvalidDocumentError = Document::InvalidDocumentError
