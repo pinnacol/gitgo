@@ -659,6 +659,32 @@ module Gitgo
       end
     end
     
+    # Options:
+    #
+    #   :ignore_case
+    #   :invert_match
+    #   :fixed_strings
+    #   :e
+    #
+    def grep(pattern, treeish=grit.head.commit)
+      options = pattern.respond_to?(:merge) ? pattern : {:e => pattern}
+      options = options.merge(
+        :cached => true,
+        :name_only => true,
+        :full_name => true
+      )
+      
+      sandbox do |git, work_tree, index_file|
+        commit = grit.commit(treeish)
+        
+        git.read_tree({:index_output => index_file}, commit.id)
+        git.grep(options).split("\n").each do |path|
+          yield(path, (commit.tree / path))
+        end
+      end
+      self
+    end
+    
     # Peforms 'git prune' and returns self.
     def prune
       sandbox {|git,w,i| git.prune }

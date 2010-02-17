@@ -642,6 +642,31 @@ class GitTest < Test::Unit::TestCase
   end
   
   #
+  # grep test
+  #
+  
+  def test_grep_yields_path_and_blob_for_blobs_that_match_pattern
+    a = git.set(:blob, "a")
+    git['one'] = a.to_sym
+    
+    b = git.set(:blob, "ab")
+    git['two'] = b.to_sym
+    
+    c = git.set(:blob, "abc")
+    git['three'] = c.to_sym
+    
+    sha = git.commit!("created fixture")
+    
+    results = []
+    git.grep("a", sha) {|path, blob| results << [path, blob.id]}
+    assert_equal [['one', a], ['two', b], ['three', c]].sort, results.sort
+    
+    results = []
+    git.grep("b", sha) {|path, blob| results << [path, blob.id]}
+    assert_equal [['two', b], ['three', c]].sort, results.sort
+  end
+  
+  #
   # stats test
   #
   
