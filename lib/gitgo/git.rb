@@ -289,10 +289,7 @@ module Gitgo
     
     # Gets the specified object, returning an instance of the appropriate Grit
     # class.  Raises an error for unknown types.
-    def get(type, id, resolve=true)
-      type = self.type(id) if type.nil?
-      id = resolve(id)     if resolve
-      
+    def get(type, id)
       case type.to_sym
       when :blob   then grit.blob(id)
       when :tree   then grit.tree(id)
@@ -332,7 +329,7 @@ module Gitgo
       
       obj = tree[basename]
       case obj
-      when Array then get(:blob, obj[1], false).data
+      when Array then get(:blob, obj[1]).data
       when Tree  then obj.keys
       else nil
       end
@@ -810,7 +807,7 @@ module Gitgo
     end
     
     def commit_tree # :nodoc:
-      tree = head ? get(:commit, head, false).tree : nil
+      tree = head ? get(:commit, head).tree : nil
       Tree.new(tree)
     end
     

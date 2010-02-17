@@ -215,39 +215,6 @@ class GitTest < Test::Unit::TestCase
     assert_equal "449b5502e8dc49264d862b4fc0c01ba115fc9f82", tag.commit.id
   end
   
-  def test_get_resolves_shas
-    setup_repo("simple.git")
-    
-    sha = "32f1859c0aaf1394789093c952f2b03ab04a1aad"
-    assert_equal sha, git.get(:blob, sha[0,8]).id
-
-    sha = "09aa1d0c0d69df84464b72623628acf5c63c79f0"
-    assert_equal sha, git.get(:tree, sha[0,8]).id
-    
-    sha = "ee9a1ca4441ab2bf937808b26eab784f3d041643"
-    assert_equal sha, git.get(:commit, sha[0,8]).id
-    assert_equal sha, git.get(:commit, "xyz").id
-    
-    sha = "d0ad2534e98f0a2b9573af0355d7371468eb77f1"
-    commit = "449b5502e8dc49264d862b4fc0c01ba115fc9f82"
-    assert_equal commit, git.get(:tag, sha[0,8]).commit.id
-    assert_equal commit, git.get(:tag, "only-123").commit.id
-  end
-  
-  def test_get_does_not_resolve_shas_unless_specified
-    setup_repo("simple.git")
-    
-    sha = "32f1859c0aaf1394789093c952f2b03ab04a1aad"
-    assert_equal sha[0,8], git.get(:blob, sha[0,8], false).id
-  end
-  
-  def test_get_looks_up_type_if_type_is_nil
-    setup_repo("simple.git")
-    
-    assert_equal Grit::Blob, git.get(nil, "32f1859c0aaf1394789093c952f2b03ab04a1aad").class
-    assert_equal Grit::Tree, git.get(nil, "09aa1d0c0d69df84464b72623628acf5c63c79f0").class
-  end
-  
   #
   # set test
   #

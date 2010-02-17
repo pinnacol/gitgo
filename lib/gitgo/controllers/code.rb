@@ -43,22 +43,28 @@ module Gitgo
           :tags => grit.tags
         }
       end
-
-      def blob_grep
-        options = {
+      
+      def treeish
+        request['at'] || grit.head.commit
+      end
+      
+      def grep_opts(overrides={})
+        {
           :ignore_case   => request['ignore_case'] == 'true',
           :invert_match  => request['invert_match'] == 'true',
           :fixed_strings => request['fixed_strings'] == 'true',
-          :e => request['pattern']
-        }
-        treeish = request['at'] || grit.head.commit
+        }.merge!(overrides)
+      end
+      
+      def blob_grep
+        options = grep_opts(:e => request['pattern'])
         
         selected = []
         git.grep(options, treeish) do |path, blob|
           selected << [path, blob.id]
         end
 
-        erb :grep, :locals => options.merge(
+        erb :grep, :locals => options.merge!(
           :type => 'blob',
           :at => treeish,
           :selected => selected
@@ -66,29 +72,22 @@ module Gitgo
       end
 
       def tree_grep
-        options = {
-          :ignore_case   => request['ignore_case'] == 'true',
-          :invert_match  => request['invert_match'] == 'true',
-          :fixed_strings => request['fixed_strings'] == 'true',
-          :e => request['pattern']
-        }
-        treeish = request['at'] || grit.head.commit
+        options = grep_opts(:e => request['pattern'])
         
         selected = []
         git.tree_grep(options, treeish) do |path, blob|
           selected << [path, blob.id]
         end
         
-        erb :grep, :locals => options.merge(
+        erb :grep, :locals => options.merge!(
           :type => 'tree',
           :at => treeish,
-          :selected => selected,
-          :e => options[:e]
+          :selected => selected
         )
       end
 
       def commit_grep
-        options = {
+        options = grep_opts(
           :author => request['author'],
           :committer => request['committer'],
           :grep => request['grep'],
@@ -96,18 +95,26 @@ module Gitgo
           :fixed_strings => request['fixed_strings'] == 'true',
           :all_match => request['all_match'] == 'true',
           :max_count => request['max_count'] || '10'
-        }
+        )
         
         selected = []
-        git.commit_grep(options) {|sha| selected << sha }
-        erb :commit_grep, :locals => {:selected => selected}.merge!(options)
+        git.commit_grep(options, treeish) {|sha| selected << sha }
+        
+        erb :commit_grep, :locals => options.merge!(
+          :selected => selected
+        )
       end
 
       def show_blob(treeish, path)
         commit = grit.commit(treeish) || not_found
         blob = commit.tree / path || not_found
 
-        erb :blob, :locals => {:commit => commit, :treeish => treeish, :blob => blob, :path => path}
+        erb :blob, :locals => {
+          :commit => commit, 
+          :treeish => treeish, 
+          :blob => blob, 
+          :path => path
+        }
       end
 
       def show_tree(treeish, path)
@@ -117,12 +124,20 @@ module Gitgo
           obj.trees.find {|obj| obj.name == name }
         end
 
-        erb :tree, :locals => {:commit => commit, :treeish => treeish, :tree => tree, :path => path}
+        erb :tree, :locals => {
+          :commit => commit, 
+          :treeish => treeish, 
+          :tree => tree, 
+          :path => path
+        }
       end
       
       def show_commit(treeish)
         commit = grit.commit(treeish) || not_found
-        erb :diff, :locals => {:commit => commit, :treeish => treeish}
+        erb :diff, :locals => {
+          :commit => commit, 
+          :treeish => treeish
+        }
       end
       
       def show_commits(treeish)
@@ -138,56 +153,47 @@ module Gitgo
         }
       end
       
-      def show_object(shaish)
-        sha = git.resolve(shaish)
+      def show_object(sha)
+        sha = git.resolve(sha)
         
         case
         when request['content'] == 'true'
           response['Content-Type'] = 'text/plain'
           grit.git.cat_file({:p => true}, sha)
-
+          
         when request['download'] == 'true'
           response['Content-Type'] = 'text/plain'
           response['Content-Disposition'] = "attachment; filename=#{sha};"
           raw_object = grit.git.ruby_git.get_raw_object_by_sha1(sha)
           "%s %d\0" % [raw_object.type, raw_object.content.length] + raw_object.content
-
+          
         else
-          type = git.type(sha)
-          obj = case type
-          when 'blob', 'tree', 'commit'
-            grit.send(type, sha)
-          when 'tag'
-            commit = grit.send('commit', sha)
-            grit.tags.find {|tag| tag.commit.tree.id == commit.tree.id }
-          else
-            nil
-          end
+          type = git.type(sha).to_sym
+          obj = git.get(type, sha) or not_found
           
-          if obj.nil?
-            not_found
-          end
-          
-          erb type.to_sym, :locals => {:sha => sha, :obj => obj}, :views => path('views/code/obj')
+          erb type, :locals => {
+            :sha => sha, 
+            :obj => obj
+          }, :views => path('views/code/obj')
         end
       end
       
       def create
         comment = Comment.create(request['doc'])
-        repo.commit!("added #{comment.sha}") if request['commit']
-        redirect_to_re(comment)
+        repo.commit! if request['commit']
+        redirect_to_origin(comment)
       end
     
       def update(sha)
         comment = Comment.update(sha, request['doc'])
-        repo.commit!("updated #{sha} to #{comment.sha}") if request['commit']
-        redirect_to_re(comment)
+        repo.commit!if request['commit']
+        redirect_to_origin(comment)
       end
 
       def destroy(sha)
         comment = Comment.delete(sha)
-        repo.commit!("removed #{sha}") if request['commit']
-        redirect_to_re(comment)
+        repo.commit! if request['commit']
+        redirect_to_origin(comment)
       end
       
       def render_comments(sha)
@@ -200,8 +206,8 @@ module Gitgo
         # end
       end
       
-      def redirect_to_re(comment)
-        redirect "#{comment.re}##{comment.sha}"
+      def redirect_to_origin(comment)
+        redirect "#{comment.origin}##{comment.sha}"
       end
     end
   end
