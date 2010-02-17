@@ -667,19 +667,57 @@ module Gitgo
     #   :e
     #
     def grep(pattern, treeish=grit.head.commit)
-      options = pattern.respond_to?(:merge) ? pattern : {:e => pattern}
-      options = options.merge(
+      options = pattern.respond_to?(:merge) ? pattern.dup : {:e => pattern}
+      options.delete_if {|key, value| nil_or_empty?(value) }
+      options = options.merge!(
         :cached => true,
         :name_only => true,
         :full_name => true
       )
       
+      unless commit = grit.commit(treeish)
+        raise "unknown commit: #{treeish}"
+      end
+      
       sandbox do |git, work_tree, index_file|
-        commit = grit.commit(treeish)
-        
         git.read_tree({:index_output => index_file}, commit.id)
         git.grep(options).split("\n").each do |path|
           yield(path, (commit.tree / path))
+        end
+      end
+      self
+    end
+    
+    def tree_grep(pattern, treeish=grit.head.commit)
+      options = pattern.respond_to?(:merge) ? pattern.dup : {:e => pattern}
+      options.delete_if {|key, value| nil_or_empty?(value) }
+      
+      unless commit = grit.commit(treeish)
+        raise "unknown commit: #{treeish}"
+      end
+      
+      sandbox do |git, work_tree, index_file|
+        postfix = options.empty? ? '' : begin
+          grep_options = git.transform_options(options)
+          " | grep #{grep_options.join(' ')}"
+        end
+        
+        stdout, stderr = git.sh("#{Grit::Git.git_binary} ls-tree -r --name-only #{git.e(commit.id)} #{postfix}")
+        stdout.split("\n").each do |path|
+          yield(path, commit.tree / path)
+        end
+      end
+      self
+    end
+    
+    def commit_grep(pattern, treeish=grit.head.commit)
+      options = pattern.respond_to?(:merge) ? pattern.dup : {:grep => pattern}
+      options.delete_if {|key, value| nil_or_empty?(value) }
+      options[:format] = "%H"
+      
+      sandbox do |git, work_tree, index_file|
+        git.log(options, treeish).split("\n").each do |sha|
+          yield grit.commit(sha)
         end
       end
       self

@@ -667,6 +667,54 @@ class GitTest < Test::Unit::TestCase
   end
   
   #
+  # tree_grep test
+  #
+  
+  def test_tree_grep_yields_path_and_blob_for_paths_that_match_pattern
+    a = git.set(:blob, "a")
+    git['one'] = a.to_sym
+    
+    b = git.set(:blob, "ab")
+    git['two'] = b.to_sym
+    
+    c = git.set(:blob, "abc")
+    git['three'] = c.to_sym
+    
+    sha = git.commit!("created fixture")
+    
+    results = []
+    git.tree_grep("o", sha) {|path, blob| results << [path, blob.id]}
+    assert_equal [['one', a], ['two', b]].sort, results.sort
+    
+    results = []
+    git.tree_grep("t[wh]", sha) {|path, blob| results << [path, blob.id]}
+    assert_equal [['two', b], ['three', c]].sort, results.sort
+  end
+  
+  #
+  # commit_grep test
+  #
+  
+  def test_commit_grep_yields_commit_for_commits_matching_pattern
+    git['a'] = 'A'
+    a = git.commit!("created one")
+    
+    git['b'] = 'B'
+    b = git.commit!("created two")
+    
+    git['c'] = 'C'
+    c = git.commit!("created three")
+    
+    results = []
+    git.commit_grep("o", c) {|commit| results << commit.id }
+    assert_equal [a, b].sort, results.sort
+    
+    results = []
+    git.commit_grep("t[wh]", c) {|commit| results << commit.id }
+    assert_equal [b, c].sort, results.sort
+  end
+  
+  #
   # stats test
   #
   

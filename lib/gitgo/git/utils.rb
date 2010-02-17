@@ -37,7 +37,7 @@ module Gitgo
       end
       
       def nil_or_empty?(obj)
-        obj.nil? || obj.empty?
+        obj.nil? || (obj.respond_to?(:empty?) && obj.empty?)
       end
     end
   end

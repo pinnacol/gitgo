@@ -4,7 +4,7 @@
 <% end %>
 <%=  erb :_grepnav, :layout => false %>
 
-<form class="grep" action="<%= url('commit') %>" method="get">
+<form class="grep" action="<%= form.url('commit') %>" method="get">
   <dl class="form">
   <dt><label for="author">Author</label></dt>
   <dd><input id="author" type="text" name="author" value="<%= form.author_value author %>" /></dd>

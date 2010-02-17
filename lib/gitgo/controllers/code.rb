@@ -51,30 +51,16 @@ module Gitgo
           :fixed_strings => request['fixed_strings'] == 'true',
           :e => request['pattern']
         }
-
-        unless commit = grit.commit(request['at'] || grit.head.commit)
-          raise "unknown commit: #{request['at']}"
-        end
-
+        treeish = request['at'] || grit.head.commit
+        
         selected = []
-        unless options[:e].to_s.empty?
-          pattern = options.merge(
-            :cached => true,
-            :name_only => true,
-            :full_name => true
-          )
-
-          git.sandbox do |git, work_tree, index_file|
-            git.read_tree({:index_output => index_file}, commit.tree.id)
-            git.grep(pattern).split("\n").each do |path|
-              selected << [path, commit.tree / path]
-            end
-          end
+        git.grep(options, treeish) do |path, blob|
+          selected << [path, blob.id]
         end
 
         erb :grep, :locals => options.merge(
           :type => 'blob',
-          :at => commit.sha,
+          :at => treeish,
           :selected => selected
         )
       end
@@ -84,70 +70,37 @@ module Gitgo
           :ignore_case   => request['ignore_case'] == 'true',
           :invert_match  => request['invert_match'] == 'true',
           :fixed_strings => request['fixed_strings'] == 'true',
+          :e => request['pattern']
         }
-
-        unless commit = grit.commit(request['at'] || grit.head.commit)
-          raise "unknown commit: #{request['at']}"
-        end
-
+        treeish = request['at'] || grit.head.commit
+        
         selected = []
-        if pattern = request['pattern']
-          git.sandbox do |git, work_tree, index_file|
-            postfix = pattern.empty? ? '' : begin
-              grep_options = git.transform_options(options)
-              " | grep #{grep_options.join(' ')} #{grit.git.e(pattern)}"
-            end
-
-            results = git.run('', :ls_tree, postfix, {:name_only => true, :r => true}, [commit.tree.id])
-            results.split("\n").each do |path|
-              selected << [path, commit.tree / path]
-            end
-          end
+        git.tree_grep(options, treeish) do |path, blob|
+          selected << [path, blob.id]
         end
-
+        
         erb :grep, :locals => options.merge(
           :type => 'tree',
-          :at => commit.sha,
+          :at => treeish,
           :selected => selected,
-          :e => pattern
+          :e => options[:e]
         )
       end
 
       def commit_grep
-        patterns = {
+        options = {
           :author => request['author'],
           :committer => request['committer'],
-          :grep => request['grep']
-        }
-
-        filters = {
+          :grep => request['grep'],
           :regexp_ignore_case => request['regexp_ignore_case'] == 'true',
           :fixed_strings => request['fixed_strings'] == 'true',
           :all_match => request['all_match'] == 'true',
           :max_count => request['max_count'] || '10'
         }
-
-        options = {}
-        patterns.each_pair do |key, value|
-          unless value.nil? || value.empty?
-            options[key] = value
-          end
-        end
-
+        
         selected = []
-        unless options.empty?
-          options.merge!(filters)
-          options[:format] = "%H"
-
-          git.sandbox do |git, work_tree, index_file|
-            git.log(options).split("\n").each do |sha|
-              selected << grit.commit(sha)
-            end
-          end
-        end
-
-        locals = {:selected => selected}.merge!(patterns).merge!(filters)
-        erb :commit_grep, :locals => locals
+        git.commit_grep(options) {|sha| selected << sha }
+        erb :commit_grep, :locals => {:selected => selected}.merge!(options)
       end
 
       def show_blob(treeish, path)
