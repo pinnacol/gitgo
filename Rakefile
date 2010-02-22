@@ -48,35 +48,6 @@ task :print_manifest do
 end
 
 #
-# Bundler tasks
-#
-
-desc "Bundle depenencies for the current wcis_env"
-task :bundle => "vendor/gems/environment.rb"
-
-file "vendor/gems/environment.rb" => ["Gemfile", ENV['GEMSPEC']] do
-  cmd = "gem bundle"
-  
-  if system(cmd)
-    # success -- remove the circular symlink to the pwd
-    # if it exists (note this doesn't affect bundler)
-    spec = gemspec
-    pattern = File.join("vendor/gems/**/gems", spec.full_name)
-    Dir.glob(pattern).each {|install_path| FileUtils.rm_r(install_path) }
-    
-  else
-    # failure -- missing bundler?
-    puts %Q{
-Bundle fail! Are you sure bundler is installed?
-
-  % gem install bundler
-
-}
-    exit(1)
-  end
-end
-
-#
 # Documentation tasks
 #
 
@@ -156,6 +127,22 @@ task :build_fixture => :bundle do
 end
 
 #
+# Dependency tasks
+#
+
+desc 'Bundle dependencies'
+task :bundle do
+  opts = %w{prd acp qa tst}.include?(ENV['WCIS_ENV']) ? ' --without=development' : ''
+  output = `bundle check#{opts} 2>&1`
+  
+  unless $?.to_i == 0
+    puts output
+    puts "bundle install#{opts}" + `bundle install#{opts}`
+    puts
+  end
+end
+
+#
 # Test tasks
 #
 
@@ -164,6 +151,9 @@ task :default => :test
 
 desc 'Run the tests'
 task :test => ['test:gitgo', 'test:data_model']
+
+desc 'Run the cc tests'
+task :cc => :test
 
 def run_tests(tests)
   tests = tests.select {|path| File.file?(path) }

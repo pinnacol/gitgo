@@ -1,17 +1,30 @@
-require 'vendor/gems/environment'
-
-# Filter warnings from bundled projects
-module WarnFilter
-  VENDOR_DIR = File.expand_path(File.join(File.dirname(__FILE__), "../vendor/gems"))
-
-  def write(obj)
-    super unless obj.rindex(VENDOR_DIR) == 0
-  end
+begin
+  require File.expand_path('../../.bundle/environment', __FILE__)
+rescue LoadError
+  require "rubygems"
+  require "bundler"
+  Bundler.setup
   
-  unless ENV['WARN_FILTER'] == "false"
-    $stderr.extend(self)
-  end
-end unless Object.const_defined?(:WarnFilter)
+  # Filter warnings from bundled projects
+  module WarnFilter
+    FILTER_PATHS = Gem.path + [Bundler.bundle_path.to_s, File.expand_path('../../vendor', __FILE__)]
+    @@count = 0
+    
+    def write(obj)
+      FILTER_PATHS.any? {|path| obj.rindex(path) == 0} ? @@count += 1 : super
+    end
+
+    unless ENV['WARN_FILTER'] == "false"
+      $stderr.extend(self)
+      at_exit do
+        if @@count > 0
+          $stderr.puts "(WarnFilter filtered #{@@count} warnings, set WARN_FILTER=false in ENV to see warnings)" 
+        end
+      end
+    end
+    
+  end unless Object.const_defined?(:WarnFilter)
+end
 
 require 'tap/test/unit'
 require 'rack/test'

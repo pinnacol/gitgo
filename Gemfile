@@ -1,13 +1,26 @@
-unless ENV['GEMSPEC']
-  puts "gitgo bundles through rake... try:\n  % rake bundle"
-  exit(1)
+#############################################################################
+# Dependencies in this Gemfile are managed through the gemspec.  Add/remove
+# depenencies there, rather than editing this file ex:
+#
+#   Gem::Specification.new do |s|
+#     ... 
+#     s.add_dependency("rack")
+#     s.add_development_dependency("rack-test")
+#   end
+#
+#############################################################################
+source :gemcutter
+
+project_dir = File.expand_path('..', __FILE__)
+gemspec_path = File.expand_path('gitgo.gemspec', project_dir)
+
+#
+# Setup gemspec dependencies
+#
+
+gemspec = eval(File.read(gemspec_path))
+gemspec.dependencies.each do |dep|
+  group = dep.type == :development ? :development : :default
+  gem dep.name, dep.version_requirements, :group => group
 end
-
-gemspec = eval File.read(ENV['GEMSPEC'])
-gemspec.dependencies.each {|dep| gem dep.name, dep.version_requirements }
-gem(gemspec.name, gemspec.version)
-
-directory ".", :glob => "gitgo.gemspec"
-
-bin_path "vendor/gems/bin"
-disable_system_gems
+gem(gemspec.name, gemspec.version, :path => project_dir)
