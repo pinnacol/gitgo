@@ -1,4 +1,6 @@
 require 'gitgo/controller'
+require 'gitgo/documents/issue'
+require 'gitgo/documents/update'
 
 module Gitgo
   module Controllers

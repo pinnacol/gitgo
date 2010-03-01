@@ -130,10 +130,12 @@ module Gitgo
       end
       
       def author(author)
+        author = Grit::Actor.from_string(author)
         "#{escape_html(author.name)} (<a href=\"#{url('timeline')}?#{build_query(:author => author.email)}\">#{escape_html author.email}</a>)"
       end
       
       def date(date)
+        date = Time.parse(date)
         "<abbr title=\"#{date.iso8601}\">#{date.strftime('%Y/%m/%d %H:%M %p')}</abbr>"
       end
       

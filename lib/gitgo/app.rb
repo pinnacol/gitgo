@@ -24,9 +24,9 @@ module Gitgo
       author = request[:author].to_s
       timeline = repo.head.nil? ? nil : begin
         repo.timeline(:n => per_page, :offset => page * per_page) do |sha|
-          author.empty? || cache[sha].author.email == author
+          author.empty? || repo[sha]['author'].include?("<#{author}>")
         end.collect do |sha|
-          cache[sha]
+          Document.cast(repo[sha], sha)
         end.sort_by do |doc|
           doc.date
         end
@@ -37,7 +37,7 @@ module Gitgo
         :per_page => per_page,
         :author => author,
         :timeline => timeline,
-        :authors => repo.index.values('author')
+        :authors => repo.idx.all('author')
       }
     end
   end

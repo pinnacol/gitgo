@@ -137,9 +137,7 @@ module Gitgo
     def read(sha)
       begin
         JSON.parse(git.get(:blob, sha).data)
-      rescue JSON::ParserError
-        Utils.deserialize(git.get(:blob, sha).data)
-      rescue Errno::EISDIR
+      rescue JSON::ParserError, Errno::EISDIR 
         nil
       end
     end
