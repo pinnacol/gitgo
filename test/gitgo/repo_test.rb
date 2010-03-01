@@ -506,18 +506,34 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # timeline test
+  #
+  
+  def test_timeline_returns_the_most_recently_added_docs
+    a = repo.store({'content' => 'a'}, Time.utc(2009, 9, 11))
+    d = repo.store({'content' => 'd'}, Time.utc(2009, 9, 10))
+    c = repo.store({'content' => 'c'}, Time.utc(2009, 9, 9))
+    
+    b = repo.store({'content' => 'b'}, Time.utc(2008, 9, 10))
+    e = repo.store({'content' => 'e'}, Time.utc(2008, 9, 9))
+    
+    assert_equal [a, d, c, b, e], repo.timeline
+    assert_equal [ d, c, b], repo.timeline(:n => 3, :offset => 1)
+  end
+
+  #
   # diff test
   #
   
   def test_diff_returns_shas_added_from_a_to_b
-    one = repo.store("content" => "one")
-    a = git.commit!("added one")
+    one = repo.store('content' => 'one')
+    a = git.commit!('added one')
     
-    two = repo.store("content" => "two")
-    b = git.commit!("added two")
+    two = repo.store('content' => 'two')
+    b = git.commit!('added two')
     
-    three = repo.store("content" => "three")
-    c = git.commit!("added three")
+    three = repo.store('content' => 'three')
+    c = git.commit!('added three')
     
     assert_equal [two, three].sort, repo.diff(a, c).sort
     assert_equal [], repo.diff(c, a)
@@ -530,8 +546,8 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_diff_treats_nil_as_prior_to_initial_commit
-    one = repo.store("content" => "one")
-    a = git.commit!("added one")
+    one = repo.store('content' => 'one')
+    a = git.commit!('added one')
     
     assert_equal [one], repo.diff(nil, a)
     assert_equal [], repo.diff(a, nil)
@@ -542,7 +558,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_status_returns_formatted_lines_of_status
-    assert_equal "", repo.status
+    assert_equal '', repo.status
     
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)

@@ -137,7 +137,9 @@ module Gitgo
     def read(sha)
       begin
         JSON.parse(git.get(:blob, sha).data)
-      rescue JSON::ParserError, Errno::EISDIR
+      rescue JSON::ParserError
+        Utils.deserialize(git.get(:blob, sha).data)
+      rescue Errno::EISDIR
         nil
       end
     end
@@ -297,6 +299,30 @@ module Gitgo
           end
         end
       end
+    end
+    
+    # Returns an array of shas representing recent documents added.
+    def timeline(options={})
+      options = {:n => 10, :offset => 0}.merge(options)
+      offset = options[:offset]
+      n = options[:n]
+
+      shas = []
+      return shas if n <= 0
+
+      each do |sha|
+        if block_given?
+          next unless yield(sha)
+        end
+        
+        if offset > 0
+          offset -= 1
+        else
+          shas << sha
+          break if n && shas.length == n
+        end
+      end
+      shas
     end
     
     def graph(sha)
