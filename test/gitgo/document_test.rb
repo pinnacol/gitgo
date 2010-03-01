@@ -349,6 +349,57 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
+  # author= test
+  #
+  
+  def test_set_author_stringifies_actors
+    doc.author = author
+    assert_equal 'John Doe <john.doe@email.com>', doc.attrs['author']
+  end
+  
+  #
+  # author test
+  #
+  
+  def test_author_casts_string_author_to_actor_if_cast_is_specified
+    doc.attrs['author'] = 'Jane Doe <jane.doe@email.com>'
+    assert_equal Grit::Actor, doc.author.class
+    assert_equal String, doc.author(false).class
+  end
+  
+  def test_author_does_not_attempt_to_cast_nil_authors
+    doc.attrs['author'] = nil
+    assert_equal nil, doc.author
+    assert_equal nil, doc.author(false)
+  end
+  
+  #
+  # date= test
+  #
+  
+  def test_set_date_converts_inputs_using_iso8601_if_possible
+    date = Time.now
+    doc.date = date
+    assert_equal date.iso8601, doc.attrs['date']
+  end
+  
+  #
+  # date test
+  #
+  
+  def test_date_casts_string_date_to_Time_if_cast_is_specified
+    doc.attrs['date'] = Time.now.iso8601
+    assert_equal Time, doc.date.class
+    assert_equal String, doc.date(false).class
+  end
+  
+  def test_date_does_not_attempt_to_cast_nil_dates
+    doc.attrs['date'] = nil
+    assert_equal nil, doc.date
+    assert_equal nil, doc.date(false)
+  end
+  
+  #
   # AGET test
   #
   
@@ -588,7 +639,7 @@ class DocumentTest < Test::Unit::TestCase
     norm = doc.normalize
     
     assert_equal nil, doc.author
-    assert_equal "#{author.name} <#{author.email}>", norm.author
+    assert_equal author.email, norm.author.email
     assert_equal 'value', norm['key']
   end
   
@@ -599,13 +650,13 @@ class DocumentTest < Test::Unit::TestCase
   def test_normalize_bang_sets_author_using_repo_author_if_unset
     assert_equal nil, doc.author
     doc.normalize!
-    assert_equal "#{author.name} <#{author.email}>", doc.author
+    assert_equal author.email, doc.author.email
   end
   
   def test_normalize_bang_sets_date_if_unset
     assert_equal nil, doc.date
     doc.normalize!
-    assert_in_delta Time.now.to_f, Time.parse(doc.date).to_f, 1
+    assert_in_delta Time.now.to_f, doc.date.to_f, 1
   end
   
   def test_normalize_bang_resolves_re_if_set

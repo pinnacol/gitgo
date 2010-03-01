@@ -136,14 +136,15 @@ module Gitgo
     attr_reader :attrs
     attr_accessor :sha
     
+    validate(:author) {|author| validate_format(author, AUTHOR) }
+    validate(:date)   {|date| validate_format(date, DATE) }
+    
     define_attributes do
-      attr_accessor(:author) {|author| validate_format(author, AUTHOR) }
-      attr_accessor(:date)   {|date| validate_format(date, DATE) }
-      attr_accessor(:re)     {|re| validate_format_or_nil(re, SHA) }
-      attr_accessor(:at)     {|at| validate_format_or_nil(at, SHA) }
-      attr_accessor(:tags)   {|tags| validate_array_or_nil(tags) }
+      attr_accessor(:re)   {|re| validate_format_or_nil(re, SHA) }
+      attr_accessor(:at)   {|at| validate_format_or_nil(at, SHA) }
+      attr_accessor(:tags) {|tags| validate_array_or_nil(tags) }
       
-      attr_writer(:parents)  do |parents|
+      attr_writer(:parents) do |parents|
         validate_array_or_nil(parents)
         parents.each do |parent|
           validate_origins(Document[parent], self)
@@ -176,6 +177,36 @@ module Gitgo
     
     def []=(key, value)
       attrs[key] = value
+    end
+    
+    def author=(author)
+      if author.kind_of?(Grit::Actor)
+        author = author.email ? "#{author.name} <#{author.email}>" : author.name
+      end
+      attrs['author'] = author
+    end
+    
+    def author(cast=true)
+      author = attrs['author']
+      if cast && author.kind_of?(String)
+        author = Grit::Actor.from_string(author)
+      end
+      author
+    end
+    
+    def date=(date)
+      if date.respond_to?(:iso8601)
+        date = date.iso8601
+      end
+      attrs['date'] = date
+    end
+    
+    def date(cast=true)
+      date = attrs['date']
+      if cast && date.kind_of?(String)
+        date = Time.parse(date)
+      end
+      date
     end
     
     def origin
