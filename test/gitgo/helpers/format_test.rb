@@ -53,4 +53,39 @@ class FormatTest < Test::Unit::TestCase
     str = "not a sha: z9377b7ec7b83909b8827e52817c53a47db96cf0"
     assert_equal "not a sha: z9377b7ec7b83909b8827e52817c53a47db96cf0", format.text(str)
   end
+  
+  #
+  # tree test
+  #
+
+  def test_tree_renders_tree_list
+    hash = {
+      nil => ["a"],
+      "a" => ["b"],
+      "b" => ["c", "d"],
+      "c" => [],
+      "d" => ["e"],
+      "e" => []
+    }
+
+    expected = %q{
+<ul>
+<li>a</li>
+<li>b</li>
+<li>
+  <ul>
+  <li>c</li>
+  </ul>
+</li>
+<li>
+  <ul>
+  <li>d</li>
+  <li>e</li>
+  </ul>
+</li>
+</ul>
+}
+
+    assert_equal expected, "\n" + format.tree(hash) + "\n"
+  end
 end

@@ -1,10 +1,12 @@
 require 'rack/utils'
 require 'redcloth'
+require 'gitgo/helpers/utils'
 
 module Gitgo
   module Helpers
     class Format
       include Rack::Utils
+      include Helpers::Utils
       
       attr_reader :controller
       
@@ -130,12 +132,10 @@ module Gitgo
       end
       
       def author(author)
-        author = Grit::Actor.from_string(author)
         "#{escape_html(author.name)} (<a href=\"#{url('timeline')}?#{build_query(:author => author.email)}\">#{escape_html author.email}</a>)"
       end
       
       def date(date)
-        date = Time.parse(date)
         "<abbr title=\"#{date.iso8601}\">#{date.strftime('%Y/%m/%d %H:%M %p')}</abbr>"
       end
       
@@ -158,6 +158,11 @@ module Gitgo
       
       def states(states)
         escape_html states.join(', ')
+      end
+      
+      def tree(hash, parent=nil, &block)
+        tree = flatten(hash)[parent]
+        render(collapse(tree), &block).join("\n")
       end
       
       #

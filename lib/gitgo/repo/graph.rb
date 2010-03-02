@@ -48,7 +48,7 @@ module Gitgo
           tree
         end
       end
-    
+      
       def reset
         @links = {}
         @updates = {}
