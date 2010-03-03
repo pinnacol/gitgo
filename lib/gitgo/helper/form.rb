@@ -1,7 +1,7 @@
 require 'rack/utils'
 
 module Gitgo
-  module Helpers
+  module Helper
     class Form
       include Rack::Utils
       

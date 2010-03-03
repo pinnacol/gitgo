@@ -196,7 +196,7 @@ namespace :test do
   end
   
   task :helpers => :bundle do
-    run_tests Dir.glob("test/gitgo/helpers/*_test.rb")
+    run_tests Dir.glob("test/gitgo/helper/*_test.rb")
   end
   
   desc 'Run data model tests'

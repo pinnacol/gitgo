@@ -1,8 +1,8 @@
 require File.dirname(__FILE__) + "/../../test_helper"
-require 'gitgo/helpers/format'
+require 'gitgo/helper/format'
 
 class FormatTest < Test::Unit::TestCase
-  Format = Gitgo::Helpers::Format
+  Format = Gitgo::Helper::Format
   
   class MockController
     def url(*path)

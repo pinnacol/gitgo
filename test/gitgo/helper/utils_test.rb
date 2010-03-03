@@ -1,8 +1,8 @@
 require File.dirname(__FILE__) + "/../../test_helper"
-require 'gitgo/helpers/utils'
+require 'gitgo/helper/utils'
 
-class HelpersUtilsTest < Test::Unit::TestCase
-  include Gitgo::Helpers::Utils
+class HelperUtilsTest < Test::Unit::TestCase
+  include Gitgo::Helper::Utils
   
   #
   # flatten test

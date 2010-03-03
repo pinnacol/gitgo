@@ -1,5 +1,5 @@
 module Gitgo
-  module Helpers
+  module Helper
     class Doc
       
       attr_reader :controller

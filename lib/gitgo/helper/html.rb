@@ -1,5 +1,5 @@
 module Gitgo
-  module Helpers
+  module Helper
     module Html
       module_function
       

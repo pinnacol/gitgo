@@ -1,12 +1,12 @@
 require 'rack/utils'
 require 'redcloth'
-require 'gitgo/helpers/utils'
+require 'gitgo/helper/utils'
 
 module Gitgo
-  module Helpers
+  module Helper
     class Format
       include Rack::Utils
-      include Helpers::Utils
+      include Helper::Utils
       
       attr_reader :controller
       

@@ -1,6 +1,6 @@
 require 'erb'
 require 'sinatra/base'
-require 'gitgo/helpers'
+require 'gitgo/helper'
 require 'gitgo/document'
 
 module Gitgo
@@ -73,15 +73,15 @@ module Gitgo
     end
     
     def format
-      @format ||= Helpers::Format.new(self)
+      @format ||= Helper::Format.new(self)
     end
     
     def form
-      @form ||= Helpers::Form.new(self)
+      @form ||= Helper::Form.new(self)
     end
     
     def html
-      Helpers::Html
+      Helper::Html
     end
   end
 end
