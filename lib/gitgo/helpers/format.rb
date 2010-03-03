@@ -162,7 +162,10 @@ module Gitgo
       
       def tree(hash, parent=nil, &block)
         tree = flatten(hash)[parent]
-        render(collapse(tree), &block).join("\n")
+        tree = collapse(tree)
+        tree.shift
+        
+        render(tree, &block).join
       end
       
       #

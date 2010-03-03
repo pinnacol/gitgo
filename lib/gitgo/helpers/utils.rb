@@ -3,29 +3,9 @@ module Gitgo
     module Utils
       module_function
       
-      def render(tree, lines=[], indent="", &block)
-        lines << "#{indent}<ul>"
-
-        tree.each do |branch|
-          case branch
-          when Array
-            lines << "#{indent}<li>"
-            render(branch, lines, indent + "  ", &block)
-            lines << "#{indent}</li>"
-          when nil
-          else
-            branch = yield(branch) if block
-            lines << "#{indent}<li>#{branch}</li>"
-          end
-        end
-
-        lines << "#{indent}</ul>"
-        lines
-      end
-
-      # Flattens an ancestry hash of (parent, [children]) pairs.  For example:
+      # Flattens a hash of (parent, [children]) pairs.  For example:
       #
-      #   ancestry = {
+      #   tree = {
       #     "a" => ["b"],
       #     "b" => ["c", "d"],
       #     "c" => [],
@@ -33,7 +13,7 @@ module Gitgo
       #     "e" => []
       #   }
       #
-      #   flatten(ancestry) 
+      #   flatten(tree) 
       #   # => {
       #   # "a" => ["a", ["b", ["c"], ["d", ["e"]]]],
       #   # "b" => ["b", ["c"], ["d", ["e"]]],
@@ -42,17 +22,16 @@ module Gitgo
       #   # "e" => ["e"]
       #   # }
       #
-      # Note that the flattened ancestry re-uses the array values, such that
-      # modifiying the "b" array will propagate to the "a" ancestry.
-      def flatten(ancestry)
-        ancestry.each_pair do |parent, children|
+      # Note that the flattened hash re-uses the array values, such that
+      # modifiying the "b" value will propagate to the "a" value.
+      def flatten(tree)
+        tree.each_pair do |parent, children|
           next unless children
 
-          children.collect! {|child| ancestry[child] }
-          children.compact!
+          children.collect! {|child| tree[child] }
           children.unshift(parent)
         end
-        ancestry
+        tree
       end
 
       # Collapses an nested array hierarchy such that nesting is only
@@ -74,6 +53,34 @@ module Gitgo
 
         result
       end
+      
+      def render(nodes, io=[], list_open='<ul>', list_close='</ul>', item_open='<li>', item_close='</li>', indent='', newline="\n", &block)
+        io << indent
+        io << list_open
+        io << newline
+
+        nodes.each do |node|
+          io << indent
+          io << item_open
+          
+          if node.kind_of?(Array)
+            io << newline
+            render(node, io, list_open, list_close, item_open, item_close, indent + '  ', newline, &block)
+            io << newline
+            io << indent
+          else
+            io << (block_given? ? yield(node) : node)
+          end
+          
+          io << item_close
+          io << newline
+        end
+
+        io << indent
+        io << list_close
+        io
+      end
+      
     end
   end
 end

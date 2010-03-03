@@ -93,4 +93,31 @@ class HelpersUtilsTest < Test::Unit::TestCase
     assert_equal ["a", "b", ["c", "d", "e"], ["d", "e"]], collapse(["a", ["b", ["c", ["d", ["e"]]], ["d", ["e"]]]])
     assert_equal ["a", ["b", "e"], ["c", "e"], ["d", "e"]], collapse(["a", ["b", ["e"]], ["c", ["e"]], ["d", ["e"]]])
   end
+  
+  #
+  # render test
+  #
+
+  def test_render_renders_flattened_collapsed_list_of_nodes
+    list = ["a", "b", ["c"], ["d", "e"]]
+    expected = %q{
+<ul>
+<li>a</li>
+<li>b</li>
+<li>
+  <ul>
+  <li>c</li>
+  </ul>
+</li>
+<li>
+  <ul>
+  <li>d</li>
+  <li>e</li>
+  </ul>
+</li>
+</ul>
+}
+
+    assert_equal expected, "\n" + render(list).join + "\n"
+  end
 end
