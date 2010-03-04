@@ -1,5 +1,5 @@
 require File.dirname(__FILE__) + "/../test_helper"
-require 'gitgo/repo'
+require 'gitgo/git'
 
 # These model tests are intended to test the various add/remove scenarios and
 # to ensure that pull will cleanly rebase changes together.
@@ -38,7 +38,7 @@ require 'gitgo/repo'
 #
 class ModelTest < Test::Unit::TestCase
   include RepoTestHelper
-  Repo = Gitgo::Repo
+  Git = Gitgo::Git
   
   attr_accessor :a_path, :b_path, :a, :b
   
@@ -47,7 +47,7 @@ class ModelTest < Test::Unit::TestCase
     @a_path = method_root.path(:tmp, 'a')
     @b_path = method_root.path(:tmp, 'b')
     
-    @a = Repo.init(a_path)
+    @a = Git.init(a_path)
     a.add("one" => "one content").commit("a added one")
     
     @b = a.clone(b_path)

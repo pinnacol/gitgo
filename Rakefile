@@ -200,9 +200,9 @@ namespace :test do
   end
   
   desc 'Run data model tests'
-  task :data_model => :bundle do
+  task :model => :bundle do
     pattern = ENV['PATTERN'] || "**/*_test.rb"
-    run_tests Dir.glob("test/data_model/#{pattern}")
+    run_tests Dir.glob("test/model/#{pattern}")
   end
   
   desc 'Run benchmark tests'
