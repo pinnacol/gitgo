@@ -122,6 +122,23 @@ module Gitgo
       # documents
       #
       
+      def tree(hash, io=[], &block)
+        dup = {}
+        hash.each_pair do |key, value|
+          dup[key] = value.dup
+        end  
+        
+        tree!(dup, io, &block)
+      end
+      
+      def tree!(hash, io=[], &block)
+        nodes = flatten(hash)[nil]
+        nodes = collapse(nodes)
+        nodes.shift
+        
+        render(nodes, io, &block)
+      end
+      
       # a document title
       def title(title)
         escape_html(title)
@@ -158,14 +175,6 @@ module Gitgo
       
       def states(states)
         escape_html states.join(', ')
-      end
-      
-      def tree(hash, parent=nil, &block)
-        tree = flatten(hash)[parent]
-        tree = collapse(tree)
-        tree.shift
-        
-        render(tree, &block).join
       end
       
       #
