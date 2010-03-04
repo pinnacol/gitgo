@@ -237,13 +237,8 @@ module Gitgo
       end
     end
     
-    # Sets the remote that the current branch tracks, as in the branch
-    # specified when setting up tracking with:
-    #
-    #   % git branch --track name remote
-    #
-    def remote=(input)
-      case input
+    def track(upstream_branch)
+      case upstream_branch
       when nil
         grit.git.config({:unset => true}, "branch.#{branch}.remote")
         grit.git.config({:unset => true}, "branch.#{branch}.merge")
@@ -260,7 +255,7 @@ module Gitgo
     #
     #   % git branch --track name remote
     #
-    def remote
+    def upstream_branch
       remote = grit.config["branch.#{branch}.remote"]
       merge  = grit.config["branch.#{branch}.merge"]
       
@@ -276,6 +271,10 @@ module Gitgo
       end
       
       "#{remote}/#{$1}"
+    end
+    
+    def remote
+      grit.config["branch.#{branch}.remote"] || 'origin'
     end
     
     # Returns a full sha for the identifier, as determined by rev_parse. All
@@ -534,13 +533,13 @@ module Gitgo
     end
     
     # Fetches from the remote.
-    def fetch(remote="origin")
+    def fetch(remote=self.remote)
       sandbox {|git,w,i| git.fetch({}, remote) }
       self
     end
     
     # Returns true if a merge update is available for branch.
-    def merge?(treeish=remote)
+    def merge?(treeish=upstream_branch)
       sandbox do |git, work_tree, index_file|
         local, remote = rev_parse(branch, treeish)
         
@@ -555,7 +554,7 @@ module Gitgo
     # Merges the specified reference with the current branch, fast-forwarding
     # when possible.  This method does not need to checkout the branch into a
     # working directory to perform the merge.
-    def merge(treeish=remote)
+    def merge(treeish=upstream_branch)
       sandbox do |git, work_tree, index_file|
         local, remote = rev_parse(branch, treeish)
         base = local.nil? ? nil : git.merge_base({}, local, remote).chomp("\n")
@@ -590,17 +589,17 @@ module Gitgo
     end
     
     # Push changes to the remote.
-    def push(remote="origin")
+    def push(remote=self.remote)
       sandbox do |git, work_tree, index_file|
         git.push({}, remote, branch)
       end
     end
     
     # Pulls from the remote into the work tree.
-    def pull(remote="origin")
+    def pull(remote=self.remote, treeish=upstream_branch)
       sandbox do |git, work_tree, index_file|
         fetch(remote)
-        merge
+        merge(treeish)
       end
       reset
     end

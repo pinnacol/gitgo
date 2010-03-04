@@ -123,55 +123,67 @@ class GitTest < Test::Unit::TestCase
   end
   
   #
-  # remote= test
+  # track test
   #
   
-  def test_set_remote_sets_the_tracking_branch
+  def test_track_sets_the_upstream_branch
     setup_repo('simple.git')
     
     assert_equal nil, git.grit.config['branch.master.remote']
     assert_equal nil, git.grit.config['branch.master.merge']
-    assert_equal nil, git.remote
+    assert_equal nil, git.upstream_branch
     
     config = File.read(git.path('config'))
     assert config !~ /branch "master"/
     
-    git.remote = 'origin/xyz'
+    git.track 'origin/xyz'
     
     assert_equal 'origin', git.grit.config['branch.master.remote']
     assert_equal 'refs/heads/xyz', git.grit.config['branch.master.merge']
-    assert_equal 'origin/xyz', git.remote
+    assert_equal 'origin/xyz', git.upstream_branch
     
     config = File.read(git.path('config'))
     assert_match(/branch "master"/, config)
     assert_match(/merge = refs\/heads\/xyz/, config)
   end
   
-  def test_set_remote_to_nil_removes_tracking_configs
+  def test_track_with_nil_upstream_branch_removes_tracking_configs
     setup_repo('simple.git')
     
     git.grit.config['branch.master.remote'] = 'origin'
     git.grit.config['branch.master.merge'] = 'refs/heads/xyz'
     
-    git.remote = nil
+    git.track nil
     
     assert_equal nil, git.grit.config['branch.master.remote']
     assert_equal nil, git.grit.config['branch.master.merge']
   end
   
   #
-  # remote test
+  # upstream_branch test
   #
   
-  def test_remote_returns_the_tracking_branch
+  def test_upstream_branch_returns_the_upstream_branch_as_specified_by_tracking_configs
     setup_repo('simple.git')
     
-    assert_equal nil, git.remote
+    assert_equal nil, git.upstream_branch
     
     git.grit.config['branch.master.remote'] = 'origin'
     git.grit.config['branch.master.merge'] = 'refs/heads/abc'
     
-    assert_equal "origin/abc", git.remote
+    assert_equal "origin/abc", git.upstream_branch
+  end
+  
+  #
+  # remote test
+  #
+  
+  def test_remote_returns_origin_or_configured_remote
+    setup_repo('simple.git')
+    assert_equal 'origin', git.remote
+    
+    git.grit.config['branch.master.remote'] = 'alt'
+    assert_equal 'alt', git.remote
   end
   
   #
