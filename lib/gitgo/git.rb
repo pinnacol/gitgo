@@ -298,22 +298,6 @@ module Gitgo
       grit.git.cat_file({:t => true}, sha)
     end
     
-    # Returns the sha for the specified reference by reading the
-    # "refs/type/name" file, or nil if the reference file does not exist. The
-    # standard reference types are 'heads', 'remotes', and 'tags'.
-    #
-    #--
-    # TODO -- remove, update merge?
-    def ref(type, name)
-      ref_path = path("refs/#{type}/#{name}")
-      
-      if File.exists?(ref_path)
-        File.open(ref_path) {|io| io.read(40) }
-      else
-        nil
-      end
-    end
-    
     # Gets the specified object, returning an instance of the appropriate Grit
     # class.  Raises an error for unknown types.
     def get(type, id)
@@ -558,11 +542,13 @@ module Gitgo
     # Returns true if a merge update is available for branch.
     def merge?(treeish=remote)
       sandbox do |git, work_tree, index_file|
-        remote = ref(:remotes, treeish)
-        return false if remote.nil? 
+        local, remote = rev_parse(branch, treeish)
         
-        local = ref(:heads, branch)
-        local.nil? || (local != remote && git.merge_base({}, local, remote) != remote)
+        case
+        when remote.nil? then false
+        when local.nil?  then true
+        else local != remote && git.merge_base({}, local, remote).chomp("\n") != remote
+        end
       end
     end
     
