@@ -123,33 +123,55 @@ class GitTest < Test::Unit::TestCase
   end
   
   #
-  # remote test
+  # remote= test
   #
   
-  def test_remote_returns_the_tracking_branch
-    setup_repo("simple.git")
+  def test_set_remote_sets_the_tracking_branch
+    setup_repo('simple.git')
     
     assert_equal nil, git.grit.config['branch.master.remote']
     assert_equal nil, git.grit.config['branch.master.merge']
     assert_equal nil, git.remote
     
-    clone = git.clone(method_root.path(:tmp, 'a'))
+    config = File.read(git.path('config'))
+    assert config !~ /branch "master"/
     
-    assert_equal "origin", clone.grit.config['branch.master.remote']
-    assert_equal "refs/heads/master", clone.grit.config['branch.master.merge']
-    assert_equal "origin/master", clone.remote
+    git.remote = 'origin/xyz'
     
-    clone.sandbox do |git, work_tree, index_file|
-      git.branch({:track => true}, "abc", "origin/xyz")
-    end
+    assert_equal 'origin', git.grit.config['branch.master.remote']
+    assert_equal 'refs/heads/xyz', git.grit.config['branch.master.merge']
+    assert_equal 'origin/xyz', git.remote
     
-    # reset grit to capture the new configs
-    clone.reset(:full => true)
-    clone.checkout("abc")
+    config = File.read(git.path('config'))
+    assert_match(/branch "master"/, config)
+    assert_match(/merge = refs\/heads\/xyz/, config)
+  end
+  
+  def test_set_remote_to_nil_removes_tracking_configs
+    setup_repo('simple.git')
     
-    assert_equal "origin", clone.grit.config['branch.abc.remote']
-    assert_equal "refs/heads/xyz", clone.grit.config['branch.abc.merge']
-    assert_equal "origin/xyz", clone.remote
+    git.grit.config['branch.master.remote'] = 'origin'
+    git.grit.config['branch.master.merge'] = 'refs/heads/xyz'
+    
+    git.remote = nil
+    
+    assert_equal nil, git.grit.config['branch.master.remote']
+    assert_equal nil, git.grit.config['branch.master.merge']
+  end
+  
+  #
+  # remote test
+  #
+  
+  def test_remote_returns_the_tracking_branch
+    setup_repo('simple.git')
+    
+    assert_equal nil, git.remote
+    
+    git.grit.config['branch.master.remote'] = 'origin'
+    git.grit.config['branch.master.merge'] = 'refs/heads/abc'
+    
+    assert_equal "origin/abc", git.remote
   end
   
   #

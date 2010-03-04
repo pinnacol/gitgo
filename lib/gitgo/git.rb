@@ -177,7 +177,7 @@ module Gitgo
     # The in-memory working tree tracking any adds and removes
     attr_reader :tree
     
-    # Returns the sha for the branch head
+    # Returns the sha for the branch
     attr_reader :head
     
     attr_reader :work_dir
@@ -237,7 +237,29 @@ module Gitgo
       end
     end
     
-    # Returns the remote that the current branch tracks.
+    # Sets the remote that the current branch tracks, as in the branch
+    # specified when setting up tracking with:
+    #
+    #   % git branch --track name remote
+    #
+    def remote=(input)
+      case input
+      when nil
+        grit.git.config({:unset => true}, "branch.#{branch}.remote")
+        grit.git.config({:unset => true}, "branch.#{branch}.merge")
+      when /\A(.*?)\/(.*)\z/
+        grit.config["branch.#{branch}.remote"] = $1
+        grit.config["branch.#{branch}.merge"] = "refs/heads/#{$2}"
+      else
+        raise "cannot parse remote: #{input}"
+      end
+    end
+    
+    # Returns the remote that the current branch tracks, as in the branch
+    # specified when setting up tracking with:
+    #
+    #   % git branch --track name remote
+    #
     def remote
       remote = grit.config["branch.#{branch}.remote"]
       merge  = grit.config["branch.#{branch}.merge"]
@@ -247,7 +269,12 @@ module Gitgo
         return nil 
       end
       
-      merge =~ /^refs\/heads\/(.*)$/
+      unless merge && merge =~ /^refs\/heads\/(.*)$/
+        # it may be technically valid to point to a refs/remote or refs/tag
+        # but I don't know so that edge case is not currently supported
+        raise "branch.#{branch}.merge does not start with refs/heads: #{merge.inspect}"
+      end
+      
       "#{remote}/#{$1}"
     end
     
