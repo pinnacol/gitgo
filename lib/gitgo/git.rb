@@ -25,7 +25,7 @@ module Gitgo
   #
   #   git.rm("remove_this_file")
   #   git.commit("removed extra file")
-  #                                
+  #                                    
   # Now access the content:
   #
   #   git["/"]                          # => ["README", "lib"]
@@ -106,6 +106,33 @@ module Gitgo
   #   #   "lib/project/utils.rb" => :add
   #   # }
   #
+  # == Tracking, Push/Pull
+  #
+  # Git provides limited support for setting a tracking branch and doing
+  # push/pull from tracking branches without checking the gitgo branch out.
+  # More complicated operations can are left to the command line, where the
+  # current branch can be directly manipulated by the git program.
+  #
+  # Unlike git (the program), Git (the class) requires the upstream branch
+  # setup by 'git branch --track' to be an existing tracking branch.  If this
+  # assumption is met, then:
+  #
+  # * the upstream branch is 'remote/branch'
+  # * the tracking branch is 'remotes/remote/branch'
+  # * the 'branch.name.remote' config is 'remote'
+  # * the 'branch.name.merge' config is 'refs/heads/branch'
+  #                     
+  # If ever these assumptions are broken, for instance if the gitgo branch is
+  # manually set up to track another local branch, methods like pull/push
+  # could cause odd failures.  To help check:
+  #      
+  # * track will raise an error if the upstream branch is not a tracking
+  #   branch
+  # * upstream_branch raises an error if the 'branch.name.merge' config
+  # doesn't follow the 'ref/heads/branch' pattern
+  # * pull/push raise an error given a non-tracking branch
+  #
+  # Under normal circumstances, all these assumptions will be met.
   class Git
     class << self
       # Creates a Git instance for path, initializing the repo if necessary.
@@ -150,8 +177,8 @@ module Gitgo
     # The default branch
     DEFAULT_BRANCH = 'gitgo'
     
-    # The default remote branch for push/pull
-    DEFAULT_REMOTE_BRANCH = 'origin/gitgo'
+    # The default upstream branch for push/pull
+    DEFAULT_UPSTREAM_BRANCH = 'origin/gitgo'
     
     # The default directory for gitgo-related files
     DEFAULT_WORK_DIR = 'gitgo'
@@ -173,13 +200,14 @@ module Gitgo
 
     # The gitgo branch
     attr_reader :branch
-
+    
     # The in-memory working tree tracking any adds and removes
     attr_reader :tree
     
     # Returns the sha for the branch
     attr_reader :head
     
+    # The path to the instance working directory
     attr_reader :work_dir
     
     # The path to the temporary working tree
@@ -235,46 +263,6 @@ module Gitgo
       when String then Grit::Actor.from_string(*input)
       else raise "could not convert to Grit::Actor: #{input.class}"
       end
-    end
-    
-    def track(upstream_branch)
-      case upstream_branch
-      when nil
-        grit.git.config({:unset => true}, "branch.#{branch}.remote")
-        grit.git.config({:unset => true}, "branch.#{branch}.merge")
-      when /\A(.*?)\/(.*)\z/
-        grit.config["branch.#{branch}.remote"] = $1
-        grit.config["branch.#{branch}.merge"] = "refs/heads/#{$2}"
-      else
-        raise "cannot parse remote: #{upstream_branch}"
-      end
-    end
-    
-    # Returns the remote that the current branch tracks, as in the branch
-    # specified when setting up tracking with:
-    #
-    #   % git branch --track name remote
-    #
-    def upstream_branch
-      remote = grit.config["branch.#{branch}.remote"]
-      merge  = grit.config["branch.#{branch}.merge"]
-      
-      # No configs, no tracking.
-      if remote.nil? && merge.nil?
-        return nil 
-      end
-      
-      unless merge && merge =~ /^refs\/heads\/(.*)$/
-        # it may be technically valid to point to a refs/remote or refs/tag
-        # but I don't know so that edge case is not currently supported
-        raise "branch.#{branch}.merge does not start with refs/heads: #{merge.inspect}"
-      end
-      
-      "#{remote}/#{$1}"
-    end
-    
-    def remote
-      grit.config["branch.#{branch}.remote"] || 'origin'
     end
     
     # Returns a full sha for the identifier, as determined by rev_parse. All
@@ -364,6 +352,47 @@ module Gitgo
       tree[basename] = convert_to_entry(content)
     end
     
+    # Sets branch to track the specified upstream_branch.  The upstream_branch
+    # must be an existing tracking branch; an error is raised if this
+    # requriement is not met (see the Tracking, Push/Pull notes above).
+    def track(upstream_branch)
+      if upstream_branch.nil?
+        # current grit.config does not support unsetting
+        grit.git.config({:unset => true}, "branch.#{branch}.remote")
+        grit.git.config({:unset => true}, "branch.#{branch}.merge")
+      else
+        unless tracking_branch?(upstream_branch)
+          raise "the upstream branch is not a tracking branch: #{upstream_branch}"
+        end
+        
+        remote, remote_branch = upstream_branch.split('/', 2)
+        grit.config["branch.#{branch}.remote"] = remote
+        grit.config["branch.#{branch}.merge"] = "refs/heads/#{remote_branch}"
+      end
+    end
+    
+    # Raises an error if the 'branch.name.merge' config doesn't follow the
+    # pattern 'ref/heads/branch' (see the Tracking, Push/Pull notes above).
+    def upstream_branch
+      remote = grit.config["branch.#{branch}.remote"]
+      merge  = grit.config["branch.#{branch}.merge"]
+      
+      # No remote, no merge, no tracking.
+      if remote.nil? || merge.nil?
+        return nil
+      end
+      
+      unless merge =~ /^refs\/heads\/(.*)$/
+        raise "invalid upstream branch"
+      end
+      
+      "#{remote}/#{$1}"
+    end
+    
+    def remote
+      grit.config["branch.#{branch}.remote"] || 'origin'
+    end
+    
     # Returns the git version as an array of integers like [1,6,4,2]. The
     # version array is intended to be compared with other versions in this
     # way:
@@ -395,7 +424,7 @@ module Gitgo
       paths.each_pair do |path, content|
         self[path] = content
       end
-
+      
       self
     end
     
@@ -541,12 +570,12 @@ module Gitgo
     # Returns true if a merge update is available for branch.
     def merge?(treeish=upstream_branch)
       sandbox do |git, work_tree, index_file|
-        local, remote = safe_rev_parse(branch, treeish)
+        des, src = safe_rev_parse(branch, treeish)
         
         case
-        when remote.nil? then false
-        when local.nil?  then true
-        else local != remote && git.merge_base({}, local, remote).chomp("\n") != remote
+        when src.nil? then false
+        when des.nil? then true
+        else des != src && git.merge_base({}, des, src).chomp("\n") != src
         end
       end
     end
@@ -556,15 +585,15 @@ module Gitgo
     # working directory to perform the merge.
     def merge(treeish=upstream_branch)
       sandbox do |git, work_tree, index_file|
-        local, remote = safe_rev_parse(branch, treeish)
-        base = local.nil? ? nil : git.merge_base({}, local, remote).chomp("\n")
+        des, src = safe_rev_parse(branch, treeish)
+        base = des.nil? ? nil : git.merge_base({}, des, src).chomp("\n")
         
         case
-        when base == remote
+        when base == src
           break
-        when base == local
+        when base == des
           # fast forward situation
-          grit.update_ref(branch, remote)
+          grit.update_ref(branch, src)
         else
           # todo: add rebase as an option
           
@@ -574,11 +603,11 @@ module Gitgo
             :trivial => true,    # only merge if no file-level merges are required
             :aggressive => true, # allow resolution of removes
             :index_output => index_file
-          }, base, branch, remote)
+          }, base, branch, src)
           
           commit!("gitgo merge of #{treeish} into #{branch}", 
             :tree => git.write_tree.chomp("\n"),
-            :parents => [local, remote]
+            :parents => [des, src]
           )
         end
         
@@ -588,18 +617,24 @@ module Gitgo
       self
     end
     
-    # Push changes to the remote.
-    def push(remote=self.remote)
+    # Pushes the tracking branch to it's remote.  No other branches are
+    # pushed.  Raises an error if given a non-tracking branch (see the
+    # Tracking, Push/Pull notes above).
+    def push(tracking_branch=upstream_branch)
       sandbox do |git, work_tree, index_file|
-        git.push({}, remote, branch)
+        remote, remote_branch = parse_tracking_branch(tracking_branch)
+        git.push({}, remote, "#{branch}:#{remote_branch}")
       end
     end
     
-    # Pulls from the remote into the work tree.
-    def pull(remote=self.remote, treeish=upstream_branch)
+    # Fetches the tracking branch from it's remote and merges with branch. No
+    # other branches are fetched. Raises an error if given a non-tracking
+    # branch (see the Tracking, Push/Pull notes above).
+    def pull(tracking_branch=upstream_branch)
       sandbox do |git, work_tree, index_file|
-        fetch(remote)
-        merge(treeish)
+        remote, remote_branch = parse_tracking_branch(tracking_branch)
+        git.fetch({}, remote, "#{remote_branch}:#{tracking_branch}")
+        merge(tracking_branch)
       end
       reset
     end
@@ -814,6 +849,18 @@ module Gitgo
     end
     
     protected
+    
+    def tracking_branch?(ref) # :nodoc:
+      ref && grit.remotes.find {|remote| remote.name == ref }
+    end
+
+    def parse_tracking_branch(ref) # :nodoc:
+      unless tracking_branch?(ref)
+        raise "not a tracking branch: #{ref.inspect}"
+      end
+
+      ref.split('/', 2)
+    end
     
     def convert_to_entry(content) # :nodoc:
       case content

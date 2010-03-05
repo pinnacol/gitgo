@@ -128,23 +128,18 @@ class GitTest < Test::Unit::TestCase
   
   def test_track_sets_the_upstream_branch
     setup_repo('simple.git')
+    clone = git.clone(method_root.path('clone'))
     
-    assert_equal nil, git.grit.config['branch.master.remote']
-    assert_equal nil, git.grit.config['branch.master.merge']
-    assert_equal nil, git.upstream_branch
+    assert_equal 'master', clone.branch
+    assert_equal 'origin', clone.grit.config['branch.master.remote']
+    assert_equal 'refs/heads/master', clone.grit.config['branch.master.merge']
+    assert_equal 'origin/master', clone.upstream_branch
     
-    config = File.read(git.path('config'))
-    assert config !~ /branch "master"/
+    clone.track 'origin/xyz'
     
-    git.track 'origin/xyz'
-    
-    assert_equal 'origin', git.grit.config['branch.master.remote']
-    assert_equal 'refs/heads/xyz', git.grit.config['branch.master.merge']
-    assert_equal 'origin/xyz', git.upstream_branch
-    
-    config = File.read(git.path('config'))
-    assert_match(/branch "master"/, config)
-    assert_match(/merge = refs\/heads\/xyz/, config)
+    assert_equal 'origin', clone.grit.config['branch.master.remote']
+    assert_equal 'refs/heads/xyz', clone.grit.config['branch.master.merge']
+    assert_equal 'origin/xyz', clone.upstream_branch
   end
   
   def test_track_with_nil_upstream_branch_removes_tracking_configs
@@ -599,6 +594,38 @@ class GitTest < Test::Unit::TestCase
   end
   
   #
+  # push tests
+  #
+  
+  def test_push_only_pushes_the_specified_branch
+    a = Git.init(method_root.path(:tmp, "a"))
+    
+    a.checkout('master')
+    initial_master_head = a.add("a" => "a content").commit("added a file")
+    
+    a.checkout('alt')
+    initial_alt_head = a.add("b" => "b content").commit("added a file")
+    
+    a.checkout('master')
+    b = a.clone(method_root.path(:tmp, "b"))
+    
+    b.checkout('master')
+    current_master_head = b.add("c" => "c content").commit("added a file")
+    
+    b.checkout('alt')
+    current_alt_head = b.add("d" => "d content").commit("added a file")
+    
+    b.checkout('master')
+    b.push('origin/master')
+    assert_equal [current_master_head, initial_alt_head], a.rev_parse('master', 'alt')
+  end
+  
+  def test_push_raises_an_error_if_given_a_non_tracking_branch
+    err = assert_raises(RuntimeError) { git.push('master') } 
+    assert_equal 'not a tracking branch: "master"', err.message
+  end
+  
+  #
   # pull tests
   #
   
@@ -634,6 +661,33 @@ class GitTest < Test::Unit::TestCase
     previous = b.head
     b.pull
     assert previous != b.head
+  end
+  
+  def test_pull_only_pulls_the_specified_branch
+    a = Git.init(method_root.path(:tmp, "a"))
+    
+    a.checkout('master')
+    initial_master_head = a.add("a" => "a content").commit("added a file")
+    
+    a.checkout('alt')
+    initial_alt_head = a.add("b" => "b content").commit("added a file")
+    
+    a.checkout('master')
+    b = a.clone(method_root.path(:tmp, "b"))
+    
+    a.checkout('master')
+    current_master_head = a.add("c" => "c content").commit("added a file")
+    
+    a.checkout('alt')
+    current_alt_head = a.add("d" => "d content").commit("added a file")
+    
+    b.pull('origin/master')
+    assert_equal [current_master_head, initial_alt_head], b.rev_parse('origin/master', 'origin/alt')
+  end
+  
+  def test_pull_raises_an_error_if_given_a_non_tracking_branch
+    err = assert_raises(RuntimeError) { git.pull('master') } 
+    assert_equal 'not a tracking branch: "master"', err.message
   end
   
   #
