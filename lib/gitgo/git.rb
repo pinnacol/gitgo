@@ -246,7 +246,7 @@ module Gitgo
         grit.config["branch.#{branch}.remote"] = $1
         grit.config["branch.#{branch}.merge"] = "refs/heads/#{$2}"
       else
-        raise "cannot parse remote: #{input}"
+        raise "cannot parse remote: #{upstream_branch}"
       end
     end
     
@@ -541,7 +541,7 @@ module Gitgo
     # Returns true if a merge update is available for branch.
     def merge?(treeish=upstream_branch)
       sandbox do |git, work_tree, index_file|
-        local, remote = rev_parse(branch, treeish)
+        local, remote = safe_rev_parse(branch, treeish)
         
         case
         when remote.nil? then false
@@ -556,7 +556,7 @@ module Gitgo
     # working directory to perform the merge.
     def merge(treeish=upstream_branch)
       sandbox do |git, work_tree, index_file|
-        local, remote = rev_parse(branch, treeish)
+        local, remote = safe_rev_parse(branch, treeish)
         base = local.nil? ? nil : git.merge_base({}, local, remote).chomp("\n")
         
         case
@@ -643,13 +643,19 @@ module Gitgo
         # wonky check relies on the fact that git rev-parse will print the
         # unresolved ref to stdout and quit if it can't succeed. That means
         # the last printout will not look like a sha in the event of an error.
-        
         unless shas.last.to_s =~ SHA
-          raise "could not resolve to a sha: #{args.last}"
+          raise "could not resolve to a sha: #{shas.last}"
         end
         
         shas
       end
+    end
+    
+    # Same as rev_parse but always returns an array.  Arguments that cannot be
+    # converted to a valid sha will be represented by nil.  This method is
+    # slower than rev_parse because it converts arguments one by one
+    def safe_rev_parse(*args)
+      args.collect! {|arg| rev_parse(arg).at(0) rescue nil }
     end
     
     # Returns an array of revisions (commits) reachable from the treeish.
