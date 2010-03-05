@@ -10,7 +10,7 @@
 </ul>
 <% if timeline.nil? %>
 <h2>Welcome to Gitgo!</h2>
-<p>New activity will be listed here after you visit the <a href='<%= url('repo') %>'>repo</a> page and setup a <%= format.branch repo.branch %> branch.</p><% elsif timeline.empty? %>
+<p>New activity will be listed here after you visit the <a href='<%= url('repo') %>'>repo</a> page and setup a <%= format.branch repo.git.branch %> branch.</p><% elsif timeline.empty? %>
 <p>No results to show...</p><% else %>
 <ul class="timeline"><% format.each_activity(timeline) do |type, link, author, date| %>
 <li>

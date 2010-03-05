@@ -51,6 +51,10 @@ module Gitgo
       @git ||= repo.git
     end
     
+    def idx
+      @idx ||= repo.idx
+    end
+    
     def grit
       @grit ||= git.grit
     end

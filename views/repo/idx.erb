@@ -15,7 +15,7 @@
 <li><%= format.sha_a(sha) %></li><% end %>
 </ul><% end %>
 
-<form action="<%= url('repo', 'reindex') %>" method="post">
+<form action="<%= form.url('repo', 'reindex') %>" method="post">
   <input type="hidden" name="key" value="<%= form.value current_key %>">
   <input type="hidden" name="value" value="<%= form.value current_value %>">
   <input type="submit" value="Reindex" />

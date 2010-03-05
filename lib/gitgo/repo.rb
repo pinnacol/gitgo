@@ -372,11 +372,15 @@ module Gitgo
     end
     
     def commit(msg=status)
-      git.commit(msg)
+      sha = git.commit(msg)
+      idx.write(sha)
+      sha
     end
 
     def commit!(msg=status)
-      git.commit!(msg)
+      sha = git.commit!(msg)
+      idx.write(sha)
+      sha
     end
 
     protected

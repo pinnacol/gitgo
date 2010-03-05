@@ -4,32 +4,16 @@
 <dt>Path</dt>
 <dd><%= format.path path %></dd>
 <dt>Branch</dt>
-<dd><%= format.branch branch %></dd><% if session %>
-<dt>Active Branch</dt>
-<dd>
-  <form action="<%= url('repo', 'session') %>" method="post">
-    <select id="ref" name="ref"><% form.each_ref_name(active_commit) do |value, selection, content| %>
-    <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-    </select>
-    <input type="submit" value="Change" />
-  </form>
-</dd><% end %>
+<dd><%= format.branch branch %></dd>
 <dt>Commit</dt>
 <dd><% if commit.nil? %>
-  <em>Select a tracking branch and click setup to create the '<%= format.branch repo.branch %>' branch.</em>
+  <em>Select a tracking branch and click setup to create the '<%= format.branch branch %>' branch.</em>
   
-  <form action="<%= url('repo', 'setup') %>" method="post">
-    <dl>
-    <dt><label for="remote">Track</label></dt>
-    <dd>
-      <select id="remote" name="remote">
-      <option value="">None</option><% form.each_remote_name(track) do |value, selection, content| %>
-      <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-      </select>
-    </dd>
-    <dt><input type="submit" value="Setup" /></dt>
-    <dd></dd>
-    </dl>
+  <form action="<%= form.url('repo', 'setup') %>" method="post">
+    <select id="remote" name="remote"><% form.each_remote_name(remote) do |value, selection, content| %>
+    <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
+    </select>
+    <input type="submit" value="Setup" />
   </form>
 <% else %><%= erb :_commit, :locals => {:commit => commit}, :views => path('views/code'), :layout => false %><% end %></dd>
 <dt>Update</dt>
@@ -37,11 +21,11 @@
   <p>
     Synchronize with a remote (pull and push), or simply pull updates.
   </p>
-  <form action="<%= url('repo', 'update') %>" method="post">
+  <form action="<%= form.url('repo', 'update') %>" method="post">
     <dl>
     <dt><label for="remote">Remote</label></dt>
     <dd>
-      <select id="remote" name="remote"><% form.each_remote_name(track) do |value, selection, content| %>
+      <select id="remote" name="remote"><% form.each_remote_name(remote) do |value, selection, content| %>
       <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
       </select>
     </dd>
@@ -59,19 +43,29 @@
 <dd>
   <p>
     Reinitialize the internal bindings gitgo uses to access the git repository.
-    Uncommitted updates in gitgo (see <a href="<%= url('repo', 'status') %>">status</a>)
+    Uncommitted updates in gitgo (see <a href="<%= form.url('repo', 'status') %>">status</a>)
     will be lost.
   </p>
-  <form action="<%= url('repo', 'reset') %>" method="post">
+  <form action="<%= form.url('repo', 'reset') %>" method="post">
     <input type="checkbox" name="full" value="true">Reindex</input>
     <input type="submit" value="Reset" />
   </form>
-</dd>
+</dd><% if session %>
+<dt>User Branch</dt>
+<dd>
+  <p>The user branch is determines which gitgo documents are active.  User branch defaults to the one checked out in the working directory.</p>
+  <form action="<%= form.url('repo', 'session') %>" method="post">
+    <select id="ref" name="ref"><% form.each_ref_name(at) do |value, selection, content| %>
+    <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
+    </select>
+    <input type="submit" value="Change" />
+  </form>
+</dd><% end %>
 </dl>
 
 <ul>
-<li><a href="<%= url('/repo/status') %>">Status</a></li>
-<li><a href="<%= url('/repo/idx') %>">Index</a></li>
-<li><a href="<%= url('/repo/maintenance') %>">Maintenance</a></li>
-<li><a href="<%= url('/repo/reference') %>">Reference</a></li>
+<li><a href="<%= format.url('/repo/status') %>">Status</a></li>
+<li><a href="<%= format.url('/repo/idx') %>">Index</a></li>
+<li><a href="<%= format.url('/repo/maintenance') %>">Maintenance</a></li>
+<li><a href="<%= format.url('/repo/reference') %>">Reference</a></li>
 </ul>

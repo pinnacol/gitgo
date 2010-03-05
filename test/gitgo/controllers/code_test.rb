@@ -5,8 +5,9 @@ class CodeTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   
-  InvalidDocumentError = Gitgo::Document::InvalidDocumentError
+  # added files x, y, and z
   SHA = 'ee9a1ca4441ab2bf937808b26eab784f3d041643'
+  InvalidDocumentError = Gitgo::Document::InvalidDocumentError
   
   attr_accessor :repo, :index, :app
   

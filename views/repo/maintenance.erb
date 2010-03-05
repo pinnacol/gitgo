@@ -13,11 +13,11 @@
 <li><%= format.text issue %></li><% end %>
 </ul>
 
-<form action="<%= url('repo', 'prune') %>" method="post">
+<form action="<%= form.url('repo', 'prune') %>" method="post">
 <input type="submit" value="Prune" /></dt>
 </form>
 
-<form action="<%= url('repo', 'gc') %>" method="post">
+<form action="<%= form.url('repo', 'gc') %>" method="post">
 <input type="submit" value="GC" /></dt>
 </form>
 

@@ -10,8 +10,38 @@ class RepoControllerTest < Test::Unit::TestCase
   
   def setup
     super
-    @repo = Gitgo::Repo.new(setup_repo("simple.git"))
+    @repo = Gitgo::Repo.init setup_repo("simple.git")
     @app = Gitgo::Controllers::Repo.new(nil, repo)
+  end
+  
+  def git
+    repo.git
+  end
+  
+  #
+  # index test
+  #
+  
+  def test_index_shows_setup_form_for_repos_without_a_gitgo_branch
+    get("/repo")
+    assert last_response.ok?
+    assert last_response.body.include?('action="/repo/setup"')
+    
+    repo.store({})
+    repo.commit!
+    
+    get("/repo")
+    assert last_response.ok?
+    assert !last_response.body.include?('action="/repo/setup"')
+  end
+  
+  def test_index_shows_current_commit
+    sha = repo.store({})
+    repo.commit!
+    
+    get("/repo")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
   end
   
   #
@@ -19,25 +49,20 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_status_shows_current_state
-    repo.checkout('master')
+    git.checkout('master')
     
     get("/repo/status")
     assert last_response.ok?
     assert last_response.body.include?('No changes')
     
-    content = {"alpha.txt" => "alpha content", "one/two.txt" => nil}
-    repo.add(content, true)
-    
-    assert_equal({"alpha.txt"=>:add, "one/two.txt"=>:rm}, repo.status)
+    git["newfile.txt"] = "new content"
+    git["one/two.txt"] = nil
     
     get("/repo/status")
     assert last_response.ok?
     
-    alpha_sha = content['alpha.txt'][1]
-    assert last_response.body =~ /class="add".*#{alpha_sha}.*alpha\.txt/
-    
-    one_two_sha = content['one/two.txt'][1]
-    assert last_response.body =~ /class="rm".*#{one_two_sha}.*one\/two\.txt/
+    assert_match(/class="add".*newfile\.txt/, last_response.body)
+    assert_match(/class="rm".*one\/two\.txt/, last_response.body)
   end
   
   #
@@ -45,40 +70,41 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_setup_sets_up_a_new_gitgo_branch
-    assert_equal 'gitgo', repo.branch
-    assert_equal nil, repo.grit.refs.find {|ref| ref.name == 'gitgo' }
+    assert_equal nil, git.head
+    assert_equal nil, git.grit.refs.find {|ref| ref.name == git.branch }
     
     post("/repo/setup")
     assert last_response.redirect?
     assert_equal "/repo", last_response['Location']
     
-    gitgo = repo.grit.refs.find {|ref| ref.name == 'gitgo' }
-    assert_equal 'initial commit', gitgo.commit.message
-    assert_equal gitgo.commit.sha, repo.head
+    gitgo = git.grit.refs.find {|ref| ref.name == git.branch }
+    assert_equal gitgo.commit.sha, git.head
   end
   
   def test_setup_sets_up_tracking_of_specified_remote
-    assert_equal 'gitgo', repo.branch
-    assert_equal nil, repo.grit.refs.find {|ref| ref.name == 'gitgo' }
+    @repo = Gitgo::Repo.new Gitgo::Repo::GIT => git.clone(method_root.path('clone'))
+    @app = Gitgo::Controllers::Repo.new(nil, repo)
     
-    post("/repo/setup", :remote => 'caps')
+    assert_equal nil, git.head
+    
+    post("/repo/setup", :track => 'origin/caps')
     assert last_response.redirect?
     assert_equal "/repo", last_response['Location']
     
-    caps = repo.grit.refs.find {|ref| ref.name == 'caps' }
-    gitgo = repo.grit.refs.find {|ref| ref.name == 'gitgo' }
-    
-    assert_equal gitgo.commit.sha, caps.commit.sha
-    assert_equal gitgo.commit.sha, repo.head
+    # the caps head
+    assert_equal '19377b7ec7b83909b8827e52817c53a47db96cf0', git.head
   end
   
   def test_remote_tracking_setup_reindexes_repo
-    repo.checkout('remote')
-    sha = repo.create("initialized gitgo", 'tags' => ['tag'])
-    repo.commit!("initial commit")
-    repo.checkout('gitgo')
+    git.checkout('track')
+    sha = repo.store('content' => 'new doc', 'tags' => ['tag'])
+    repo.commit!
+    git.checkout('gitgo')
     
-    post("/repo/setup", :remote => 'remote')
+    @repo = Gitgo::Repo.new Gitgo::Repo::GIT => git.clone(method_root.path('clone'))
+    @app = Gitgo::Controllers::Repo.new(nil, repo)
+    
+    post("/repo/setup", :track => 'origin/track')
     assert last_response.redirect?
     assert_equal "/repo", last_response['Location']
     
@@ -98,12 +124,12 @@ class RepoControllerTest < Test::Unit::TestCase
   end
   
   def test_maintenance_shows_issues_for_repo_with_issues
-    id = repo.set(:blob, "blah blah blob")
+    sha = git.set(:blob, "blah blah blob")
     
     get("/repo/maintenance")
     assert last_response.ok?
     assert !last_response.body.include?("No issues found")
-    assert last_response.body =~ /dangling blob.*#{id}/
+    assert last_response.body =~ /dangling blob.*#{sha}/
   end
   
   #
@@ -123,10 +149,10 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_prune_prunes_dangling_blobs
-    id = repo.set(:blob, "blah blah blob")
+    sha = git.set(:blob, "blah blah blob")
     
     get("/repo/maintenance")
-    assert last_response.body =~ /dangling blob.*#{id}/
+    assert last_response.body =~ /dangling blob.*#{sha}/
     
     post("/repo/prune")
     assert last_response.redirect?
@@ -141,8 +167,8 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_gc_packs_repo
-    repo.create("new document")
-    repo.commit("new commit")
+    repo.store('content' => 'new document')
+    repo.commit!
     
     get("/repo/maintenance")
     assert last_response.body =~ /count[^\d]+?5/m
@@ -160,81 +186,79 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_update_pulls_changes
-    one = repo.create("one document")
-    repo.commit("added document")
+    one = Gitgo::Document.new({"content" => "one"}, repo).save
+    repo.commit!
     
-    clone = repo.clone(method_root.path(:tmp, 'clone'))
-    clone.sandbox do |git, w, i|
-      git.branch({:track => true}, 'gitgo', 'origin/gitgo')
-    end
+    clone = git.clone(method_root.path(:tmp, 'clone'))
+    clone.track('origin/gitgo')
+    clone = Gitgo::Repo.new(Gitgo::Repo::GIT => clone)
     
-    two = repo.create("two document")
-    repo.commit("added document")
+    two = Gitgo::Document.new({"content" => "two"}, repo).save
+    repo.commit!
     
-    three = clone.create("three document")
-    clone.commit("added document")
+    three = Gitgo::Document.new({"content" => "three"}, clone).save
+    clone.commit!
     
     #
-    app.repo = clone
+    @app = Gitgo::Controllers::Repo.new(nil, clone)
     
-    assert_equal "one document", repo.read(one).content
-    assert_equal "two document", repo.read(two).content
+    assert_equal "one", repo.read(one)['content']
+    assert_equal "two", repo.read(two)['content']
     assert_equal nil, repo.read(three)
     
-    assert_equal "one document", clone.read(one).content
+    assert_equal "one", clone.read(one)['content']
     assert_equal nil, clone.read(two)
-    assert_equal "three document", clone.read(three).content
+    assert_equal "three", clone.read(three)['content']
     
     post("/repo/update", :sync => false)
     assert last_response.redirect?
     assert_equal "/repo", last_response['Location']
     
-    assert_equal "one document", repo.read(one).content
-    assert_equal "two document", repo.read(two).content
+    assert_equal "one", repo.read(one)['content']
+    assert_equal "two", repo.read(two)['content']
     assert_equal nil, repo.read(three)
     
-    assert_equal "one document", clone.read(one).content
-    assert_equal "two document", clone.read(two).content
-    assert_equal "three document", clone.read(three).content
+    assert_equal "one", clone.read(one)['content']
+    assert_equal "two", clone.read(two)['content']
+    assert_equal "three", clone.read(three)['content']
   end
   
   def test_update_pulls_changes_then_pushes_changes_if_specified
-    one = repo.create("one document")
-    repo.commit("added document")
+    one = Gitgo::Document.new({"content" => "one"}, repo).save
+    repo.commit!
     
-    clone = repo.clone(method_root.path(:tmp, 'clone'))
-    clone.sandbox do |git, w, i|
-      git.branch({:track => true}, 'gitgo', 'origin/gitgo')
-    end
+    clone = git.clone(method_root.path(:tmp, 'clone'))
+    clone.track('origin/gitgo')
+    clone = Gitgo::Repo.new(Gitgo::Repo::GIT => clone)
     
-    two = repo.create("two document")
-    repo.commit("added document")
+    two = Gitgo::Document.new({"content" => "two"}, repo).save
+    repo.commit!
     
-    three = clone.create("three document")
-    clone.commit("added document")
+    three = Gitgo::Document.new({"content" => "three"}, clone).save
+    clone.commit!
     
     #
-    app.repo = clone
+    @app = Gitgo::Controllers::Repo.new(nil, clone)
     
-    assert_equal "one document", repo.read(one).content
-    assert_equal "two document", repo.read(two).content
+    assert_equal "one", repo.read(one)['content']
+    assert_equal "two", repo.read(two)['content']
     assert_equal nil, repo.read(three)
     
-    assert_equal "one document", clone.read(one).content
+    assert_equal "one", clone.read(one)['content']
     assert_equal nil, clone.read(two)
-    assert_equal "three document", clone.read(three).content
+    assert_equal "three", clone.read(three)['content']
     
     post("/repo/update", :sync => true)
     assert last_response.redirect?
     assert_equal "/repo", last_response['Location']
     
-    assert_equal "one document", repo.read(one).content
-    assert_equal "two document", repo.read(two).content
-    assert_equal "three document", repo.read(three).content
+    assert_equal "one", repo.read(one)['content']
+    assert_equal "two", repo.read(two)['content']
+    assert_equal "three", repo.read(three)['content']
     
-    assert_equal "one document", clone.read(one).content
-    assert_equal "two document", clone.read(two).content
-    assert_equal "three document", clone.read(three).content
+    assert_equal "one", clone.read(one)['content']
+    assert_equal "two", clone.read(two)['content']
+    assert_equal "three", clone.read(three)['content']
   end
   
   #
@@ -242,14 +266,16 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_reindex_clears_index_and_performs_full_reindex
-    sha = repo.create("document", "tags" => ["a", "b"])
-    repo.commit!("added document")
-    repo.index.reset
+    sha = Gitgo::Document.new({"content" => "document", "tags" => ["a", "b"]}, repo).save
+    repo.commit!
     
-    b_index = repo.index.path("tags", "b")
+    idx = repo.idx
+    idx.reset
+    
+    b_index = idx.path("tags", "b")
     FileUtils.rm(b_index)
     
-    fake_index = repo.index.path("tags", "c")
+    fake_index = idx.path("tags", "c")
     Gitgo::Index::IndexFile.write(fake_index, sha)
     
     get("/repo/idx/tags/a")
@@ -284,14 +310,16 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_reset_clears_index_and_performs_full_reindex
-    sha = repo.create("document", "tags" => ["a", "b"])
-    repo.commit!("added document")
-    repo.index.reset
+    sha = Gitgo::Document.new({"content" => "document", "tags" => ["a", "b"]}, repo).save
+    repo.commit!
     
-    b_index = repo.index.path("tags", "b")
+    idx = repo.idx
+    idx.reset
+    
+    b_index = idx.path("tags", "b")
     FileUtils.rm(b_index)
     
-    fake_index = repo.index.path("tags", "c")
+    fake_index = idx.path("tags", "c")
     Gitgo::Index::IndexFile.write(fake_index, sha)
     
     get("/repo/idx/tags/a")
