@@ -1,0 +1,13 @@
+<h1>Welcome to Gitgo!</h1>
+
+<p>
+  Set up tracking of a remote gitgo branch using the form below,
+  or use the links to get going.
+</p>
+
+<form action="<%= form.url('setup') %>" method="post">
+  <select name="remote"><% form.each_remote_name(Gitgo::Git::DEFAULT_UPSTREAM_BRANCH) do |value, selection, content| %>
+  <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
+  </select>
+  <input type="submit" value="Setup" />
+</form>
