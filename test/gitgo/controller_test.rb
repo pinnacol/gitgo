@@ -29,14 +29,14 @@ class ControllerTest < Test::Unit::TestCase
   #
   
   def test_url_returns_path
-    app.request = MockRequest.new
+    app.env = {}
     
     assert_equal "/", app.url("/")
     assert_equal "/path/to/resource", app.url("/path/to/resource")
   end
   
   def test_url_relative_to_mount_point
-    app.request = MockRequest.new(Controller::MOUNT_POINT => '/mount/point')
+    app.env = {Controller::MOUNT => '/mount/point'}
     
     assert_equal "/mount/point/", app.url("/")
     assert_equal "/mount/point/path/to/resource", app.url("/path/to/resource")

@@ -623,7 +623,7 @@ module Gitgo
     def push(tracking_branch=upstream_branch)
       sandbox do |git, work_tree, index_file|
         remote, remote_branch = parse_tracking_branch(tracking_branch)
-        git.push({}, remote, "#{branch}:#{remote_branch}")
+        git.push({}, remote, "#{branch}:#{remote_branch}") unless head.nil?
       end
     end
     

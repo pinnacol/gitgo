@@ -7,15 +7,9 @@
 <dd><%= format.branch branch %></dd>
 <dt>Commit</dt>
 <dd><% if commit.nil? %>
-  <em>Select a tracking branch and click setup to create the '<%= format.branch branch %>' branch.</em>
-  
-  <form action="<%= form.url('repo', 'setup') %>" method="post">
-    <select id="remote" name="remote"><% form.each_remote_name(remote) do |value, selection, content| %>
-    <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-    </select>
-    <input type="submit" value="Setup" />
-  </form>
-<% else %><%= erb :_commit, :locals => {:commit => commit}, :views => path('views/code'), :layout => false %><% end %></dd>
+  <p>
+    The <%= format.branch repo.git.branch %> branch has not been created yet.
+  </p><% else %><%= erb :_commit, :locals => {:commit => commit}, :views => path('views/code'), :layout => false %></dd><% end %>
 <dt>Update</dt>
 <dd>
   <p>
@@ -23,9 +17,9 @@
   </p>
   <form action="<%= form.url('repo', 'update') %>" method="post">
     <dl>
-    <dt><label for="remote">Remote</label></dt>
+    <dt><label for="upstream_branch">Remote</label></dt>
     <dd>
-      <select id="remote" name="remote"><% form.each_remote_name(remote) do |value, selection, content| %>
+      <select name="upstream_branch"><% form.each_remote_name(upstream_branch) do |value, selection, content| %>
       <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
       </select>
     </dd>
@@ -39,33 +33,25 @@
   </form>
   <p><em>Note: updates can fail silently, for example when the remote cannot be reached.</em></p>
 </dd>
-<dt>Reset</dt>
-<dd>
+<dt>Active Commit</dt>
+<dd><% if active_commit.nil? %>
   <p>
-    Reinitialize the internal bindings gitgo uses to access the git repository.
-    Uncommitted updates in gitgo (see <a href="<%= form.url('repo', 'status') %>">status</a>)
-    will be lost.
-  </p>
-  <form action="<%= form.url('repo', 'reset') %>" method="post">
-    <input type="checkbox" name="full" value="true">Reindex</input>
-    <input type="submit" value="Reset" />
-  </form>
-</dd><% if session %>
-<dt>User Branch</dt>
-<dd>
-  <p>The user branch is determines which gitgo documents are active.  User branch defaults to the one checked out in the working directory.</p>
-  <form action="<%= form.url('repo', 'session') %>" method="post">
-    <select id="ref" name="ref"><% form.each_ref_name(at) do |value, selection, content| %>
+    No active commit has been selected.
+  </p><% else %><%= erb :_commit, :locals => {:commit => active_commit}, :views => path('views/code'), :layout => false %><% end %>
+  <form action="<%= form.url('repo', 'head') %>" method="post">
+    <select id="active_commit" name="head"><% form.each_ref_name(head) do |value, selection, content| %>
     <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
+    <option value="">None</option>
     </select>
     <input type="submit" value="Change" />
   </form>
-</dd><% end %>
+</dd>
 </dl>
 
 <ul>
 <li><a href="<%= format.url('/repo/status') %>">Status</a></li>
 <li><a href="<%= format.url('/repo/idx') %>">Index</a></li>
 <li><a href="<%= format.url('/repo/maintenance') %>">Maintenance</a></li>
+<li><a href="<%= format.url('/repo/manage') %>">Manage</a></li>
 <li><a href="<%= format.url('/repo/reference') %>">Reference</a></li>
 </ul>

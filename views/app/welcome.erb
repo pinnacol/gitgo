@@ -6,7 +6,7 @@
 </p>
 
 <form action="<%= form.url('setup') %>" method="post">
-  <select name="remote"><% form.each_remote_name(Gitgo::Git::DEFAULT_UPSTREAM_BRANCH) do |value, selection, content| %>
+  <select name="remote_branch"><% form.each_remote_name(Gitgo::Git::DEFAULT_UPSTREAM_BRANCH) do |value, selection, content| %>
   <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
   </select>
   <input type="submit" value="Setup" />

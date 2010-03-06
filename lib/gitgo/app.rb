@@ -32,11 +32,11 @@ module Gitgo
         raise "#{git.branch} branch already exists"
       end
         
-      remote = request['remote']
+      remote_branch = request['remote_branch']
       
-      unless remote.empty?
-        git.track(remote)
-        git.pull(remote)
+      unless remote_branch.empty?
+        git.track(remote_branch)
+        git.pull(remote_branch)
         Document.update_idx
       end
       

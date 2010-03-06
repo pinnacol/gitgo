@@ -9,8 +9,8 @@ module Gitgo
     # views, public files, etc.
     ROOT = File.expand_path(File.dirname(__FILE__) + "/../..")
     
-    HEAD = 'gitgo.head'
-    MOUNT_POINT = 'gitgo.mount'
+    HEAD  = 'gitgo.head'
+    MOUNT = 'gitgo.mount'
     
     set :root, ROOT
     set :raise_errors, Proc.new { test? }
@@ -65,15 +65,19 @@ module Gitgo
     end
     
     def head
-      @head ||= (session[HEAD] ||= grit.head.commit)
+      @head ||= (session[HEAD] ||= (grit.head ? grit.head.commit : nil))
     end
     
-    def mount_point
-      @mount_point ||= (request.env[MOUNT_POINT] || '/')
+    def head=(input)
+      @head = session[HEAD] = input
+    end
+    
+    def mount
+      @mount ||= (env[MOUNT] || '/')
     end
     
     def url(paths)
-      File.join(mount_point, *paths)
+      File.join(mount, *paths)
     end
     
     def format

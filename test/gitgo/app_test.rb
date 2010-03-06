@@ -20,6 +20,58 @@ class AppTest < Test::Unit::TestCase
     end
   end
   
+  def git
+    repo.git
+  end
+  
+  #
+  # setup test
+  #
+  
+  def test_setup_sets_up_a_new_gitgo_branch
+    assert_equal nil, git.head
+    assert_equal nil, git.grit.refs.find {|ref| ref.name == git.branch }
+    
+    post("/setup")
+    assert last_response.redirect?
+    assert_equal "/", last_response['Location']
+    
+    gitgo = git.grit.refs.find {|ref| ref.name == git.branch }
+    assert_equal gitgo.commit.sha, git.head
+  end
+  
+  def test_setup_sets_up_tracking_of_specified_remote
+    @repo = Gitgo::Repo.new Gitgo::Repo::GIT => git.clone(method_root.path('clone'))
+    @app = Gitgo::Controllers::Repo.new(nil, repo)
+    
+    assert_equal nil, git.head
+    
+    post("/setup", :remote_branch => 'origin/caps')
+    assert last_response.redirect?
+    assert_equal "/", last_response['Location']
+    
+    # the caps head
+    assert_equal '19377b7ec7b83909b8827e52817c53a47db96cf0', git.head
+  end
+  
+  def test_remote_tracking_setup_reindexes_repo
+    git.checkout('track')
+    sha = repo.store('content' => 'new doc', 'tags' => ['tag'])
+    repo.commit!
+    git.checkout('gitgo')
+    
+    @repo = Gitgo::Repo.new Gitgo::Repo::GIT => git.clone(method_root.path('clone'))
+    @app = Gitgo::Controllers::Repo.new(nil, repo)
+    
+    post("/setup", :remote_branch => 'origin/track')
+    assert last_response.redirect?
+    assert_equal "/", last_response['Location']
+    
+    get("/repo/idx/tags/tag")
+    assert last_response.ok?
+    assert last_response.body.include?(sha)
+  end
+  
   #
   # error test
   #

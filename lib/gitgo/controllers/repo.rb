@@ -13,14 +13,14 @@ module Gitgo
       get('/repo/maintenance') { maintenance }
       get('/repo/*')         {|path| template(path) }
       
-      post('/repo/setup')    { setup }
+      post('/repo/track')    { track }
       post('/repo/commit')   { commit }
       post('/repo/update')   { update }
       post('/repo/reindex')  { reindex }
       post('/repo/reset')    { reset }
       post('/repo/prune')    { prune }
       post('/repo/gc')       { gc }
-      post('/repo/session')  { update_session }
+      post('/repo/head')     { update_head }
       
       #
       # actions
@@ -30,9 +30,9 @@ module Gitgo
         erb :index, :locals => {
           :path => git.path,
           :branch => git.branch,
-          :commit => git.head ? grit.commit(git.head) : nil,
-          :remote => git.remote || Gitgo::Git::DEFAULT_REMOTE_BRANCH,
-          :at => head
+          :commit => git.head.nil? ? nil : grit.commit(git.head),
+          :upstream_branch => git.upstream_branch,
+          :active_commit => head ? grit.commit(head) : nil
         }
       end
       
@@ -70,22 +70,6 @@ module Gitgo
         }
       end
       
-      def setup
-        raise "#{git.branch} branch already exists" if repo.head
-        
-        upstream_branch = request['track'].to_s
-        if upstream_branch.empty?
-          git['version'] = VERSION
-          git.commit!('initial commit')
-        else
-          git.track(upstream_branch)
-          git.merge
-          Document.update_idx
-        end
-        
-        redirect url('/repo')
-      end
-      
       def commit
         repo.commit request['message']
         redirect url('/repo/status')
@@ -96,15 +80,27 @@ module Gitgo
           raise 'local changes; cannot update'
         end
         
-        remote = request['remote'] || git.remote
         upstream_branch = request['upstream_branch'] || git.upstream_branch
+        unless upstream_branch.nil? || upstream_branch.empty?
+          
+          # Note that push and pull cannot be cleanly supported as separate
+          # updates because pull can easily fail without a preceding pull. Since
+          # there is no good way to detect that failure, see issue 7f7e85, the
+          # next best option is to ensure a pull if doing a push.
+          git.pull(upstream_branch)
+          Document.update_idx
+          
+          if request['sync'] == 'true'
+            git.push(upstream_branch)
+          end
+        end
         
-        # Note that push and pull cannot be cleanly supported as separate
-        # updates because pull can easily fail without a preceding pull. Since
-        # there is no good way to detect that failure, see issue 7f7e85, the
-        # next best option is to ensure a pull if doing a push.
-        git.pull(remote, upstream_branch)
-        git.push(remote) if request['sync'] == 'true'
+        redirect url('/repo')
+      end
+      
+      def track
+        tracking_branch = request['tracking_branch']
+        git.track(tracking_branch.empty? ? nil : tracking_branch)
         
         redirect url('/repo')
       end
@@ -136,13 +132,8 @@ module Gitgo
         redirect url('/repo/maintenance')
       end
       
-      def update_session
-        if ref = request['ref']
-          session['at'] = ref
-        else
-          session.delete('at')
-        end
-        
+      def update_head
+        self.head = request['head']
         redirect url('/repo')
       end
       
