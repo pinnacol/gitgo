@@ -598,7 +598,7 @@ class GitTest < Test::Unit::TestCase
   #
   
   def test_push_only_pushes_the_specified_branch
-    a = Git.init(method_root.path(:tmp, "a"))
+    a = Git.init(method_root.path(:tmp, "a"), :is_bare => true)
     
     a.checkout('master')
     initial_master_head = a.add("a" => "a content").commit("added a file")
@@ -617,6 +617,7 @@ class GitTest < Test::Unit::TestCase
     
     b.checkout('master')
     b.push('origin/master')
+    
     assert_equal [current_master_head, initial_alt_head], a.rev_parse('master', 'alt')
   end
   
