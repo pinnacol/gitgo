@@ -95,7 +95,11 @@ module Gitgo
           yield escape_html(ref.name), select_or_check, escape_html(ref.name)
         end
         
-        yield("", !found_selected_name, "(none)")
+        if found_selected_name
+          yield("", false, "(none)")
+        else
+          yield(selected_name, true, selected_name.to_s.empty? ? "(none)" : selected_name)
+        end
       end
       
       def each_remote_name(selected_name, include_none=true) # :yields: value, select_or_check, content
@@ -109,7 +113,11 @@ module Gitgo
           yield escape_html(ref.name), select_or_check, escape_html(ref.name)
         end
         
-        yield("", !found_selected_name, "(none)")
+        if found_selected_name
+          yield("", false, "(none)")
+        else
+          yield(selected_name, true, selected_name.to_s.empty? ? "(none)" : selected_name)
+        end
       end
     end
   end

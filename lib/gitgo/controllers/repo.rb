@@ -20,7 +20,7 @@ module Gitgo
       post('/repo/reset')    { reset }
       post('/repo/prune')    { prune }
       post('/repo/gc')       { gc }
-      post('/repo/head')     { update_head }
+      post('/repo/setup')    { setup }
       
       #
       # actions
@@ -64,7 +64,8 @@ module Gitgo
       
       def maintenance
         erb :maintenance, :locals => {
-          :keys => idx.keys,
+          :branch => git.branch,
+          :head => head,
           :issues => git.fsck.split("\n"),
           :stats => git.stats
         }
@@ -132,9 +133,16 @@ module Gitgo
         redirect url('/repo/maintenance')
       end
       
-      def update_head
-        self.head = request['head']
-        redirect url('/repo')
+      def setup
+        if branch = request['branch']
+          git.checkout(branch)
+        end
+        
+        if head = request['head']
+          self.head = head
+        end
+        
+        redirect env['HTTP_REFERER'] || url('/repo')
       end
       
       # Renders template as erb, then formats using RedCloth.

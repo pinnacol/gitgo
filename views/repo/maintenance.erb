@@ -1,28 +1,46 @@
 <h1>Maintenance</h1>
 
-<h2>Fsck</h2>
+<dl>
+<dt>Change Gitgo Branch</dt>
+<dd>
+  <form action="<%= form.url('repo', 'setup') %>" method="post">
+    <input id="commit" type="input" name="branch" value="<%= branch %>" />
+    <input type="submit" value="Change" />
+  </form>
+</dd>
+<dt>Change Active Commit</dt>
+<dd>
+  <form action="<%= form.url('repo', 'setup') %>" method="post">
+    <input id="head" type="input" name="head" value="<%= head %>" />
+    <input type="submit" value="Change" />
+  </form>
+</dd>
+<dt>Fsck</dt>
+<dd>
+  <p>
+    This is a listing of any invalid or disconnected objects in the git repo
+    (not just the branch used by gitgo). Normally prune will remove some of
+    them, and gc will remove the rest.
+  </p>
 
-<p>
-  This is a listing of any invalid or disconnected objects in the git repo
-  (not just the branch used by gitgo). Normally prune will remove some of
-  them, and gc will remove the rest.
-</p>
+  <ul><% if issues.empty? %>
+  <li>No issues found</li><% end %><% issues.each do |issue| %>
+  <li><%= format.text issue %></li><% end %>
+  </ul>
 
-<ul><% if issues.empty? %>
-<li>No issues found</li><% end %><% issues.each do |issue| %>
-<li><%= format.text issue %></li><% end %>
-</ul>
+  <form action="<%= form.url('repo', 'prune') %>" method="post">
+  <input type="submit" value="Prune" /></dt>
+  </form>
 
-<form action="<%= form.url('repo', 'prune') %>" method="post">
-<input type="submit" value="Prune" /></dt>
-</form>
-
-<form action="<%= form.url('repo', 'gc') %>" method="post">
-<input type="submit" value="GC" /></dt>
-</form>
-
-<h2>Stats</h2>
-<dl><% stats.keys.sort.each do |key| %>
-<dt class="stat"><%= escape_html key %></dt>
-<dd class="stat"><%= escape_html stats[key] %></dd><% end %>
+  <form action="<%= form.url('repo', 'gc') %>" method="post">
+  <input type="submit" value="GC" /></dt>
+  </form>
+</dd>
+<dt>Stats</dt>
+<dd>
+  <dl><% stats.keys.sort.each do |key| %>
+  <dt class="stat"><%= escape_html key %></dt>
+  <dd class="stat"><%= escape_html stats[key] %></dd><% end %>
+  </dl>
+</dd>
 </dl>

@@ -33,13 +33,13 @@
 </dd>
 <dt>Active Commit</dt>
 <dd>
-  <form action="<%= form.url('repo', 'head') %>" method="post">
+  <form action="<%= form.url('repo', 'setup') %>" method="post">
     <select id="active_commit" name="head"><% form.each_ref_name(head) do |value, selection, content| %>
     <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
     </select>
     <input type="submit" value="Change" />
   </form><% if active_commit.nil? %>
-  <p>No commit has been selected as active.</p><% else %><%= erb :_commit, :locals => {:commit => active_commit}, :views => path('views/code'), :layout => false %><% end %>
+  <p>No commit has been selected as active (or the selected commit is invalid).</p><% else %><%= erb :_commit, :locals => {:commit => active_commit}, :views => path('views/code'), :layout => false %><% end %>
   <p><em>The active commit indicates code the user sees as current.</em></p>
 </dd>
 </dl>
@@ -48,6 +48,5 @@
 <li><a href="<%= format.url('/repo/status') %>">Status</a></li>
 <li><a href="<%= format.url('/repo/idx') %>">Index</a></li>
 <li><a href="<%= format.url('/repo/maintenance') %>">Maintenance</a></li>
-<li><a href="<%= format.url('/repo/manage') %>">Manage</a></li>
 <li><a href="<%= format.url('/repo/reference') %>">Reference</a></li>
 </ul>
