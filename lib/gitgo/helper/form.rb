@@ -86,9 +86,16 @@ module Gitgo
       end
       
       def each_ref_name(selected_name) # :yields: value, select_or_check, content
+        found_selected_name = false
+        
         refs.each do |ref|
-          yield escape_html(ref.name), selected_name == ref.name, escape_html(ref.name)
+          select_or_check = selected_name == ref.name
+          found_selected_name = true if select_or_check
+          
+          yield escape_html(ref.name), select_or_check, escape_html(ref.name)
         end
+        
+        yield("", !found_selected_name, "(none)")
       end
       
       def each_remote_name(selected_name, include_none=true) # :yields: value, select_or_check, content
@@ -102,9 +109,7 @@ module Gitgo
           yield escape_html(ref.name), select_or_check, escape_html(ref.name)
         end
         
-        if include_none
-          yield("", !found_selected_name, "None")
-        end
+        yield("", !found_selected_name, "(none)")
       end
     end
   end

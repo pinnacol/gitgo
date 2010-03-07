@@ -137,7 +137,8 @@ task :bundle do
   
   unless $?.to_i == 0
     puts output
-    puts "bundle install#{opts}" + `bundle install#{opts}`
+    puts "bundle install#{opts}"
+    system "bundle install#{opts}"
     puts
   end
 end

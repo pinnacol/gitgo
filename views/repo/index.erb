@@ -7,14 +7,12 @@
 <dd><%= format.branch branch %></dd>
 <dt>Commit</dt>
 <dd><% if commit.nil? %>
-  <p>
-    The <%= format.branch repo.git.branch %> branch has not been created yet.
-  </p><% else %><%= erb :_commit, :locals => {:commit => commit}, :views => path('views/code'), :layout => false %></dd><% end %>
+  <p>The <%= format.branch repo.git.branch %> branch has not been created.</p>
+  <p><em>Pull from an existing remote branch, or let gitgo create it as needed.</p></em>
+<% else %><%= erb :_commit, :locals => {:commit => commit}, :views => path('views/code'), :layout => false %><% end %></dd>
 <dt>Update</dt>
 <dd>
-  <p>
-    Synchronize with a remote (pull and push), or simply pull updates.
-  </p>
+  <p>Synchronize with a remote (pull and push), or simply pull updates.</p>
   <form action="<%= form.url('repo', 'update') %>" method="post">
     <dl>
     <dt><label for="upstream_branch">Remote</label></dt>
@@ -31,20 +29,18 @@
     <dd></dd>
     </dl>
   </form>
-  <p><em>Note: updates can fail silently, for example when the remote cannot be reached.</em></p>
+  <p><em>Updates can fail silently, for example when the remote cannot be reached, but such failures cause no damage.</em></p>
 </dd>
 <dt>Active Commit</dt>
-<dd><% if active_commit.nil? %>
-  <p>
-    No active commit has been selected.
-  </p><% else %><%= erb :_commit, :locals => {:commit => active_commit}, :views => path('views/code'), :layout => false %><% end %>
+<dd>
   <form action="<%= form.url('repo', 'head') %>" method="post">
     <select id="active_commit" name="head"><% form.each_ref_name(head) do |value, selection, content| %>
     <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-    <option value="">None</option>
     </select>
     <input type="submit" value="Change" />
-  </form>
+  </form><% if active_commit.nil? %>
+  <p>No commit has been selected as active.</p><% else %><%= erb :_commit, :locals => {:commit => active_commit}, :views => path('views/code'), :layout => false %><% end %>
+  <p><em>The active commit indicates code the user sees as current.</em></p>
 </dd>
 </dl>
 
