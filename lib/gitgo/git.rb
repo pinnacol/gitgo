@@ -705,10 +705,9 @@ module Gitgo
         
         diff = {'A' => [], 'D' => [], 'M' => []}
         output.split("\n").each do |line|
-          next unless line =~ /^(\w)\s+\d{4}\/\d{4}\/(.{40})$/
-          
-          array = diff[$1] or raise "unexpected diff output:\n#{output}"
-          array << $2
+          mode, path = line.split(' ', 2)
+          array = diff[mode] or raise "unexpected diff output:\n#{output}"
+          array << path
         end
 
         diff

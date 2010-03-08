@@ -740,6 +740,26 @@ class GitTest < Test::Unit::TestCase
   end
   
   #
+  # diff_tree test
+  #
+  
+  def test_diff_tree_returns_hash_of_differences
+    setup_repo("simple.git")
+    
+    assert_equal({
+      'A' => ['a.txt', 'a/b.txt', 'a/b/c.txt'], 
+      'M' => ['one.txt', 'one/two.txt', 'one/two/three.txt'], 
+      'D' => []
+    }, git.diff_tree('449b55', '19377b'))
+    
+    assert_equal({
+      'A' => [], 
+      'M' => [], 
+      'D' => ['a.txt', 'a/b.txt', 'a/b/c.txt']
+    }, git.diff_tree('7d3db1', '449b55'))
+  end
+  
+  #
   # grep test
   #
   
