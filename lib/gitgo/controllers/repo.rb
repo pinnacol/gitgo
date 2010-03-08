@@ -139,7 +139,7 @@ module Gitgo
         end
         
         if head = request['head']
-          self.head = head
+          self.head = head.strip.empty? ? nil : head
         end
         
         redirect env['HTTP_REFERER'] || url('/repo')

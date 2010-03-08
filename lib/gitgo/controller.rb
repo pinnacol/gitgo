@@ -66,7 +66,13 @@ module Gitgo
     
     def head
       # grit.head will be nil if not on a local branch
-      @head ||= (session[HEAD] ||= (grit.head ? grit.head.name : nil))
+      @head ||= begin
+        if session.has_key?(HEAD)
+          session[HEAD]
+        else
+          session[HEAD] = grit.head ? grit.head.name : nil
+        end
+      end
     end
     
     def head=(input)

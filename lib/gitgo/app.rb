@@ -61,7 +61,8 @@ module Gitgo
         :per_page => per_page,
         :author => author,
         :timeline => timeline,
-        :authors => repo.idx.all('author')
+        :authors => repo.idx.all('author'),
+        :active_sha => head
       }
     end
   end

@@ -114,7 +114,7 @@ module Gitgo
           end
           
           type = (doc.type || 'unknown').capitalize
-          yield(escape_html(type), type_a, author(doc.author), date(doc.date))
+          yield(doc, escape_html(type), type_a)
         end
       end
       

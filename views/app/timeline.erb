@@ -10,15 +10,15 @@
 </ul>
 
 <ul class="timeline"><% if timeline.empty? %>
-<li>No activity yet...</li><% else %><% format.each_activity(timeline) do |type, link, author, date| %>
+<li>No activity yet...</li><% else %><% format.each_activity(timeline) do |doc, type, link| %>
 <li>
-  <dl class="activity">
+  <dl class="activity" active="<%= doc.active?(active_sha) %>">
   <dt class="type"><%= type %></dt>
   <dd class="type"><%= link %></dd>
   <dt class="author">Author</dt>
-  <dd class="author"><%= author %></dd>
+  <dd class="author"><%= format.author doc.author %></dd>
   <dt class="date">Date</dt>
-  <dd class="date"><%= date %></dd>
+  <dd class="date"><%= format.date doc.date %></dd>
   </dl>
 </li><% end %><% end %>
 </ul>
