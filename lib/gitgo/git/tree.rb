@@ -33,10 +33,10 @@ module Gitgo
     class Tree
       class << self
         
-        # Returns the string table for shas.  Specifiy reinitialize to clear
-        # and reset the string table.
-        def string_table(reinitialize=false)
-          @string_table = nil if reinitialize
+        # Returns the string table for shas.  Specify clear to reset the
+        # string table.
+        def string_table(clear=false)
+          @string_table.clear if clear
           @string_table ||= Hash.new {|hash, key| hash[key] = key.freeze }
         end
       end

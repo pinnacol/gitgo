@@ -110,7 +110,7 @@ module Gitgo
     end
     
     def idx
-      env[IDX] ||= Index.new(File.join(git.work_dir, 'index', git.branch))
+      env[IDX] ||= Index.new(File.join(git.work_dir, 'index', git.branch), Git::Tree.string_table)
     end
     
     def cache
