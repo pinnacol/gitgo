@@ -40,6 +40,22 @@ class GraphTest < Test::Unit::TestCase
   end
   
   #
+  # origin test
+  #
+  
+  def test_original_returns_original_version_of_the_node
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.update(a, b)
+    repo.update(a, c)
+    repo.update(c, d)
+    
+    graph = repo.graph(a)
+    assert_equal a, graph.original(a)
+    assert_equal a, graph.original(b)
+    assert_equal a, graph.original(d)
+  end
+  
+  #
   # versions test
   #
   

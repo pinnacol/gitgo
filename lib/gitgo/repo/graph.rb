@@ -11,6 +11,10 @@ module Gitgo
         reset
       end
     
+      def original(sha)
+        @original[sha] || collect_links(sha, :original)
+      end
+    
       def versions(sha)
         @versions[sha] ||= collect_versions(sha)
       end
@@ -52,6 +56,7 @@ module Gitgo
       def reset
         @links = {}
         @updates = {}
+        @original = {}
         @versions = {}
         @tree = nil
       end
@@ -59,29 +64,38 @@ module Gitgo
       protected 
     
       def links(sha) # :nodoc:
-        @links[sha] || collect_links(sha, true)
+        @links[sha] || collect_links(sha, :links)
       end
     
       def updates(sha) # :nodoc:
-        @updates[sha] || collect_links(sha, false)
+        @updates[sha] || collect_links(sha, :updates)
       end
     
-      def collect_links(sha, return_links) # :nodoc:
+      def collect_links(sha, return_type) # :nodoc:
         links = []
         updates = []
-      
+        original = sha
+        
         repo.each_link(sha, true) do |link, update|
           case update
           when false then links << link
           when true  then updates << link
-          else links.concat self.links(link)
+          else 
+            links.concat self.links(link)
+            original = @original[link]
           end
         end
-      
+        
         @links[sha] = links
         @updates[sha] = updates
+        @original[sha] = original
       
-        return_links ? links : updates
+        case return_type
+        when :links    then links
+        when :updates  then updates
+        when :original then original
+        else nil
+        end
       end
     
       def collect_versions(sha, target=[]) # :nodoc:
