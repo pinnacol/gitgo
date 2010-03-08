@@ -63,6 +63,10 @@ a.each do |sha|
     raise "no date found... #{sha}"
   end
   
+  if state = attrs.delete('state')
+    (attrs['tags'] ||= []) << state
+  end
+  
   date = Time.at(date).utc
   attrs['date'] = date.iso8601
   docs[sha] = [attrs, date]
