@@ -16,16 +16,20 @@ module Gitgo
     # Returns an in-memory cache of index files
     attr_reader :cache
     
-    def initialize(path)
+    attr_reader :string_table
+    
+    def initialize(path, string_table=nil)
       @path = path
       @head_file = File.expand_path(HEAD, path)
       @map_file = File.expand_path(MAP, path)
+      @string_table = string_table
       
       @cache = Hash.new do |key_hash, key|
         key_hash[key] = Hash.new do |value_hash, value|
           value_hash[value] = begin
             index = self.path(key, value)
-            File.exists?(index) ? IndexFile.read(index) : []
+            values = File.exists?(index) ? IndexFile.read(index) : []
+            stringify(values)
           end
         end
       end
@@ -40,7 +44,7 @@ module Gitgo
       @map ||= begin
         map = {}
         array = File.exists?(map_file) ? IndexFile.read(map_file) : []
-        array.each_slice(2) {|sha, origin| map[sha] = origin }
+        stringify(array).each_slice(2) {|sha, origin| map[sha] = origin }
         map
       end
     end
@@ -177,6 +181,13 @@ module Gitgo
         FileUtils.rm_r(path)
       end
       reset
+    end
+    
+    private
+    
+    def stringify(array) # :nodoc:
+      array.collect! {|str| string_table[str.to_s] } if string_table
+      array
     end
   end
 end

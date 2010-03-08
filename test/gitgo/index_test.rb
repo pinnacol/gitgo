@@ -56,6 +56,18 @@ class IndexTest < Test::Unit::TestCase
     assert_equal({a => c}, index.map)
   end
   
+  def test_map_resolves_shas_using_string_table_if_specified
+    a, b = shas('a', 'b')
+    method_root.prepare(index.path(Index::MAP)) do |io|
+      io << [[a,b].join].pack('H*')
+    end
+    
+    table = {a => :a, b => :b}
+    index = Index.new method_root.root, table
+    
+    assert_equal({:a => :b}, index.map)
+  end
+  
   #
   # path test
   #
@@ -75,12 +87,34 @@ class IndexTest < Test::Unit::TestCase
   #
   
   def test_AGET_returns_array_of_shas
-    assert_equal [], index.cache['key']['value']
+    assert_equal [], index['key']['value']
     
     a = digest('a')
-    index.cache['key']['value'] << a
+    index['key']['value'] << a
     
-    assert_equal [a], index.cache['key']['value']
+    assert_equal [a], index['key']['value']
+  end
+  
+  def test_AGET_reads_from_index_file_if_key_value_is_unpopulated
+    a, b = shas('a', 'b')
+    method_root.prepare(index.path('key', 'value')) do |io|
+      io << [[a,b].join].pack('H*')
+    end
+    
+    assert_equal false, index['key'].has_key?('value')
+    assert_equal([a, b], index['key']['value'])
+  end
+  
+  def test_AGET_resolves_shas_using_string_table_if_specified
+    a, b = shas('a', 'b')
+    method_root.prepare(index.path('key', 'value')) do |io|
+      io << [[a,b].join].pack('H*')
+    end
+    
+    table = {a => :a, b => :b}
+    index = Index.new method_root.root, table
+    
+    assert_equal([:a, :b], index['key']['value'])
   end
   
   #
