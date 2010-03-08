@@ -29,11 +29,7 @@
   </ul>
 
   <form action="<%= form.url('repo', 'prune') %>" method="post">
-  <input type="submit" value="Prune" /></dt>
-  </form>
-
-  <form action="<%= form.url('repo', 'gc') %>" method="post">
-  <input type="submit" value="GC" /></dt>
+  <input type="submit" value="Prune" />
   </form>
 </dd>
 <dt>Stats</dt>
@@ -42,5 +38,9 @@
   <dt class="stat"><%= escape_html key %></dt>
   <dd class="stat"><%= escape_html stats[key] %></dd><% end %>
   </dl>
+  
+  <form action="<%= form.url('repo', 'gc') %>" method="post">
+  <input type="submit" value="GC" />
+  </form>
 </dd>
 </dl>
