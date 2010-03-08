@@ -332,19 +332,17 @@ module Gitgo
     end
     
     def diff(a, b)
-      case
-      when a == b || b.nil?
-        []
-      when a.nil?
-        diff = []
-        git.ls_tree(b).each do |path|
-          next unless path =~ DOCUMENT
-          diff << $3
-        end
-        diff
-      else
-        git.diff_tree(a, b)['A']
+      if a == b || b.nil?
+        return []
       end
+      
+      docs = a.nil? ? git.ls_tree(b) : git.diff_tree(a, b)['A']
+      docs.collect! do |path|
+        path =~ DOCUMENT
+        $3
+      end
+      docs.compact!
+      docs
     end
     
     def status(&block)

@@ -699,7 +699,7 @@ module Gitgo
       sandbox {|git,w,i| git.run('', :rev_list, '', {}, treeishs).split("\n") }
     end
     
-    def diff_tree(a, b)
+    def diff_tree(a, b="^#{a}")
       sandbox do |git,w,i|
         output = git.run('', :diff_tree, '', {:r => true, :name_status => true}, [a, b])
         
