@@ -429,9 +429,11 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_origin_returns_sha_if_re_is_not_specified
+    sha = git.set(:blob, '')
+    
     assert_equal nil, doc.origin
-    doc.sha = :sha
-    assert_equal :sha, doc.origin
+    doc.sha = sha
+    assert_equal sha, doc.origin
   end
   
   #
@@ -473,6 +475,40 @@ class DocumentTest < Test::Unit::TestCase
     one = git.commit("added one")
     
     assert_equal true, doc.active?(one)
+  end
+  
+  #
+  # tail? test
+  #
+  
+  def test_tail_check_returns_false_unless_saved
+    assert_equal false, doc.saved?
+    assert_equal false, doc.tail?
+  end
+  
+  def test_tail_check_returns_false_unless_doc_is_tail_and_current
+    doc['content'] = 'a'
+    original_sha = doc.save
+    assert_equal true, repo.current?(original_sha)
+    assert_equal true, repo.tail?(original_sha)
+    assert_equal true, doc.tail?(true)
+    
+    # update
+    doc['content'] = 'b'
+    update_sha = doc.update
+    assert_equal true, repo.current?(update_sha)
+    assert_equal true, repo.tail?(update_sha)
+    assert_equal true, doc.tail?(true)
+    
+    assert_equal false, repo.current?(original_sha)
+    assert_equal true, repo.tail?(original_sha)
+    assert_equal false, Document.read(original_sha).tail?
+    
+    # child
+    child = Document.new('content' => 'c', 're' => original_sha, 'parents' => [update_sha]).save
+    assert_equal true, repo.current?(update_sha)
+    assert_equal false, repo.tail?(update_sha)
+    assert_equal false, doc.tail?(true)
   end
   
   #
@@ -897,6 +933,49 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal sha, doc.update
     assert_equal git.get(:blob, sha).data, git[date_path(Time.at(100), sha)]
     assert_equal git.get(:blob, sha).data, git[date_path(Time.now, sha)]
+  end
+  
+  def test_update_reassigns_known_children_as_specified
+    a = Document.new('content' => 'a').save
+    b = Document.new('content' => 'b', 're' => a, 'parents' => [a]).save
+    c = Document.new('content' => 'c', 're' => a, 'parents' => [a]).save
+    d = Document.new('content' => 'c', 'children' => [c]).update(a)
+    
+    links = []
+    repo.each_link(d) do |link, update|
+      links << link unless update
+    end
+    
+    assert_equal [c], links
+  end
+  
+  def test_update_reassigns_known_children_if_children_are_unspecified
+    a = Document.new('content' => 'a').save
+    b = Document.new('content' => 'b', 're' => a, 'parents' => [a]).save
+    c = Document.new('content' => 'c', 're' => a, 'parents' => [a]).save
+    d = Document.new('content' => 'c').update(a)
+    
+    links = []
+    repo.each_link(d) do |link, update|
+      links << link unless update
+    end
+    
+    assert_equal [b, c].sort, links.sort
+  end
+  
+  def test_reassignment_occurs_over_multiple_updates
+    a = Document.new('content' => 'a').save
+    b = Document.new('content' => 'b', 're' => a, 'parents' => [a]).save
+    c = Document.new('content' => 'c', 're' => a, 'parents' => [a]).save
+    d = Document.new('content' => 'c').update(a)
+    e = Document.new('content' => 'e').update(d)
+    
+    links = []
+    repo.each_link(e) do |link, update|
+      links << link unless update
+    end
+    
+    assert_equal [b, c].sort, links.sort
   end
   
   #

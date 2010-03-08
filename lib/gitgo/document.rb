@@ -210,7 +210,7 @@ module Gitgo
     end
     
     def origin
-      re || sha
+      re || (sha ? repo.original(sha) : nil)
     end
     
     def origin=(sha)
@@ -224,6 +224,11 @@ module Gitgo
     def active?(commit=nil)
       return true if at.nil? || commit.nil?
       repo.rev_list(commit).include?(at)
+    end
+    
+    def tail?(reset=false)
+      return false unless g = graph(reset)
+      g.tail?(sha) && g.current?(sha)
     end
     
     def graph(reset=false)
@@ -322,7 +327,7 @@ module Gitgo
       
       self.sha = repo.store(attrs)
       parents.each {|parent| repo.link(parent, sha) } if parents
-      children.each {|child| repo.link(sha, child) } if children
+      children.each {|child| repo.link(sha, child) }  if children
       each_index {|key, value| idx.add(key, value, sha) }
       
       sha
@@ -333,6 +338,12 @@ module Gitgo
     end
     
     def update(old_sha=sha)
+      
+      # ensure children of the old sha will be reassigned so as to properly
+      # identify tails.  note that sha must be set to determine and validate
+      # existing children
+      self.sha = old_sha
+      attrs['children'] ||= children
       new_sha = save(true)
       
       unless old_sha.nil? || old_sha == new_sha
