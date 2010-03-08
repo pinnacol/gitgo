@@ -1,4 +1,4 @@
-<h1>Welcome to Gitgo!</h1>
+<h1>Welcome to Gitgo!</h1><% unless grit.remotes.empty? %>
 
 <p>
   Set up tracking of a remote gitgo branch using the form below,
@@ -12,3 +12,4 @@
   </select>
   <input type="submit" value="Setup" />
 </form>
+<% end %>
