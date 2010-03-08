@@ -35,6 +35,28 @@ class IndexTest < Test::Unit::TestCase
   end
   
   #
+  # map test
+  #
+  
+  def test_map_reads_the_map_file_into_an_array
+    a, b, c, d = shas('a', 'b', 'c', 'd')
+    method_root.prepare(index.path(Index::MAP)) do |io|
+      io << [[a,b,c,d].join].pack('H*')
+    end
+    
+    assert_equal({a => b, c => d}, index.map)
+  end
+  
+  def test_map_respects_order_in_file
+    a, b, c = shas('a', 'b', 'c')
+    method_root.prepare(index.path(Index::MAP)) do |io|
+      io << [[a,b,a,c].join].pack('H*')
+    end
+    
+    assert_equal({a => c}, index.map)
+  end
+  
+  #
   # path test
   #
   
@@ -173,6 +195,52 @@ class IndexTest < Test::Unit::TestCase
     
     assert_equal [b], index.filter([a, b], 'state' => 'open')
     assert_equal [b, c], index.filter([a, b, c], 'state' => 'open')
+  end
+  
+  #
+  # write test
+  #
+  
+  def test_write_writes_sha_to_head_file
+    a = digest('a')
+    index.write(a)
+    
+    assert_equal a, File.read(index.head_file)
+  end
+  
+  def test_write_writes_map_to_map_file
+    a, b = shas('a', 'b', 'c')
+    index.map[a] = b
+    index.write
+    
+    assert_equal [[a,b].join].pack("H*"), File.read(index.map_file)
+  end
+  
+  def test_write_writes_cache_to_respective_index_files
+    a, b, c = shas('a', 'b', 'c')
+    index.add('state', 'open', a)
+    index.add('state', 'closed', b)
+    index.add('state', 'open', c)
+    index.write
+    
+    assert_equal [[a, c].join].pack("H*"), File.read(index.path('state', 'open'))
+    assert_equal [b].pack("H*"), File.read(index.path('state', 'closed'))
+  end
+  
+  #
+  # reset test
+  #
+  
+  def test_reset_clears_map
+    index.map['a'] = 'b'
+    index.reset
+    assert_equal({}, index.map)
+  end
+  
+  def test_reset_clears_the_cache
+    index.cache['a'] = 'b'
+    index.reset
+    assert_equal({}, index.cache)
   end
   
   #

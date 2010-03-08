@@ -7,7 +7,11 @@ module Gitgo
     # determine when a reindex is required relative to some other ref.
     HEAD = 'head'
     
+    MAP = 'map'
+    
     attr_reader :head_file
+    
+    attr_reader :map_file
     
     # Returns an in-memory cache of index files
     attr_reader :cache
@@ -15,6 +19,7 @@ module Gitgo
     def initialize(path)
       @path = path
       @head_file = File.expand_path(HEAD, path)
+      @map_file = File.expand_path(MAP, path)
       
       @cache = Hash.new do |key_hash, key|
         key_hash[key] = Hash.new do |value_hash, value|
@@ -29,6 +34,15 @@ module Gitgo
     # Returns the sha in the head_file, if it exists, and nil otherwise.
     def head
       File.exists?(head_file) ? File.open(head_file) {|io| io.read(40) } : nil
+    end
+    
+    def map
+      @map ||= begin
+        map = {}
+        array = File.exists?(map_file) ? IndexFile.read(map_file) : []
+        array.each_slice(2) {|sha, origin| map[sha] = origin }
+        map
+      end
     end
     
     # Returns the segments joined to the path used to initialize self.
@@ -134,7 +148,7 @@ module Gitgo
     end
     
     # Writes cached changes.
-    def write(sha)
+    def write(sha=nil)
       clean
       
       @cache.each_pair do |key, value_hash|
@@ -144,13 +158,15 @@ module Gitgo
       end
       
       FileUtils.mkdir_p(path) unless File.exists?(path)
-      File.open(head_file, "w") {|io| io.write(sha) }
+      File.open(head_file, "w") {|io| io.write(sha) } if sha
+      IndexFile.write(map_file, map.to_a.join)
       
       self
     end
     
     # Clears the cache.
     def reset
+      @map = nil
       @cache.clear
       self
     end
