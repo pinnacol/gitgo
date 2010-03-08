@@ -234,8 +234,8 @@ class DocumentTest < Test::Unit::TestCase
     results = Document.find('tags' => 'three').collect {|doc| doc['content'] }
     assert_equal [], results
     
-    results = Document.find('tags' => ['two', 'three']).collect {|doc| doc['content'] }
-    assert_equal ['b', 'c'], results
+    results = Document.find('tags' => ['one', 'two']).collect {|doc| doc['content'] }
+    assert_equal ['b'], results
   end
   
   def test_find_caches_documents

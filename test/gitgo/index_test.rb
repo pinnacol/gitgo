@@ -120,16 +120,14 @@ class IndexTest < Test::Unit::TestCase
     assert_equal [a], index.select(shas, 'state' => 'open', 'at' => 'one')
   end
   
-  def test_select_allows_matching_to_any_array_value
-    a, b, c = shas('a', 'b', 'c')
-    index.add('state', 'open', a).add('at', 'one', a)
-    index.add('state', 'closed', b).add('at', 'one', b)
-    index.add('state', 'open', c).add('at', 'two', c)
-    shas = [a, b, c]
+  def test_select_requires_matching_to_all_array_values
+    a, b = shas('a', 'b')
+    index.add('tags', 'a', a).add('tags', 'b', a)
+    index.add('tags', 'a', b).add('tags', 'c', b)
+    shas = [a, b]
     
-    assert_equal [a, b, c], index.select(shas, 'state' => ['open', 'closed'])
-    assert_equal [a, b], index.select(shas, 'state' => ['open', 'closed'], 'at' => 'one')
-    assert_equal [a, c], index.select(shas, 'state' => 'open', 'at' => ['one', 'two'])
+    assert_equal [a], index.select(shas, 'tags' => ['a', 'b'])
+    assert_equal [], index.select(shas, 'tags' => ['a', 'd'])
   end
   
   def test_select_only_selects_among_specified_shas
@@ -146,7 +144,7 @@ class IndexTest < Test::Unit::TestCase
   # filter test
   #
   
-  def test_filter_returns_shas_matching_no_criteria
+  def test_filter_returns_shas_matching_all_criteria
     a, b, c = shas('a', 'b', 'c')
     index.add('state', 'open', a).add('at', 'one', a)
     index.add('state', 'closed', b).add('at', 'one', b)
@@ -154,17 +152,17 @@ class IndexTest < Test::Unit::TestCase
     shas = [a, b, c]
     
     assert_equal [a, c], index.filter(shas, 'state' => 'closed')
-    assert_equal [a], index.filter(shas, 'state' => 'closed', 'at' => 'two')
+    assert_equal [a, b, c], index.filter(shas, 'state' => 'closed', 'at' => 'two')
   end
   
-  def test_filter_removes_any_matching_array_value
-    a, b, c = shas('a', 'b', 'c')
-    index.add('state', 'open', a).add('at', 'one', a)
-    index.add('state', 'closed', b).add('at', 'one', b)
-    index.add('state', 'open', c).add('at', 'two', c)
-    shas = [a, b, c]
+  def test_filter_removes_any_matching_all_array_values
+    a, b = shas('a', 'b')
+    index.add('tags', 'a', a).add('tags', 'b', a)
+    index.add('tags', 'a', b).add('tags', 'c', b)
+    shas = [a, b]
     
-    assert_equal [], index.filter(shas, 'state' => ['open', 'closed'])
+    assert_equal [b], index.filter(shas, 'tags' => ['a', 'b'])
+    assert_equal [a, b], index.filter(shas, 'tags' => ['a', 'd'])
   end
   
   def test_filter_only_filters_specified_shas

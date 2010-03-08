@@ -107,20 +107,21 @@ module Gitgo
     
     def select(shas, criteria={})
       criteria.each_pair do |key, values|
-        shas = shas & join(key, *values)
-        break if shas.empty?
+        unless values.kind_of?(Array)
+          values = [values]
+        end
+        
+        values.each do |value|
+          shas = shas & cache[key][value]
+          break if shas.empty?
+        end
       end
       
       shas
     end
     
     def filter(shas, criteria={})
-      criteria.each_pair do |key, values|
-        shas -= join(key, *values)
-        break if shas.empty?
-      end
-      
-      shas
+      shas - select(shas, criteria)
     end
     
     def clean
