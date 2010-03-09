@@ -40,4 +40,20 @@ class IssueTest < Test::Unit::TestCase
     c = Issue.create('tags' => 'open', 'origin' => a, 'parents' => [b])
     assert_equal [], Issue.find('tags' => ['closed'])
   end
+  
+  def test_find_does_not_return_duplicate_issues_for_multiple_matching_tails
+    a = Issue.create('title' => 'original', 'tags' => ['open'])
+    b = Issue.create('tags' => 'b', 'origin' => a, 'parents' => [a])
+    c = Issue.create('tags' => 'c', 'origin' => a, 'parents' => [a])
+    
+    assert_equal [a], Issue.find('tags' => ['b', 'c'])
+  end
+  
+  #
+  # current_titles test
+  #
+  
+  # def test_current_titles_returns_all_tail_titles
+  #   
+  # end
 end

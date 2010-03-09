@@ -165,7 +165,7 @@ class IndexTest < Test::Unit::TestCase
   # select test
   #
   
-  def test_select_returns_shas_matching_all_criteria
+  def test_select_returns_shas_matching_any_and_all_criteria
     a, b, c = shas('a', 'b', 'c')
     index.add('state', 'open', a).add('at', 'one', a)
     index.add('state', 'closed', b).add('at', 'one', b)
@@ -174,9 +174,16 @@ class IndexTest < Test::Unit::TestCase
     
     assert_equal [a, c], index.select(shas, 'state' => 'open')
     assert_equal [a], index.select(shas, 'state' => 'open', 'at' => 'one')
+    
+    assert_equal [a, c], index.select(shas, nil, 'state' => 'open')
+    assert_equal [a, b, c], index.select(shas, nil, 'state' => 'open', 'at' => 'one')
+    
+    assert_equal [a], index.select(shas, {'state' => 'open', 'at' => 'one'}, {'at' => 'one'})
+    assert_equal [], index.select(shas, {'state' => 'open', 'at' => 'one'}, {'at' => 'two'})
+    assert_equal [c], index.select(shas, {'state' => 'open'}, {'at' => 'two'})
   end
   
-  def test_select_requires_matching_to_all_array_values
+  def test_select_allows_array_values
     a, b = shas('a', 'b')
     index.add('tags', 'a', a).add('tags', 'b', a)
     index.add('tags', 'a', b).add('tags', 'c', b)
@@ -184,6 +191,7 @@ class IndexTest < Test::Unit::TestCase
     
     assert_equal [a], index.select(shas, 'tags' => ['a', 'b'])
     assert_equal [], index.select(shas, 'tags' => ['a', 'd'])
+    assert_equal [a,b], index.select(shas, nil, 'tags' => ['b', 'c'])
   end
   
   def test_select_only_selects_among_specified_shas

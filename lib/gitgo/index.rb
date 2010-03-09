@@ -127,16 +127,20 @@ module Gitgo
       values.collect {|value| cache[key][value] }.flatten
     end
     
-    def select(shas, criteria={})
-      criteria.each_pair do |key, values|
-        unless values.kind_of?(Array)
-          values = [values]
-        end
-        
-        values.each do |value|
+    def select(shas, all=nil, any=nil)
+      if all
+        each_pair(all) do |key, value|
           shas = shas & cache[key][value]
           break if shas.empty?
         end
+      end
+      
+      if any
+        matches = []
+        each_pair(any) do |key, value|
+          matches.concat cache[key][value]
+        end
+        shas = shas & matches
       end
       
       shas
@@ -184,6 +188,18 @@ module Gitgo
     end
     
     private
+    
+    def each_pair(pairs) # :nodoc:
+      pairs.each_pair do |key, values|
+        unless values.kind_of?(Array)
+          values = [values]
+        end
+        
+        values.each do |value|
+          yield(key, value)
+        end
+      end
+    end
     
     def stringify(array) # :nodoc:
       array.collect! {|str| string_table[str.to_s] } if string_table
