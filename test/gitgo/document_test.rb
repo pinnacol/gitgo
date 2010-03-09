@@ -169,9 +169,9 @@ class DocumentTest < Test::Unit::TestCase
   
   def test_create_links_new_doc_to_parents_and_children
     a = Document.create('content' => 'a')
-    b = Document.create({'content' => 'b', 're' => a}, a)
-    c = Document.create({'content' => 'c', 're' => a})
-    d = Document.create({'content' => 'd', 're' => a}, b, c)
+    b = Document.create({'content' => 'b', 'origin' => a}, a)
+    c = Document.create({'content' => 'c', 'origin' => a})
+    d = Document.create({'content' => 'd', 'origin' => a}, b, c)
 
     assert_equal [b.sha], d.parents
     assert_equal [c.sha], d.children
@@ -433,35 +433,68 @@ class DocumentTest < Test::Unit::TestCase
   # origin test
   #
   
-  def test_origin_returns_re
-    doc.re = :re
-    assert_equal :re, doc.origin 
+  def test_origin_returns_origin_attribute
+    doc['origin'] = 'sha'
+    assert_equal 'sha', doc.origin 
   end
   
-  def test_origin_returns_sha_if_re_is_not_specified
-    assert_equal nil, doc.origin
+  def test_origin_returns_sha_if_origin_attribute_is_not_specified
+    assert_equal nil, doc['origin']
     doc.save
     assert_equal doc.sha, doc.origin
   end
   
-  #
-  # origin? test
-  #
-  
-  def test_origin_check_returns_true_if_re_is_nil
-    assert_equal true, doc.origin?
-    doc.re = :re
-    assert_equal false, doc.origin?
+  def test_origin_resolves_sha_to_original
+    update = doc.save.merge('content' => 'dup')
+    update.update(doc)
+    
+    assert doc.sha != update.sha
+    assert_equal doc.sha, update.origin
   end
   
   #
   # origin= test
   #
   
-  def test_set_origin_sets_re_attribute
-    assert_equal nil, doc.re
-    doc.origin = :origin
-    assert_equal :origin, doc.re
+  def test_set_origin_sets_origin_attribute
+    assert_equal nil, doc['origin']
+    doc.origin = 'sha'
+    assert_equal 'sha', doc['origin']
+  end
+  
+  #
+  # origin? test
+  #
+  
+  def test_origin_check_returns_true_if_origin_attribute_is_nil
+    assert_equal nil, doc['origin']
+    assert_equal true, doc.origin?
+    doc['origin'] = 'sha'
+    assert_equal false, doc.origin?
+  end
+  
+  #
+  # tail? test
+  #
+  
+  def test_tail_check_returns_true_unless_saved
+    assert_equal false, doc.saved?
+    assert_equal true, doc.tail?
+  end
+  
+  def test_tail_check_returns_false_unless_doc_is_tail
+    doc.merge!('content' => 'a').save
+    assert_equal true, doc.tail?
+    
+    # update
+    update = doc.merge('content' => 'b').update(doc)
+    assert_equal true, update.tail?
+    assert_equal false, doc.tail?
+    
+    # child
+    child = Document.new('content' => 'c', 'origin' => doc).save
+    child.link(update)
+    assert_equal false, update.tail?
   end
   
   #
@@ -496,29 +529,14 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
-  # tail? test
+  # graph test
   #
   
-  def test_tail_check_returns_true_unless_saved
-    assert_equal false, doc.saved?
-    assert_equal true, doc.tail?
-  end
-  
-  def test_tail_check_returns_false_unless_doc_is_tail
-    doc['content'] = 'a'
-    doc.save
-    assert_equal true, doc.tail?
+  def test_graph_resolves_doc_origins
+    origin = Document.new.save
     
-    # update
-    update = doc.merge('content' => 'b')
-    update.update(doc.sha)
-    assert_equal true, update.tail?
-    assert_equal false, doc.tail?
-    
-    # child
-    child = Document.new('content' => 'c', 're' => doc.sha).save
-    child.link(update)
-    assert_equal false, update.tail?
+    doc['origin'] = origin
+    assert_equal origin.sha, doc.graph.head 
   end
   
   #
@@ -526,9 +544,12 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_parents_queries_graph_for_parents
-    a = repo.store
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b')
+    repo.link(a,b)
+    
     doc.origin = a
-    doc.save.link(a)
+    doc.reset(b)
     
     assert_equal [a], doc.parents
   end
@@ -538,11 +559,11 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_children_queries_graph_for_children
-    a = repo.store
-    b = repo.store('re' => a)
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b')
+    repo.link(a,b)
     
-    doc.origin = a
-    doc.save.link(nil, b)
+    doc.reset(a)
     
     assert_equal [b], doc.children
   end
@@ -606,9 +627,9 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 'misformatted', doc.errors['date'].message
   end
   
-  def test_errors_detects_non_sha_re
-    doc.re = 'notasha'
-    assert_equal 'misformatted', doc.errors['re'].message
+  def test_errors_detects_non_sha_origin
+    doc.origin = 'notasha'
+    assert_equal 'misformatted', doc.errors['origin'].message
   end
   
   def test_errors_detects_non_sha_at
@@ -650,11 +671,18 @@ class DocumentTest < Test::Unit::TestCase
     assert_in_delta Time.now.to_f, doc.date.to_f, 1
   end
   
-  def test_normalize_bang_resolves_re_if_set
+  def test_normalize_bang_resolves_origin_if_sha
     a = repo.store
-    doc.re = a[0, 8]
+    doc.origin = a[0, 8]
     doc.normalize!
-    assert_equal a, doc.re
+    assert_equal a, doc.origin
+  end
+  
+  def test_normalize_bang_resolves_origin_if_doc
+    parent = Document.new.save
+    doc.origin = parent
+    doc.normalize!
+    assert_equal parent.sha, doc.origin
   end
   
   def test_normalize_bang_resolves_at_if_set
@@ -724,9 +752,9 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [['at', 'sha']], doc.indexes
   end
   
-  def test_indexes_includes_re
-    doc['re'] = 'sha'
-    assert_equal [['re', 'sha']], doc.indexes
+  def test_indexes_includes_origin
+    doc['origin'] = 'sha'
+    assert_equal [['origin', 'sha']], doc.indexes
   end
   
   def test_indexes_includes_type
@@ -879,7 +907,7 @@ class DocumentTest < Test::Unit::TestCase
 
   def test_link_resolves_parents
     a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b', 're' => a)
+    b = repo.store('content' => 'b', 'origin' => a)
 
     doc.origin = a
     doc.save.link([a[0,8], b])
@@ -890,20 +918,20 @@ class DocumentTest < Test::Unit::TestCase
 
   def test_link_detects_parents_with_different_origins
     a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b', 're' => a)
+    b = repo.store('content' => 'b', 'origin' => a)
     c = repo.store('content' => 'c')
     
     err = assert_raises(RuntimeError) { doc.save.link(b) }
     assert_equal 'parent and child have different origins', err.message
     
-    doc.re = c
+    doc.origin = c
     err = assert_raises(RuntimeError) { doc.save.link(b) }
     assert_equal 'parent and child have different origins', err.message
   end
 
   def test_link_links_doc_to_children
     a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b', 're' => a)
+    b = repo.store('content' => 'b', 'origin' => a)
 
     doc.origin = a
     doc.save.link(nil, b)
@@ -913,8 +941,8 @@ class DocumentTest < Test::Unit::TestCase
 
   def test_link_resolves_children
     a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b', 're' => a)
-    c = repo.store('content' => 'c', 're' => a)
+    b = repo.store('content' => 'b', 'origin' => a)
+    c = repo.store('content' => 'c', 'origin' => a)
 
     doc.origin = a
     doc.save.link(nil, [b[0,8], c])
@@ -923,13 +951,13 @@ class DocumentTest < Test::Unit::TestCase
 
   def test_link_detects_children_with_different_origins
     a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b', 're' => a)
+    b = repo.store('content' => 'b', 'origin' => a)
     c = repo.store('content' => 'c')
   
     err = assert_raises(RuntimeError) { doc.save.link(nil, b) }
     assert_equal 'parent and child have different origins', err.message
     
-    doc.re = c
+    doc.origin = c
     err = assert_raises(RuntimeError) { doc.save.link(nil, b) }
     assert_equal 'parent and child have different origins', err.message
   end

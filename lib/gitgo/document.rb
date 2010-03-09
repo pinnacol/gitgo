@@ -134,9 +134,9 @@ module Gitgo
     
     validate(:author) {|author| validate_format(author, AUTHOR) }
     validate(:date)   {|date| validate_format(date, DATE) }
+    validate(:origin) {|origin| validate_format_or_nil(origin, SHA) }
     
     define_attributes do
-      attr_accessor(:re)   {|re| validate_format_or_nil(re, SHA) }
       attr_accessor(:at)   {|at| validate_format_or_nil(at, SHA) }
       attr_accessor(:tags) {|tags| validate_array_or_nil(tags) }
       attr_accessor(:type)
@@ -145,7 +145,7 @@ module Gitgo
     def initialize(attrs={}, repo=nil, sha=nil)
       @repo = repo || Repo.current
       @attrs = attrs
-      set_sha(sha)
+      reset(sha)
     end
     
     def idx
@@ -191,15 +191,16 @@ module Gitgo
     end
     
     def origin
-      re || (sha ? repo.original(sha) : nil)
+      self['origin'] || (sha ? repo.original(sha) : nil)
     end
     
     def origin=(sha)
-      self.re = sha
+      self['origin'] = sha
+      reset
     end
     
     def origin?
-      re.nil?
+      self['origin'].nil?
     end
     
     def original?
@@ -219,16 +220,8 @@ module Gitgo
       repo.rev_list(commit).include?(at)
     end
     
-    def graph(reset=false)
-      @graph = nil if reset
-      
-      @graph || begin
-        graph = repo.graph(resolve origin)
-        unless graph.head.nil?
-          @graph = graph
-        end
-        graph
-      end
+    def graph
+      @graph ||= repo.graph(resolve origin)
     end
     
     def parents
@@ -260,8 +253,8 @@ module Gitgo
       
       attrs['date'] ||= Time.now.iso8601
       
-      if re = attrs['re']
-        attrs['re'] = resolve(re)
+      if origin = attrs['origin']
+        attrs['origin'] = resolve(origin)
       end
       
       if at = attrs['at']
@@ -314,8 +307,8 @@ module Gitgo
         yield('email', blank?(actor.email) ? 'unknown' : actor.email)
       end
       
-      if re = attrs['re']
-        yield('re', re)
+      if origin = attrs['origin']
+        yield('origin', origin)
       end
       
       if at = attrs['at']
@@ -352,19 +345,19 @@ module Gitgo
     def save
       validate
       
-      set_sha repo.store(attrs, date)
+      reset repo.store(attrs, date)
       reindex
       
       self
     end
     
     def saved?
-      @sha.nil? ? false : true
+      sha.nil? ? false : true
     end
     
     def update(old_sha=sha)
       old_sha = resolve(old_sha)
-      set_sha old_sha
+      reset old_sha
       save
       
       unless old_sha.nil? || old_sha == sha
@@ -383,14 +376,19 @@ module Gitgo
       parents.each {|parent| repo.link(parent, sha) }
       children.each {|child| repo.link(sha, child) }
       
-      @graph = nil
+      reset(sha)
       self
+    end
+    
+    def reset(sha=nil)
+      @graph = nil
+      @sha = sha
     end
     
     def initialize_copy(orig)
       super
+      reset
       @attrs = orig.attrs.dup
-      set_sha(nil)
     end
     
     def inspect
@@ -398,12 +396,6 @@ module Gitgo
     end
     
     protected
-    
-    def set_sha(sha) # :nodoc:
-      @graph = nil
-      @sha = sha
-      self
-    end
     
     def resolve(ref) # :nodoc:
       ref = ref.sha if ref.respond_to?(:sha)
