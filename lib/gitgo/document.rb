@@ -56,15 +56,15 @@ module Gitgo
         doc
       end
       
-      def find(criteria={}, update_idx=true)
+      def find(all={}, any=nil, update_idx=true)
         self.update_idx if update_idx
         
         # use type to determine basis -- note that idx.all('email') should
         # return all documents because all documents should have an email
-        shas = criteria.delete('shas') || basis
+        shas = (all ? all.delete('shas') : nil) || basis
         shas = [shas] unless shas.kind_of?(Array)
         
-        idx.select(shas, criteria).collect! {|sha| self[sha] }
+        idx.select(shas, all, any).collect! {|sha| self[sha] }
       end
       
       def basis

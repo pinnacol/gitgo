@@ -4,14 +4,14 @@ module Gitgo
   module Documents
     class Issue < Document
       class << self
-        def find(criteria={}, update_idx=true)
+        def find(all={}, any=nil, update_idx=true)
           self.update_idx if update_idx
           
           idx = repo.idx
-          shas = criteria.delete('shas') || basis
+          shas = (all ? all.delete('shas') : nil) || basis
           shas = [shas] unless shas.kind_of?(Array)
           
-          shas = idx.select(shas, criteria)
+          shas = idx.select(shas, all, any)
           shas.collect! {|sha| idx.map[sha] }
           shas.uniq!
           shas.collect! {|sha| self[sha] }

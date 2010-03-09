@@ -235,30 +235,35 @@ class DocumentTest < Test::Unit::TestCase
     b = Document.create('content' => 'b', 'tags' => ['one', 'two'])
     c = Document.create('content' => 'c', 'tags' => ['two'])
     
-    results = Document.find.collect {|doc| doc['content'] }
-    assert_equal ['a', 'b', 'c'], results
+    results = Document.find
+    assert_equal [a, b, c], results
     
-    results = Document.find('tags' => 'one').collect {|doc| doc['content'] }
-    assert_equal ['a', 'b'], results
+    results = Document.find('tags' => 'one')
+    assert_equal [a, b], results
     
-    results = Document.find('shas' => a.sha).collect {|doc| doc['content'] }
-    assert_equal ['a'], results
+    results = Document.find('shas' => a.sha)
+    assert_equal [a], results
     
-    results = Document.find('shas' => [a.sha, c.sha], 'tags' => 'one').collect {|doc| doc['content'] }
-    assert_equal ['a'], results
+    results = Document.find('shas' => [a.sha, c.sha], 'tags' => 'one')
+    assert_equal [a], results
     
-    results = Document.find('tags' => 'three').collect {|doc| doc['content'] }
+    results = Document.find('tags' => 'three')
     assert_equal [], results
     
-    results = Document.find('tags' => ['one', 'two']).collect {|doc| doc['content'] }
-    assert_equal ['b'], results
+    results = Document.find('tags' => ['one', 'two'])
+    assert_equal [b], results
+    
+    results = Document.find(nil, {'tags' => ['one', 'two']})
+    assert_equal [a, b, c], results
+    
+    results = Document.find({'tags' => 'one'}, {'tags' => ['two']})
+    assert_equal [b], results
   end
   
   def test_find_caches_documents
     a = Document.create('content' => 'a', 'tags' => ['one'])
     
-    results = Document.find.collect {|doc| doc['content'] }
-    assert_equal ['a'], results
+    assert_equal [a], Document.find
     assert_equal({a.sha => a.attrs}, repo.cache)
   end
   
@@ -270,11 +275,8 @@ class DocumentTest < Test::Unit::TestCase
     b = FindDoc.create('content' => 'b')
     c = FindDoc.create('content' => 'c')
     
-    results = Document.find.collect {|doc| doc['content'] }
-    assert_equal ['a', 'b', 'c'], results
-    
-    results = FindDoc.find.collect {|doc| doc['content'] }
-    assert_equal ['b', 'c'], results
+    assert_equal [a, b, c], Document.find
+    assert_equal [b, c], FindDoc.find
   end
   
   #

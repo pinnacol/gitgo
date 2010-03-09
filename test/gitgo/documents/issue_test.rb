@@ -46,14 +46,6 @@ class IssueTest < Test::Unit::TestCase
     b = Issue.create('tags' => 'b', 'origin' => a, 'parents' => [a])
     c = Issue.create('tags' => 'c', 'origin' => a, 'parents' => [a])
     
-    assert_equal [a], Issue.find('tags' => ['b', 'c'])
+    assert_equal [a], Issue.find(nil, 'tags' => ['b', 'c'])
   end
-  
-  #
-  # current_titles test
-  #
-  
-  # def test_current_titles_returns_all_tail_titles
-  #   
-  # end
 end
