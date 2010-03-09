@@ -19,22 +19,30 @@ module Gitgo
         @versions[sha] ||= collect_versions(sha)
       end
       
+      # Returns parents of the indicated node.  Parents are deconvoluted so
+      # that only the current version of a node will have parents. Detached
+      # nodes will return no parents.
       def parents(sha)
-        unless tree.has_key?(sha)
-          collect_nodes(sha, tree)
-        end
-        
         tree.keys.select do |key|
           current?(key) && tree[key].include?(sha)
         end
       end
       
+      # Returns children of the indicated node.  Children are deconvoluted so
+      # that only the current version of a node will have children.  Detached
+      # nodes will return no children.
       def children(sha)
-        unless tree.has_key?(sha)
-          collect_nodes(sha, tree)
+        tree[sha] || []
+      end
+      
+      def tails
+        @tails ||= begin
+          tails = []
+          tree.each_pair do |key, value|
+            tails << key if value.empty?
+          end
+          tails
         end
-        
-        tree[sha]
       end
       
       def current?(sha)
@@ -61,6 +69,7 @@ module Gitgo
         @original = {}
         @versions = {}
         @tree = nil
+        @tails = nil
       end
     
       protected 

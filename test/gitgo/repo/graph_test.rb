@@ -76,16 +76,29 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_parents_returns_deconvoluted_parents_of_the_node
-    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
-    repo.update(a, b)
-    repo.link(a, c)
+    a, b, c, d, e = create_nodes('a', 'b', 'c', 'd', 'e')
+    repo.link(a, b)
     repo.link(b, d)
+    repo.link(a, c)
+    repo.link(c, e)
+    repo.update(d, e)
     
     graph = repo.graph(a)
     assert_equal [], graph.parents(a)
-    assert_equal [], graph.parents(b)
-    assert_equal [b], graph.parents(c)
-    assert_equal [b], graph.parents(d)
+    assert_equal [a], graph.parents(b)
+    assert_equal [a], graph.parents(c)
+    assert_equal [], graph.parents(d)
+    assert_equal [b, c].sort, graph.parents(e).sort
+  end
+  
+  def test_parents_cannot_return_parents_from_a_detached_graph
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.link(a, b)
+    repo.link(c, d)
+    
+    graph = repo.graph(a)
+    assert_equal [a], graph.parents(b)
+    assert_equal [], graph.parents(d)
   end
   
   #
@@ -99,9 +112,34 @@ class GraphTest < Test::Unit::TestCase
     repo.link(b, d)
     
     graph = repo.graph(a)
-    assert_equal [c], graph.children(a)
+    assert_equal [], graph.children(a)
     assert_equal [c, d].sort, graph.children(b).sort
     assert_equal [], graph.children(c)
+  end
+  
+  def test_children_cannot_return_children_from_a_detached_graph
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.link(a, b)
+    repo.link(c, d)
+    
+    graph = repo.graph(a)
+    assert_equal [b], graph.children(a)
+    assert_equal [], graph.children(c)
+  end
+  
+  #
+  # tails test
+  #
+  
+  def tails_returns_all_tails_in_the_graph
+    a, b, c, d, e = create_nodes('a', 'b', 'c', 'd', 'e')
+    repo.update(a, b)
+    repo.link(a, c)
+    repo.link(c, d)
+    repo.link(a, e)
+    
+    graph = repo.graph(a)
+    assert_equal [d, e].sort, graph.tails.sort
   end
   
   #
