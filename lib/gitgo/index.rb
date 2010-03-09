@@ -49,6 +49,10 @@ module Gitgo
       end
     end
     
+    def filter
+      self['tail']['filter']
+    end
+    
     # Returns the segments joined to the path used to initialize self.
     def path(*segments)
       segments.collect! {|segment| segment.to_s }
@@ -136,10 +140,6 @@ module Gitgo
       end
       
       shas
-    end
-    
-    def filter(shas, criteria={})
-      shas - select(shas, criteria)
     end
     
     def clean

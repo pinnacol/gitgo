@@ -24,8 +24,17 @@ class CommentTest < Test::Unit::TestCase
   # errors test
   #
   
-  def test_errors_detects_missing_re
-    comment.re = nil
-    assert_equal 'missing', comment.errors['re'].message
+  def test_errors_detects_missing_origin
+    comment.origin = nil
+    assert_equal 'missing', comment.errors['origin'].message
+  end
+  
+  def test_errors_detects_missing_origin_even_if_sha_is_specified
+    sha = Repo.current.store
+    
+    comment.origin = nil
+    comment.reset(sha)
+    
+    assert_equal 'missing', comment.errors['origin'].message
   end
 end

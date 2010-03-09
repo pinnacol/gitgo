@@ -169,9 +169,9 @@ class DocumentTest < Test::Unit::TestCase
   
   def test_create_links_new_doc_to_parents_and_children
     a = Document.create('content' => 'a')
-    b = Document.create({'content' => 'b', 'origin' => a}, a)
-    c = Document.create({'content' => 'c', 'origin' => a})
-    d = Document.create({'content' => 'd', 'origin' => a}, b, c)
+    b = Document.create('content' => 'b', 'origin' => a, 'parents' => [a])
+    c = Document.create('content' => 'c', 'origin' => a)
+    d = Document.create('content' => 'd', 'origin' => a, 'parents' => [b], 'children' => [c])
 
     assert_equal [b.sha], d.parents
     assert_equal [c.sha], d.children
@@ -240,6 +240,12 @@ class DocumentTest < Test::Unit::TestCase
     
     results = Document.find('tags' => 'one').collect {|doc| doc['content'] }
     assert_equal ['a', 'b'], results
+    
+    results = Document.find('shas' => a.sha).collect {|doc| doc['content'] }
+    assert_equal ['a'], results
+    
+    results = Document.find('shas' => [a.sha, c.sha], 'tags' => 'one').collect {|doc| doc['content'] }
+    assert_equal ['a'], results
     
     results = Document.find('tags' => 'three').collect {|doc| doc['content'] }
     assert_equal [], results
@@ -786,8 +792,8 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 'value', attrs['key']
   end
   
-  def test_save_indexes_doc
-    doc['tags'] = 'one'
+  def test_save_sets_each_index_in_idx
+    doc.tags << 'one'
     doc.save
     
     assert_equal [doc.sha], idx['tags']['one']
@@ -892,6 +898,20 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal a, b
   end
   
+  def test_update_sets_sha_to_map_to_origin_in_idx
+    doc['content'] = 'a'
+    a = doc.save.sha
+    
+    assert_equal a, doc.origin
+    assert_equal a, idx.map[a]
+    
+    doc['content'] = 'b'
+    b = doc.update.sha
+    
+    assert_equal a, doc.origin
+    assert_equal a, idx.map[b]
+  end
+  
   #
   # link test
   #
@@ -960,5 +980,15 @@ class DocumentTest < Test::Unit::TestCase
     doc.origin = c
     err = assert_raises(RuntimeError) { doc.save.link(nil, b) }
     assert_equal 'parent and child have different origins', err.message
+  end
+  
+  #
+  # reindex test
+  #
+  
+  def test_reindex_raises_error_unless_saved
+    assert_equal false, doc.saved?
+    err = assert_raises(RuntimeError) { doc.reindex }
+    assert_equal 'cannot reindex unless saved', err.message
   end
 end

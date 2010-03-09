@@ -197,41 +197,6 @@ class IndexTest < Test::Unit::TestCase
   end
   
   #
-  # filter test
-  #
-  
-  def test_filter_returns_shas_matching_all_criteria
-    a, b, c = shas('a', 'b', 'c')
-    index.add('state', 'open', a).add('at', 'one', a)
-    index.add('state', 'closed', b).add('at', 'one', b)
-    index.add('state', 'open', c).add('at', 'two', c)
-    shas = [a, b, c]
-    
-    assert_equal [a, c], index.filter(shas, 'state' => 'closed')
-    assert_equal [a, b, c], index.filter(shas, 'state' => 'closed', 'at' => 'two')
-  end
-  
-  def test_filter_removes_any_matching_all_array_values
-    a, b = shas('a', 'b')
-    index.add('tags', 'a', a).add('tags', 'b', a)
-    index.add('tags', 'a', b).add('tags', 'c', b)
-    shas = [a, b]
-    
-    assert_equal [b], index.filter(shas, 'tags' => ['a', 'b'])
-    assert_equal [a, b], index.filter(shas, 'tags' => ['a', 'd'])
-  end
-  
-  def test_filter_only_filters_specified_shas
-    a, b, c = shas('a', 'b', 'c')
-    index.add('state', 'open', a)
-    index.add('state', 'closed', b)
-    index.add('state', 'closed', c)
-    
-    assert_equal [b], index.filter([a, b], 'state' => 'open')
-    assert_equal [b, c], index.filter([a, b, c], 'state' => 'open')
-  end
-  
-  #
   # write test
   #
   

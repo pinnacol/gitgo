@@ -18,13 +18,21 @@ module Gitgo
         Repo.current
       end
       
+      def idx
+        repo.idx
+      end
+      
       def type
         types[self]
       end
       
-      def create(attrs={}, parents=nil, children=nil)
+      def create(attrs={})
+        parents = attrs.delete('parents')
+        children = attrs.delete('children')
+        
         doc = new(attrs, repo)
-        doc.save.link(parents, children)
+        doc.save
+        doc.link(parents, children)
         doc
       end
       
@@ -42,6 +50,7 @@ module Gitgo
       end
       
       def update(sha, attrs={})
+        sha = sha.sha if sha.respond_to?(:sha)
         doc = read(sha).merge!(attrs)
         doc.update
         doc
@@ -52,13 +61,17 @@ module Gitgo
         
         # use type to determine basis -- note that idx.all('email') should
         # return all documents because all documents should have an email
-        idx = repo.idx
-        basis = type ? idx.get('type', type) : idx.all('email')
-        idx.select(basis, criteria).collect! {|sha| self[sha] }
+        shas = criteria.delete('shas') || basis
+        shas = [shas] unless shas.kind_of?(Array)
+        
+        idx.select(shas, criteria).collect! {|sha| self[sha] }
+      end
+      
+      def basis
+        type ? idx.get('type', type) : idx.all('email')
       end
       
       def update_idx(reindex=false)
-        idx = repo.idx
         idx.clear if reindex
         repo_head, idx_head = repo.head, idx.head
         
@@ -138,7 +151,7 @@ module Gitgo
     
     define_attributes do
       attr_accessor(:at)   {|at| validate_format_or_nil(at, SHA) }
-      attr_accessor(:tags) {|tags| validate_array_or_nil(tags) }
+      attr_writer(:tags)   {|tags| validate_array_or_nil(tags) }
       attr_accessor(:type)
     end
     
@@ -230,6 +243,10 @@ module Gitgo
     
     def children
       graph.children(sha)
+    end
+    
+    def tags
+      self['tags'] ||= []
     end
     
     def merge(attrs)
@@ -325,29 +342,13 @@ module Gitgo
         yield('type', type)
       end
       
-      if saved? && !repo.tail?(sha)
-        yield('tail', 'filter')
-      end
-      
-      self
-    end
-    
-    def reindex
-      if saved?
-        idx = self.idx
-        each_index {|key, value| idx.add(key, value, sha) }
-        idx.map[sha] = origin
-      end
-      
       self
     end
     
     def save
       validate
-      
       reset repo.store(attrs, date)
       reindex
-      
       self
     end
     
@@ -358,12 +359,16 @@ module Gitgo
     def update(old_sha=sha)
       old_sha = resolve(old_sha)
       reset old_sha
-      save
+      
+      validate
+      reset repo.store(attrs, date)
       
       unless old_sha.nil? || old_sha == sha
         repo.update(old_sha, sha)
+        idx.filter << old_sha
       end
       
+      reindex
       self
     end
     
@@ -376,7 +381,21 @@ module Gitgo
       parents.each {|parent| repo.link(parent, sha) }
       children.each {|child| repo.link(sha, child) }
       
+      idx.filter.concat(parents)
+      idx.filter << sha unless children.empty?
+      
       reset(sha)
+      self
+    end
+    
+    def reindex
+      raise "cannot reindex unless saved" unless saved?
+      
+      idx = self.idx
+      each_index {|key, value| idx.add(key, value, sha) }
+      idx.map[sha] = origin
+      idx.filter << sha unless repo.tail?(sha)
+      
       self
     end
     
@@ -393,6 +412,11 @@ module Gitgo
     
     def inspect
       "#<#{self.class}:#{object_id} sha=#{sha.inspect}>"
+    end
+    
+    # This is a thin equality -- use with caution.
+    def ==(another)
+      saved? ? sha == another.sha : super
     end
     
     protected
