@@ -48,4 +48,34 @@ class IssueTest < Test::Unit::TestCase
     
     assert_equal [a], Issue.find(nil, 'tags' => ['b', 'c'])
   end
+  
+  #
+  # current_titles test
+  #
+  
+  def test_current_titles_returns_all_tail_titles
+    a = Issue.create('title' => 'original')
+    assert_equal ['original'], a.current_titles
+    
+    b = Issue.create('title' => 'b', 'origin' => a, 'parents' => [a])
+    assert_equal ['b'], a.reset.current_titles
+    
+    c = Issue.create('title' => 'c', 'origin' => a, 'parents' => [a])
+    assert_equal ['b', 'c'], a.reset.current_titles.sort
+  end
+  
+  #
+  # current_tags test
+  #
+  
+  def test_current_tags_returns_all_unique_tail_tags
+    a = Issue.create('title' => 'original', 'tags' => ['a', 'b'])
+    assert_equal ['a', 'b'], a.current_tags.sort
+    
+    b = Issue.create('tags' => ['c', 'd'], 'origin' => a, 'parents' => [a])
+    assert_equal ['c', 'd'], a.reset.current_tags.sort
+    
+    c = Issue.create('tags' => ['d', 'e'], 'origin' => a, 'parents' => [a])
+    assert_equal ['c', 'd', 'e'], a.reset.current_tags.sort
+  end
 end

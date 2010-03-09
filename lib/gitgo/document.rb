@@ -399,14 +399,15 @@ module Gitgo
       self
     end
     
-    def reset(sha=nil)
+    def reset(new_sha=sha)
       @graph = nil
-      @sha = sha
+      @sha = new_sha
+      self
     end
     
     def initialize_copy(orig)
       super
-      reset
+      reset(nil)
       @attrs = orig.attrs.dup
     end
     

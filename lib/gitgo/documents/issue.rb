@@ -39,7 +39,6 @@ module Gitgo
       def current_tags
         tags = []
         tails.each {|tail| tags.concat tail.tags }
-        tags.flatten!
         tags.uniq!
         tags
       end
