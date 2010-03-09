@@ -22,9 +22,9 @@ module Gitgo
         types[self]
       end
       
-      def create(attrs={})
+      def create(attrs={}, parents=nil, children=nil)
         doc = new(attrs, repo)
-        doc.save
+        doc.save.link(parents, children)
         doc
       end
       
@@ -130,7 +130,7 @@ module Gitgo
     
     attr_reader :repo
     attr_reader :attrs
-    attr_accessor :sha
+    attr_reader :sha
     
     validate(:author) {|author| validate_format(author, AUTHOR) }
     validate(:date)   {|date| validate_format(date, DATE) }
@@ -139,29 +139,13 @@ module Gitgo
       attr_accessor(:re)   {|re| validate_format_or_nil(re, SHA) }
       attr_accessor(:at)   {|at| validate_format_or_nil(at, SHA) }
       attr_accessor(:tags) {|tags| validate_array_or_nil(tags) }
-      
-      attr_writer(:parents) do |parents|
-        validate_array_or_nil(parents)
-        parents.each do |parent|
-          validate_origins(Document[parent], self)
-        end if parents
-      end
-      
-      attr_writer(:children) do |children|
-        validate_array_or_nil(children)
-        children.each do |child|
-          validate_origins(self, Document[child])
-        end if children
-      end
-      
       attr_accessor(:type)
     end
     
     def initialize(attrs={}, repo=nil, sha=nil)
       @repo = repo || Repo.current
       @attrs = attrs
-      @sha = sha
-      @graph = nil
+      set_sha(sha)
     end
     
     def idx
@@ -180,7 +164,7 @@ module Gitgo
       if author.kind_of?(Grit::Actor)
         author = author.email ? "#{author.name} <#{author.email}>" : author.name
       end
-      attrs['author'] = author
+      self['author'] = author
     end
     
     def author(cast=true)
@@ -195,7 +179,7 @@ module Gitgo
       if date.respond_to?(:iso8601)
         date = date.iso8601
       end
-      attrs['date'] = date
+      self['date'] = date
     end
     
     def date(cast=true)
@@ -239,20 +223,20 @@ module Gitgo
       @graph = nil if reset
       
       @graph || begin
-        graph = repo.graph(origin)
+        graph = repo.graph(resolve origin)
         unless graph.head.nil?
-          @graph = repo.graph(origin)
+          @graph = graph
         end
         graph
       end
     end
     
     def parents
-      attrs['parents'] || graph.parents(sha)
+      graph.parents(sha)
     end
     
     def children
-      attrs['children'] || graph.children(sha)
+      graph.children(sha)
     end
     
     def merge(attrs)
@@ -277,21 +261,11 @@ module Gitgo
       attrs['date'] ||= Time.now.iso8601
       
       if re = attrs['re']
-        attrs['re'] = repo.resolve(re)
+        attrs['re'] = resolve(re)
       end
       
       if at = attrs['at']
         attrs['at'] = repo.resolve(at)
-      end
-      
-      if parents = attrs['parents']
-        parents = arrayify(parents)
-        attrs['parents'] = parents.collect {|parent| repo.resolve(parent) }
-      end
-      
-      if children = attrs['children']
-        children = arrayify(children)
-        attrs['children'] = children.collect {|child| repo.resolve(child) }
       end
       
       if tags = attrs['tags']
@@ -325,46 +299,6 @@ module Gitgo
       unless errors.empty?
         raise InvalidDocumentError.new(self, errors)
       end
-      self
-    end
-    
-    def save(force=false)
-      return sha if saved? && !force
-      
-      validate
-      
-      parents  = attrs.delete('parents')
-      children = attrs.delete('children')
-      
-      self.sha = repo.store(attrs)
-      parents.each {|parent| repo.link(parent, sha) } if parents
-      children.each {|child| repo.link(sha, child) }  if children
-      
-      reindex
-      sha
-    end
-    
-    def saved?
-      @sha.nil? ? false : true
-    end
-    
-    def update(old_sha=sha)
-      self.sha = old_sha
-      new_sha = save(true)
-      
-      unless old_sha.nil? || old_sha == new_sha
-        repo.update(old_sha, new_sha)
-      end
-      
-      new_sha
-    end
-    
-    def reindex
-      if saved?
-        each_index {|key, value| idx.add(key, value, sha) }
-        idx.map[sha] = origin
-      end
-      
       self
     end
     
@@ -405,15 +339,87 @@ module Gitgo
       self
     end
     
+    def reindex
+      if saved?
+        idx = self.idx
+        each_index {|key, value| idx.add(key, value, sha) }
+        idx.map[sha] = origin
+      end
+      
+      self
+    end
+    
+    def save
+      validate
+      
+      set_sha repo.store(attrs, date)
+      reindex
+      
+      self
+    end
+    
+    def saved?
+      @sha.nil? ? false : true
+    end
+    
+    def update(old_sha=sha)
+      old_sha = resolve(old_sha)
+      set_sha old_sha
+      save
+      
+      unless old_sha.nil? || old_sha == sha
+        repo.update(old_sha, sha)
+      end
+      
+      self
+    end
+    
+    def link(parents=nil, children=nil)
+      raise "cannot link unless saved" unless saved?
+      
+      parents  = validate_links(parents)
+      children = validate_links(children)
+      
+      parents.each {|parent| repo.link(parent, sha) }
+      children.each {|child| repo.link(sha, child) }
+      
+      @graph = nil
+      self
+    end
+    
     def initialize_copy(orig)
       super
       @attrs = orig.attrs.dup
-      @graph = nil
-      @sha = nil
+      set_sha(nil)
     end
     
     def inspect
       "#<#{self.class}:#{object_id} sha=#{sha.inspect}>"
+    end
+    
+    protected
+    
+    def set_sha(sha) # :nodoc:
+      @graph = nil
+      @sha = sha
+      self
+    end
+    
+    def resolve(ref) # :nodoc:
+      ref = ref.sha if ref.respond_to?(:sha)
+      repo.resolve(ref)
+    end
+    
+    def validate_links(links) # :nodoc:
+      arrayify(links).collect do |doc|
+        unless doc.kind_of?(Document)
+          doc = repo.resolve(doc)
+          doc = Document[doc]
+        end
+        
+        validate_origins(doc, self)
+        doc.sha
+      end
     end
   end
 end

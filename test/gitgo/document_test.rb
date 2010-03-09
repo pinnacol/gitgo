@@ -167,6 +167,16 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 'a', attrs['content']
   end
   
+  def test_create_links_new_doc_to_parents_and_children
+    a = Document.create('content' => 'a')
+    b = Document.create({'content' => 'b', 're' => a}, a)
+    c = Document.create({'content' => 'c', 're' => a})
+    d = Document.create({'content' => 'd', 're' => a}, b, c)
+
+    assert_equal [b.sha], d.parents
+    assert_equal [c.sha], d.children
+  end
+  
   def test_create_caches_document_attrs
     assert_equal({}, repo.cache)
 
@@ -429,11 +439,9 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_origin_returns_sha_if_re_is_not_specified
-    sha = git.set(:blob, '')
-    
     assert_equal nil, doc.origin
-    doc.sha = sha
-    assert_equal sha, doc.origin
+    doc.save
+    assert_equal doc.sha, doc.origin
   end
   
   #
@@ -444,6 +452,16 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal true, doc.origin?
     doc.re = :re
     assert_equal false, doc.origin?
+  end
+  
+  #
+  # origin= test
+  #
+  
+  def test_set_origin_sets_re_attribute
+    assert_equal nil, doc.re
+    doc.origin = :origin
+    assert_equal :origin, doc.re
   end
   
   #
@@ -486,40 +504,32 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal true, doc.tail?
   end
   
-  def test_tail_check_returns_false_unless_doc_is_tail_and_current
+  def test_tail_check_returns_false_unless_doc_is_tail
     doc['content'] = 'a'
     doc.save
     assert_equal true, doc.tail?
     
     # update
-    dup = doc.dup
-    dup['content'] = 'b'
-    update_sha = dup.update(doc.sha)
-    assert_equal true, dup.tail?
+    update = doc.merge('content' => 'b')
+    update.update(doc.sha)
+    assert_equal true, update.tail?
     assert_equal false, doc.tail?
     
     # child
-    child = Document.new('content' => 'c', 're' => doc.sha, 'parents' => [dup.sha]).save
-    assert_equal false, dup.tail?
+    child = Document.new('content' => 'c', 're' => doc.sha).save
+    child.link(update)
+    assert_equal false, update.tail?
   end
   
   #
   # parents test
   #
   
-  def test_parents_returns_parents_in_attrs_if_set
-    assert_equal [], doc.parents
-    doc['parents'] = ['parent']
-    assert_equal ['parent'], doc.parents
-  end
-  
-  def test_parents_queries_graph_for_parents_if_parents_are_not_set_and_doc_is_saved
+  def test_parents_queries_graph_for_parents
     a = repo.store
     doc.origin = a
-    doc.parents = [a]
-    doc.save
+    doc.save.link(a)
     
-    doc.parents = nil
     assert_equal [a], doc.parents
   end
   
@@ -527,20 +537,13 @@ class DocumentTest < Test::Unit::TestCase
   # children test
   #
   
-  def test_children_returns_children_in_attrs_if_set
-    assert_equal [], doc.children
-    doc['children'] = ['child']
-    assert_equal ['child'], doc.children
-  end
-  
-  def test_children_queries_graph_for_children_if_children_are_not_set_and_doc_is_saved
+  def test_children_queries_graph_for_children
     a = repo.store
     b = repo.store('re' => a)
-    doc.children = [b]
-    doc.re = a
-    doc.save
     
-    doc.children = nil
+    doc.origin = a
+    doc.save.link(nil, b)
+    
     assert_equal [b], doc.children
   end
   
@@ -613,46 +616,6 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 'misformatted', doc.errors['at'].message
   end
   
-  def test_errors_detects_non_array_parents
-    doc.parents = 'parent'
-    assert_equal 'not an array', doc.errors['parents'].message
-  end
-  
-  def test_errors_detects_parents_with_different_origins
-    a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b', 're' => a)
-    c = repo.store('content' => 'c')
-    
-    doc.parents = [b]
-    assert_equal 'parent and child have different origins', doc.errors['parents'].message
-    
-    doc.re = c
-    assert_equal 'parent and child have different origins', doc.errors['parents'].message
-    
-    doc.re = a
-    assert_equal nil, doc.errors['parents']
-  end
-  
-  def test_errors_detects_non_array_children
-    doc.children = 'child'
-    assert_equal 'not an array', doc.errors['children'].message
-  end
-  
-  def test_errors_detects_children_with_different_origins
-    a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b', 're' => a)
-    c = repo.store('content' => 'c')
-
-    doc.children = [b]
-    assert_equal 'parent and child have different origins', doc.errors['children'].message
-    
-    doc.re = c
-    assert_equal 'parent and child have different origins', doc.errors['children'].message
-    
-    doc.re = a
-    assert_equal nil, doc.errors['children']
-  end
-  
   def test_errors_detects_non_array_tags
     doc.tags = 'tag'
     assert_equal 'not an array', doc.errors['tags'].message
@@ -703,38 +666,6 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal a, doc.at
   end
   
-  def test_normalize_bang_arrayifies_parents
-    a = repo.store
-    doc.parents = a
-    doc.normalize!
-    assert_equal [a], doc.parents
-  end
-  
-  def test_normalize_bang_resolves_parents
-    a = git['a'] = 'content'
-    git.commit('added blob')
-    
-    doc.parents = [a[0,8], a[0,8]]
-    doc.normalize!
-    assert_equal [a, a], doc.parents
-  end
-  
-  def test_normalize_bang_arrayifies_children
-    a = repo.store
-    doc.children = a
-    doc.normalize!
-    assert_equal [a], doc.children
-  end
-  
-  def test_normalize_bang_resolves_children
-    a = git['a'] = 'content'
-    git.commit('added blob')
-    
-    doc.children = [a[0,8], a[0,8]]
-    doc.normalize!
-    assert_equal [a, a], doc.children
-  end
-  
   def test_normalize_bang_arrayifies_tags
     doc.tags = 'tag'
     doc.normalize!
@@ -757,174 +688,6 @@ class DocumentTest < Test::Unit::TestCase
     doc.normalize!
     assert_equal nil, doc.type
     assert_equal false, doc.attrs.has_key?('type')
-  end
-  
-  #
-  # save test
-  #
-  
-  def test_save_stores_attrs_and_sets_sha
-    doc['key'] = 'value'
-    doc.save
-    
-    attrs = repo.read(doc.sha)
-    assert_equal 'value', attrs['key']
-  end
-  
-  def test_save_links_to_parents_to_doc
-    a = repo.store('content' => 'a')
-    doc['parents'] = [a]
-    doc['re'] = a
-    doc.save
-    
-    assert_equal [doc.sha], repo.links(a)
-  end
-  
-  def test_save_links_doc_to_children
-    a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b', 're' => a)
-    doc['children'] = [b]
-    doc['re'] = a
-    doc.save
-    
-    assert_equal [b], repo.links(doc.sha)
-  end
-  
-  def test_save_indexes_doc
-    doc['tags'] = 'one'
-    doc.save
-    
-    assert_equal [doc.sha], idx['tags']['one']
-  end
-  
-  def test_save_stores_according_to_present_date
-    doc['date'] = Time.at(100).iso8601
-    sha = doc.save
-    
-    assert_equal git.get(:blob, sha).data, git[date_path(Time.now, sha)]
-  end
-  
-  def test_multiple_sequential_saves_returns_same_sha
-    a = doc.save
-    b = doc.save
-    
-    assert_equal a, b
-  end
-  
-  def test_re_saving_a_saved_document_does_not_store_document_twice
-    doc.validate
-    sha = repo.store(doc.attrs, Time.at(100))
-    doc.sha = sha
-    
-    assert_equal sha, doc.save
-    assert_equal git.get(:blob, sha).data, git[date_path(Time.at(100), sha)]
-    assert_equal nil, git[date_path(Time.now, sha)]
-  end
-  
-  def test_forcing_save_stores_a_document_twice
-    doc.validate
-    sha = repo.store(doc.attrs, Time.at(100))
-    doc.sha = sha
-    
-    assert_equal sha, doc.save(true)
-    assert_equal git.get(:blob, sha).data, git[date_path(Time.at(100), sha)]
-    assert_equal git.get(:blob, sha).data, git[date_path(Time.now, sha)]
-  end
-
-  class SaveDoc < Document
-    validate(:key) {|key| raise("no key") if key.nil? }
-  end
-  
-  def test_save_validates_doc
-    doc = SaveDoc.new
-    err = assert_raises(InvalidDocumentError) { doc.save }
-    assert_equal "no key", err.errors['key'].message
-    assert_equal nil, doc.sha
-    
-    doc['key'] = 'value'
-    doc.save
-    attrs = repo.read(doc.sha)
-    assert_equal 'value', attrs['key']
-  end
-  
-  class NormDoc < Document
-    validate(:key) {|key| raise("nil key") if key.nil? }
-    
-    def normalize!
-      super
-      attrs['key'] = 'value' unless attrs.has_key?('key')
-    end
-  end
-  
-  def test_save_normalizes_doc_before_validate
-    doc = NormDoc.new
-    doc.save
-    assert_equal 'value', doc['key']
-    
-    doc = NormDoc.new 'key' => nil
-    err = assert_raises(InvalidDocumentError) { doc.save }
-    assert_equal "nil key", err.errors['key'].message
-  end
-  
-  #
-  # saved? test
-  #
-  
-  def test_saved_check_returns_true_if_sha_is_set
-    assert_equal nil, doc.sha
-    assert_equal false, doc.saved?
-    
-    doc.sha = :sha
-    assert_equal true, doc.saved?
-  end
-  
-  #
-  # update test
-  #
-  
-  def test_update_saves_and_updates_old_sha_with_self
-    a = Document.new('content' => 'a').save
-    b = Document.new('content' => 'b').update(a)
-    
-    attrs = deserialize(git.get(:blob, b).data)
-    assert_equal 'b', attrs['content']
-    assert_equal [b], repo.updates(a)
-    assert_equal true, repo.updated?(a)
-  end
-  
-  def test_update_is_equivalent_to_save_if_old_sha_is_nil
-    a = Document.new('content' => 'a').update(nil)
-    assert_equal false, repo.updated?(a)
-  end
-  
-  def test_update_updates_self_sha_by_default
-    doc['content'] = 'a'
-    a = doc.save
-    
-    doc['content'] = 'b'
-    b = doc.update
-    
-    attrs = deserialize(git.get(:blob, b).data)
-    assert_equal 'b', attrs['content']
-    assert_equal [b], repo.updates(a)
-    assert_equal true, repo.updated?(a)
-  end
-  
-  def test_multiple_sequential_updates_returns_same_sha
-    a = doc.update
-    b = doc.update
-    
-    assert_equal a, b
-  end
-  
-  def test_updating_a_document_always_stores_the_document
-    doc.validate
-    sha = repo.store(doc.attrs, Time.at(100))
-    doc.sha = sha
-    
-    assert_equal sha, doc.update
-    assert_equal git.get(:blob, sha).data, git[date_path(Time.at(100), sha)]
-    assert_equal git.get(:blob, sha).data, git[date_path(Time.now, sha)]
   end
   
   #
@@ -971,23 +734,6 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [['type', 'doc']], doc.indexes
   end
   
-  def test_indexes_includes_tail_filter_if_saved_and_not_tail
-    doc['content'] = 'parent'
-    parent = doc.save
-    
-    child = doc.dup
-    child.parents = [parent]
-    child['re'] = parent
-    child['content'] = 'child'
-    child.save
-    
-    assert_equal false, doc.tail?
-    assert_equal [['email', 'john.doe@email.com'], ['tail', 'filter']], doc.indexes
-    
-    assert_equal true, child.tail?
-    assert_equal [['email', 'john.doe@email.com'], ['re', parent]], child.indexes
-  end
-  
   #
   # each_index test
   #
@@ -998,5 +744,193 @@ class DocumentTest < Test::Unit::TestCase
     pairs = []
     doc.each_index {|key, value| pairs << [key, value]}
     assert_equal [['email', 'jane.doe@email.com']], pairs
+  end
+  
+  #
+  # save test
+  #
+  
+  def test_save_stores_attrs_and_sets_sha
+    doc['key'] = 'value'
+    doc.save
+    
+    attrs = repo.read(doc.sha)
+    assert_equal 'value', attrs['key']
+  end
+  
+  def test_save_indexes_doc
+    doc['tags'] = 'one'
+    doc.save
+    
+    assert_equal [doc.sha], idx['tags']['one']
+  end
+  
+  def test_save_stores_according_to_date
+    date = Time.at(100)
+    doc['date'] = date.iso8601
+    doc.save
+    
+    assert_equal git.get(:blob, doc.sha).data, git[date_path(date, doc.sha)]
+  end
+  
+  def test_multiple_sequential_saves_do_not_change_sha
+    a = doc.save.sha
+    b = doc.save.sha
+    
+    assert_equal a, b
+  end
+  
+  class SaveDoc < Document
+    validate(:key) {|key| raise("no key") if key.nil? }
+  end
+  
+  def test_save_validates_doc
+    doc = SaveDoc.new
+    err = assert_raises(InvalidDocumentError) { doc.save }
+    assert_equal "no key", err.errors['key'].message
+    assert_equal nil, doc.sha
+    
+    doc['key'] = 'value'
+    doc.save
+    attrs = repo.read(doc.sha)
+    assert_equal 'value', attrs['key']
+  end
+  
+  class NormDoc < Document
+    validate(:key) {|key| raise("nil key") if key.nil? }
+    
+    def normalize!
+      super
+      attrs['key'] = 'value' unless attrs.has_key?('key')
+    end
+  end
+  
+  def test_save_normalizes_doc_before_validate
+    doc = NormDoc.new
+    doc.save
+    assert_equal 'value', doc['key']
+    
+    doc = NormDoc.new 'key' => nil
+    err = assert_raises(InvalidDocumentError) { doc.save }
+    assert_equal "nil key", err.errors['key'].message
+  end
+  
+  #
+  # saved? test
+  #
+  
+  def test_saved_check_returns_true_if_saved
+    assert_equal false, doc.saved?
+    doc.save
+    assert_equal true, doc.saved?
+  end
+  
+  #
+  # update test
+  #
+  
+  def test_update_saves_and_updates_old_sha_with_self
+    a = Document.new('content' => 'a').save.sha
+    b = Document.new('content' => 'b').update(a).sha
+    
+    attrs = deserialize(git.get(:blob, b).data)
+    assert_equal 'b', attrs['content']
+    assert_equal [b], repo.updates(a)
+    assert_equal true, repo.updated?(a)
+  end
+  
+  def test_update_is_equivalent_to_save_if_old_sha_is_nil
+    a = Document.new('content' => 'a').update(nil).sha
+    assert_equal false, repo.updated?(a)
+  end
+  
+  def test_update_updates_self_sha_by_default
+    doc['content'] = 'a'
+    a = doc.save.sha
+    
+    doc['content'] = 'b'
+    b = doc.update.sha
+    
+    attrs = deserialize(git.get(:blob, b).data)
+    assert_equal 'b', attrs['content']
+    assert_equal [b], repo.updates(a)
+    assert_equal true, repo.updated?(a)
+  end
+  
+  def test_multiple_sequential_updates_do_not_change_sha
+    a = doc.update.sha
+    b = doc.update.sha
+    
+    assert_equal a, b
+  end
+  
+  #
+  # link test
+  #
+  
+  def test_link_links_to_parents_to_doc
+    a = repo.store('content' => 'a')
+
+    doc.origin = a
+    doc.save.link(a)
+
+    assert_equal [doc.sha], repo.links(a)
+  end
+
+  def test_link_resolves_parents
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b', 're' => a)
+
+    doc.origin = a
+    doc.save.link([a[0,8], b])
+
+    assert_equal [doc.sha], repo.links(a)
+    assert_equal [doc.sha], repo.links(b)
+  end
+
+  def test_link_detects_parents_with_different_origins
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b', 're' => a)
+    c = repo.store('content' => 'c')
+    
+    err = assert_raises(RuntimeError) { doc.save.link(b) }
+    assert_equal 'parent and child have different origins', err.message
+    
+    doc.re = c
+    err = assert_raises(RuntimeError) { doc.save.link(b) }
+    assert_equal 'parent and child have different origins', err.message
+  end
+
+  def test_link_links_doc_to_children
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b', 're' => a)
+
+    doc.origin = a
+    doc.save.link(nil, b)
+
+    assert_equal [b], repo.links(doc.sha)
+  end
+
+  def test_link_resolves_children
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b', 're' => a)
+    c = repo.store('content' => 'c', 're' => a)
+
+    doc.origin = a
+    doc.save.link(nil, [b[0,8], c])
+    assert_equal [b, c].sort, repo.links(doc.sha).sort
+  end
+
+  def test_link_detects_children_with_different_origins
+    a = repo.store('content' => 'a')
+    b = repo.store('content' => 'b', 're' => a)
+    c = repo.store('content' => 'c')
+  
+    err = assert_raises(RuntimeError) { doc.save.link(nil, b) }
+    assert_equal 'parent and child have different origins', err.message
+    
+    doc.re = c
+    err = assert_raises(RuntimeError) { doc.save.link(nil, b) }
+    assert_equal 'parent and child have different origins', err.message
   end
 end
