@@ -67,11 +67,7 @@ module Gitgo
         end
         
         shas = repo.diff(idx_head, repo_head)
-        shas.each do |sha|
-          self[sha].each_index do |key, value|
-            idx.add(key, value, sha)
-          end
-        end
+        shas.each {|sha| self[sha].reindex }
         
         idx.write(repo.head)
         shas
@@ -165,6 +161,7 @@ module Gitgo
       @repo = repo || Repo.current
       @attrs = attrs
       @sha = sha
+      @graph = nil
     end
     
     def idx
@@ -221,27 +218,41 @@ module Gitgo
       re.nil?
     end
     
+    def original?
+      repo.original?(sha)
+    end
+    
+    def current?
+      repo.current?(sha)
+    end
+    
+    def tail?
+      repo.tail?(sha)
+    end
+    
     def active?(commit=nil)
       return true if at.nil? || commit.nil?
       repo.rev_list(commit).include?(at)
     end
     
-    def tail?(reset=false)
-      return false unless g = graph(reset)
-      g.tail?(sha) && g.current?(sha)
-    end
-    
     def graph(reset=false)
       @graph = nil if reset
-      @graph ||= (saved? ? repo.graph(origin) : nil)
+      
+      @graph || begin
+        graph = repo.graph(origin)
+        unless graph.head.nil?
+          @graph = repo.graph(origin)
+        end
+        graph
+      end
     end
     
     def parents
-      attrs['parents'] || (saved? ? graph.parents(sha) : nil)
+      attrs['parents'] || graph.parents(sha)
     end
     
     def children
-      attrs['children'] || (saved? ? graph.children(sha) : nil)
+      attrs['children'] || graph.children(sha)
     end
     
     def merge(attrs)
@@ -328,8 +339,8 @@ module Gitgo
       self.sha = repo.store(attrs)
       parents.each {|parent| repo.link(parent, sha) } if parents
       children.each {|child| repo.link(sha, child) }  if children
-      each_index {|key, value| idx.add(key, value, sha) }
       
+      reindex
       sha
     end
     
@@ -338,12 +349,7 @@ module Gitgo
     end
     
     def update(old_sha=sha)
-      
-      # ensure children of the old sha will be reassigned so as to properly
-      # identify tails.  note that sha must be set to determine and validate
-      # existing children
       self.sha = old_sha
-      attrs['children'] ||= children
       new_sha = save(true)
       
       unless old_sha.nil? || old_sha == new_sha
@@ -351,6 +357,15 @@ module Gitgo
       end
       
       new_sha
+    end
+    
+    def reindex
+      if saved?
+        each_index {|key, value| idx.add(key, value, sha) }
+        idx.map[sha] = origin
+      end
+      
+      self
     end
     
     def indexes
@@ -380,8 +395,11 @@ module Gitgo
       end
       
       if type = attrs['type']
-        yield('type', type) if origin?
-        yield('tail', type) if saved? && repo.tail?(sha)
+        yield('type', type)
+      end
+      
+      if saved? && !repo.tail?(sha)
+        yield('tail', 'filter')
       end
       
       self

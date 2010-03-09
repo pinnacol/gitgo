@@ -211,7 +211,7 @@ module Gitgo
     
     def tail?(sha)
       each_link(sha) do |link, update|
-        return false unless update
+        return false unless update.nil?
       end
       true
     end
@@ -262,8 +262,9 @@ module Gitgo
     end
     
     def each_link(sha, include_back_reference=false)
-      links = git.tree.subtree(sha_path(sha))
+      return self if sha.nil?
       
+      links = git.tree.subtree(sha_path(sha))
       links.each_pair do |link, (mode, ref)|
         if sha == link
           # sha == link (parent == child): indicates back reference to origin
@@ -341,6 +342,7 @@ module Gitgo
         path =~ DOCUMENT
         $3
       end
+
       docs.compact!
       docs
     end

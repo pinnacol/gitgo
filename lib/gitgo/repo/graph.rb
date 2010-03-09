@@ -48,7 +48,9 @@ module Gitgo
       def tree
         @tree ||= begin
           tree = {}
-          tree[nil] = collect_tree(head, tree)
+          unless head.nil?
+            tree[nil] = collect_tree(head, tree)
+          end
           tree
         end
       end

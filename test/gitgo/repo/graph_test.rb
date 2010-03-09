@@ -326,4 +326,9 @@ class GraphTest < Test::Unit::TestCase
 }]
     assert_equal true, expected.include?(err.message)
   end
+  
+  def test_tree_returns_empty_hash_when_head_is_nil
+    graph = repo.graph(nil)
+    assert_equal({}, graph.tree)
+  end
 end

@@ -481,42 +481,34 @@ class DocumentTest < Test::Unit::TestCase
   # tail? test
   #
   
-  def test_tail_check_returns_false_unless_saved
+  def test_tail_check_returns_true_unless_saved
     assert_equal false, doc.saved?
-    assert_equal false, doc.tail?
+    assert_equal true, doc.tail?
   end
   
   def test_tail_check_returns_false_unless_doc_is_tail_and_current
     doc['content'] = 'a'
-    original_sha = doc.save
-    assert_equal true, repo.current?(original_sha)
-    assert_equal true, repo.tail?(original_sha)
-    assert_equal true, doc.tail?(true)
+    doc.save
+    assert_equal true, doc.tail?
     
     # update
-    doc['content'] = 'b'
-    update_sha = doc.update
-    assert_equal true, repo.current?(update_sha)
-    assert_equal true, repo.tail?(update_sha)
-    assert_equal true, doc.tail?(true)
-    
-    assert_equal false, repo.current?(original_sha)
-    assert_equal true, repo.tail?(original_sha)
-    assert_equal false, Document.read(original_sha).tail?
+    dup = doc.dup
+    dup['content'] = 'b'
+    update_sha = dup.update(doc.sha)
+    assert_equal true, dup.tail?
+    assert_equal false, doc.tail?
     
     # child
-    child = Document.new('content' => 'c', 're' => original_sha, 'parents' => [update_sha]).save
-    assert_equal true, repo.current?(update_sha)
-    assert_equal false, repo.tail?(update_sha)
-    assert_equal false, doc.tail?(true)
+    child = Document.new('content' => 'c', 're' => doc.sha, 'parents' => [dup.sha]).save
+    assert_equal false, dup.tail?
   end
   
   #
   # parents test
   #
   
-  def test_parents_returns_parents_in_attrs
-    assert_equal nil, doc.parents
+  def test_parents_returns_parents_in_attrs_if_set
+    assert_equal [], doc.parents
     doc['parents'] = ['parent']
     assert_equal ['parent'], doc.parents
   end
@@ -535,8 +527,8 @@ class DocumentTest < Test::Unit::TestCase
   # children test
   #
   
-  def test_children_returns_children_in_attrs
-    assert_equal nil, doc.children
+  def test_children_returns_children_in_attrs_if_set
+    assert_equal [], doc.children
     doc['children'] = ['child']
     assert_equal ['child'], doc.children
   end
@@ -935,49 +927,6 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal git.get(:blob, sha).data, git[date_path(Time.now, sha)]
   end
   
-  def test_update_reassigns_known_children_as_specified
-    a = Document.new('content' => 'a').save
-    b = Document.new('content' => 'b', 're' => a, 'parents' => [a]).save
-    c = Document.new('content' => 'c', 're' => a, 'parents' => [a]).save
-    d = Document.new('content' => 'c', 'children' => [c]).update(a)
-    
-    links = []
-    repo.each_link(d) do |link, update|
-      links << link unless update
-    end
-    
-    assert_equal [c], links
-  end
-  
-  def test_update_reassigns_known_children_if_children_are_unspecified
-    a = Document.new('content' => 'a').save
-    b = Document.new('content' => 'b', 're' => a, 'parents' => [a]).save
-    c = Document.new('content' => 'c', 're' => a, 'parents' => [a]).save
-    d = Document.new('content' => 'c').update(a)
-    
-    links = []
-    repo.each_link(d) do |link, update|
-      links << link unless update
-    end
-    
-    assert_equal [b, c].sort, links.sort
-  end
-  
-  def test_reassignment_occurs_over_multiple_updates
-    a = Document.new('content' => 'a').save
-    b = Document.new('content' => 'b', 're' => a, 'parents' => [a]).save
-    c = Document.new('content' => 'c', 're' => a, 'parents' => [a]).save
-    d = Document.new('content' => 'c').update(a)
-    e = Document.new('content' => 'e').update(d)
-    
-    links = []
-    repo.each_link(e) do |link, update|
-      links << link unless update
-    end
-    
-    assert_equal [b, c].sort, links.sort
-  end
-  
   #
   # indexes test
   #
@@ -1017,15 +966,26 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [['re', 'sha']], doc.indexes
   end
   
-  def test_indexes_includes_type_if_origin
+  def test_indexes_includes_type
     doc['type'] = 'doc'
-    assert_equal true, doc.origin?
     assert_equal [['type', 'doc']], doc.indexes
+  end
+  
+  def test_indexes_includes_tail_filter_if_saved_and_not_tail
+    doc['content'] = 'parent'
+    parent = doc.save
     
-    #
-    doc['re'] = 'sha'
-    assert_equal false, doc.origin?
-    assert_equal [['re', 'sha']], doc.indexes
+    child = doc.dup
+    child.parents = [parent]
+    child['re'] = parent
+    child['content'] = 'child'
+    child.save
+    
+    assert_equal false, doc.tail?
+    assert_equal [['email', 'john.doe@email.com'], ['tail', 'filter']], doc.indexes
+    
+    assert_equal true, child.tail?
+    assert_equal [['email', 'john.doe@email.com'], ['re', parent]], child.indexes
   end
   
   #
