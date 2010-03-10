@@ -1,7 +1,7 @@
 require File.dirname(__FILE__) + "/../../test_helper"
 require 'gitgo/controllers/issue'
 
-class IssueTest < Test::Unit::TestCase
+class IssueControllerTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   

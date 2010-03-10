@@ -382,6 +382,10 @@ module Gitgo
       idx.write(sha)
       sha
     end
+    
+    def scope
+      Repo.with_env(REPO => self) { yield }
+    end
 
     protected
     

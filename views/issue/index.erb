@@ -1,25 +1,19 @@
 <h1>Issues</h1>
 
-<form class="issue" action="<%= url('issue', 'new') %>" method="get">
+<form class="issue" action="<%= form.url('issue', 'new') %>" method="get">
   <input type="submit" value="New Issue" >
 </form>
 
-<form class="issue" action="<%= url('issue') %>" method="get">
-  <h3>State</h3>
-  <ul><% form.each_state(*current_states) do |value, selection, content| %>
-  <li><input type="checkbox" name="state[]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
-  </ul>
-  
+<form class="issue" action="<%= form.url('issue') %>" method="get">
   <h3>Tags</h3>
-  <ul><% form.each_tag(*current_tags) do |value, selection, content| %>
+  <ul><% form.each_tag(*tags) do |value, selection, content| %>
   <li><input type="checkbox" name="tags[]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
   </ul>
   
   <h3>Sort</h3>
   <ul>
-  <li><input type="radio" name="sort" value="author" <%= html.check(sort_attr == 'author') %>>Author</input></li>
-  <li><input type="radio" name="sort" value="date" <%= html.check(sort_attr == 'date') %>>Date</input></li>
-  <li><input type="radio" name="sort" value="title" <%= html.check(sort_attr == 'title') %>>Title</input></li>
+  <li><input type="radio" name="sort" value="date" <%= html.check(sort == 'date') %>>Date</input></li>
+  <li><input type="radio" name="sort" value="title" <%= html.check(sort == 'title') %>>Title</input></li>
   <li><input type="checkbox" name="reverse" value="true" <%= html.check(reverse) %>>Reverse</input>
   </ul>
   

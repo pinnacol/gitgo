@@ -1,6 +1,5 @@
 require 'gitgo/controller'
 require 'gitgo/documents/issue'
-require 'gitgo/documents/update'
 
 module Gitgo
   module Controllers
@@ -29,8 +28,7 @@ module Gitgo
       # actions
       #
       
-      INHERIT = %w{state tags}
-      ATTRIBUTES = %w{author date state tags}
+      Issue = Documents::Issue
       
       # Processes requests like: /index?key=value
       #
@@ -42,50 +40,23 @@ module Gitgo
       # the sort with reverse=true. Multiple sort criteria are currently not
       # supported.
       def index
-        # filter issues
-        criteria = {}
-        ATTRIBUTES.each do |key|
-          next unless values = params[key]
-          criteria[key] = values.kind_of?(Array) ? values : [values]
-        end
-      
-        filters = []
-        criteria.each_pair do |key, values|
-          filter = values.collect do |value|
-            repo.index.read(key, value)
-          end.flatten
+        tags = request['tags'] || []
+        criteria = {'tags' => tags}
+        criteria.delete_if {|key, value| value.empty? }
         
-          filters << filter
-        end
-        
-        issues = []
-        repo.index.read("type", "issue").each do |sha|
-          tails = repo.tails(sha)
-          filters.each do |filter|
-            tails = tails & filter
-          end
-          
-          unless tails.empty?
-            # note this lookup is deadly slow.
-            doc = cache[sha]
-            doc[:active] = tails.any? {|tail| active?(cache[tail]['at']) } ? true : active?(doc['at'])
-            
-            issues << doc
-          end
-        end
+        issues = Issue.find(criteria)
         
         # sort results
-        sort_attr = request['sort'] || 'date'
+        sort = request['sort'] || 'date'
         reverse = request['reverse'] == 'true'
         
-        issues.sort! {|a, b| a[sort_attr] <=> b[sort_attr] }
+        issues.sort! {|a, b| a[sort] <=> b[sort] }
         issues.reverse! if reverse
         
         erb :index, :locals => {
           :issues => issues,
-          :current_states => criteria['state'] || [],
-          :current_tags => criteria['tags'] || [],
-          :sort_attr => sort_attr,
+          :tags => tags,
+          :sort => sort,
           :reverse => reverse
         }
       end

@@ -5,6 +5,8 @@ class RepoControllerTest < Test::Unit::TestCase
   include Rack::Test::Methods
   include RepoTestHelper
   
+  Document = Gitgo::Document
+  
   attr_reader :app
   attr_reader :repo
   
@@ -124,21 +126,26 @@ class RepoControllerTest < Test::Unit::TestCase
   # update test
   #
   
-  def test_update_pulls_changes
-    one = Gitgo::Document.new({"content" => "one"}, repo).save
+  def test_update_pulls_changes_then_pushes_changes_if_specified
+    one = repo.scope do
+      Document.create("content" => "one").sha
+    end
     repo.commit!
     
     clone = git.clone(method_root.path(:tmp, 'clone'))
     clone.track('origin/gitgo')
     clone = Gitgo::Repo.new(Gitgo::Repo::GIT => clone)
     
-    two = Gitgo::Document.new({"content" => "two"}, repo).save
+    two = repo.scope do
+      Document.create("content" => "two").sha
+    end
     repo.commit!
     
-    three = Gitgo::Document.new({"content" => "three"}, clone).save
+    three = clone.scope do
+      Document.create("content" => "three").sha
+    end
     clone.commit!
     
-    #
     @app = Gitgo::Controllers::Repo.new(nil, clone)
     
     assert_equal "one", repo.read(one)['content']
@@ -149,6 +156,7 @@ class RepoControllerTest < Test::Unit::TestCase
     assert_equal nil, clone.read(two)
     assert_equal "three", clone.read(three)['content']
     
+    # pull only
     post("/repo/update", :sync => false)
     assert last_response.redirect?
     assert_equal "/repo", last_response['Location']
@@ -160,33 +168,8 @@ class RepoControllerTest < Test::Unit::TestCase
     assert_equal "one", clone.read(one)['content']
     assert_equal "two", clone.read(two)['content']
     assert_equal "three", clone.read(three)['content']
-  end
-  
-  def test_update_pulls_changes_then_pushes_changes_if_specified
-    one = Gitgo::Document.new({"content" => "one"}, repo).save
-    repo.commit!
     
-    clone = git.clone(method_root.path(:tmp, 'clone'))
-    clone.track('origin/gitgo')
-    clone = Gitgo::Repo.new(Gitgo::Repo::GIT => clone)
-    
-    two = Gitgo::Document.new({"content" => "two"}, repo).save
-    repo.commit!
-    
-    three = Gitgo::Document.new({"content" => "three"}, clone).save
-    clone.commit!
-    
-    #
-    @app = Gitgo::Controllers::Repo.new(nil, clone)
-    
-    assert_equal "one", repo.read(one)['content']
-    assert_equal "two", repo.read(two)['content']
-    assert_equal nil, repo.read(three)
-    
-    assert_equal "one", clone.read(one)['content']
-    assert_equal nil, clone.read(two)
-    assert_equal "three", clone.read(three)['content']
-    
+    # now with a push
     post("/repo/update", :sync => true)
     assert last_response.redirect?
     assert_equal "/repo", last_response['Location']
@@ -201,55 +184,11 @@ class RepoControllerTest < Test::Unit::TestCase
   end
   
   #
-  # reindex test
-  #
-  
-  def test_reindex_clears_index_and_performs_full_reindex
-    sha = Gitgo::Document.new({"content" => "document", "tags" => ["a", "b"]}, repo).save
-    repo.commit!
-    
-    idx = repo.idx
-    idx.reset
-    
-    b_index = idx.path("tags", "b")
-    FileUtils.rm(b_index)
-    
-    fake_index = idx.path("tags", "c")
-    Gitgo::Index::IndexFile.write(fake_index, sha)
-    
-    get("/repo/idx/tags/a")
-    assert last_response.ok?
-    assert last_response.body.include?(sha)
-    
-    get("/repo/idx/tags/b")
-    assert last_response.ok?
-    assert !last_response.body.include?(sha)
-    
-    get("/repo/idx/tags/c")
-    assert last_response.ok?
-    assert last_response.body.include?(sha)
-    
-    post("/repo/reindex")
-    
-    get("/repo/idx/tags/a")
-    assert last_response.ok?
-    assert last_response.body.include?(sha)
-    
-    get("/repo/idx/tags/b")
-    assert last_response.ok?
-    assert last_response.body.include?(sha)
-    
-    get("/repo/idx/tags/c")
-    assert last_response.ok?
-    assert !last_response.body.include?(sha)
-  end
-  
-  #
   # reset test
   #
   
   def test_reset_clears_index_and_performs_full_reindex
-    sha = Gitgo::Document.new({"content" => "document", "tags" => ["a", "b"]}, repo).save
+    sha = repo.scope { Document.create("content" => "document", "tags" => ["a", "b"]).sha }
     repo.commit!
     
     idx = repo.idx

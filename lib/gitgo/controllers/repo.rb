@@ -106,21 +106,15 @@ module Gitgo
         redirect url('/repo')
       end
       
-      def reindex
-        idx.clear
-        Document.update_idx
-        
-        # allow redirection back to the specific key-value where the reindex occurred
-        original_location = File.join('/repo/idx', request['key'].to_s, request['value'].to_s).chomp("/")
-        redirect url(original_location)
-      end
-      
       def reset
         idx.clear
-        git.reset(request['full'] == 'true')
+        
+        if full = request['full']
+          git.reset(full == 'true')
+        end
         
         Document.update_idx
-        redirect url('/repo')
+        redirect env['HTTP_REFERER'] || url('/repo')
       end
       
       def prune

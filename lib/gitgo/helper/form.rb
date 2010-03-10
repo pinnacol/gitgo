@@ -74,7 +74,7 @@ module Gitgo
       end
       
       def each_tag(*selected) # :yields: value, select_or_check, content
-        tags.each do |tag|
+        tags.sort.each do |tag|
           yield escape_html(tag), selected.include?(tag), escape_html(tag)
         end
       end
