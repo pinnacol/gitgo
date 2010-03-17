@@ -13,7 +13,7 @@ class GitTest < Test::Unit::TestCase
   end
   
   def git
-    @git ||= Git.init(method_root[:tmp])
+    @git ||= Git.init(method_root.path)
   end
   
   def setup_repo(repo)
@@ -25,7 +25,7 @@ class GitTest < Test::Unit::TestCase
   #
   
   def test_git_documentation
-    git = Git.init(method_root.path(:tmp, "example"), :author => "John Doe <jdoe@example.com>")
+    git = Git.init(method_root.path("example"), :author => "John Doe <jdoe@example.com>")
     git.add(
       "README" => "New Project",
       "lib/project.rb" => "module Project\nend"
@@ -81,12 +81,12 @@ class GitTest < Test::Unit::TestCase
   #
   
   def test_init_initializes_non_existant_repos
-    path = method_root[:tmp]
+    path = method_root.path
     assert !File.exists?(path)
     
     git = Git.init(path)
     
-    git_path = method_root.path(:tmp, ".git")
+    git_path = method_root.path(".git")
     assert File.exists?(git_path)
     assert_equal git_path, git.grit.path
     assert_equal false, git.grit.bare
@@ -96,12 +96,12 @@ class GitTest < Test::Unit::TestCase
   end
   
   def test_init_initializes_bare_repo_if_specified
-    path = method_root[:tmp]
+    path = method_root.path
     assert !File.exists?(path)
     
     git = Git.init(path, :is_bare => true)
     
-    assert !File.exists?(method_root.path(:tmp, ".git"))
+    assert !File.exists?(method_root.path(".git"))
     assert File.exists?(path)
     assert_equal path, git.grit.path
     assert_equal true, git.grit.bare
@@ -410,7 +410,7 @@ class GitTest < Test::Unit::TestCase
   
   def test_checkout_does_not_mess_with_current_index_and_work_tree
     simple = File.expand_path('simple.git', FIXTURE_DIR)
-    a = method_root.path(:tmp, 'a')
+    a = method_root.path('a')
     
     `git clone '#{simple}' '#{a}'`
     
@@ -434,7 +434,7 @@ class GitTest < Test::Unit::TestCase
   
   def test_fetch_fetches_updates_from_remote
     simple = File.expand_path('simple.git', FIXTURE_DIR)
-    a = Git.init method_root.path(:tmp, 'a')
+    a = Git.init method_root.path('a')
     
     assert_equal [], a.grit.remotes
     
@@ -454,9 +454,9 @@ class GitTest < Test::Unit::TestCase
   #
   
   def test_merge_returns_true_if_there_is_an_update_available_for_branch
-    a = Git.init(method_root.path(:tmp, "a"))
+    a = Git.init(method_root.path("a"))
     a.add("one" => "a one").commit("added a file")
-    b = a.clone(method_root.path(:tmp, "b"))
+    b = a.clone(method_root.path("b"))
     
     assert_equal false, b.merge?
     b.fetch
@@ -469,7 +469,7 @@ class GitTest < Test::Unit::TestCase
     assert_equal true, b.merge?
     
     #
-    c = a.clone(method_root.path(:tmp, "c"))
+    c = a.clone(method_root.path("c"))
     
     assert_equal false, c.merge?
     c.fetch
@@ -488,15 +488,15 @@ class GitTest < Test::Unit::TestCase
   #
   
   def test_clone_clones_a_repository
-    a = Git.init(method_root.path(:tmp, "a"))
+    a = Git.init(method_root.path("a"))
     a.add("a" => "a content").commit("added a file")
     
-    b = a.clone(method_root.path(:tmp, "b"))
+    b = a.clone(method_root.path("b"))
     b.add("b" => "b content").commit("added a file")
     
     assert_equal a.branch, b.branch
-    assert_equal method_root.path(:tmp, "a/.git"), a.path
-    assert_equal method_root.path(:tmp, "b/.git"), b.path
+    assert_equal method_root.path("a/.git"), a.path
+    assert_equal method_root.path("b/.git"), b.path
     assert_equal false, a.grit.bare
     assert_equal false, b.grit.bare
     
@@ -507,15 +507,15 @@ class GitTest < Test::Unit::TestCase
   end
   
   def test_clone_clones_a_bare_repository
-    a = Git.init(method_root.path(:tmp, "a.git"))
+    a = Git.init(method_root.path("a.git"))
     a.add("a" => "a content").commit("added a file")
     
-    b = a.clone(method_root.path(:tmp, "b.git"), :bare => true)
+    b = a.clone(method_root.path("b.git"), :bare => true)
     b.add("b" => "b content").commit("added a file")
   
     assert_equal a.branch, b.branch
-    assert_equal method_root.path(:tmp, "a.git"), a.path
-    assert_equal method_root.path(:tmp, "b.git"), b.path
+    assert_equal method_root.path("a.git"), a.path
+    assert_equal method_root.path("b.git"), b.path
     assert_equal true, a.grit.bare
     assert_equal true, b.grit.bare
     
@@ -526,10 +526,10 @@ class GitTest < Test::Unit::TestCase
   end
   
   def test_clone_pulls_from_origin
-    a = Git.init(method_root.path(:tmp, "a"))
+    a = Git.init(method_root.path("a"))
     a.add("a" => "a content").commit("added a file")
     
-    b = a.clone(method_root.path(:tmp, "b"))
+    b = a.clone(method_root.path("b"))
     assert_equal "a content", b["a"]
     
     a.add("a" => "A content").commit("updated file")
@@ -540,10 +540,10 @@ class GitTest < Test::Unit::TestCase
   end
   
   def test_bare_clone_pulls_from_origin
-    a = Git.init(method_root.path(:tmp, "a.git"))
+    a = Git.init(method_root.path("a.git"))
     a.add("a" => "a content").commit("added a file")
     
-    b = a.clone(method_root.path(:tmp, "b.git"), :bare => true)
+    b = a.clone(method_root.path("b.git"), :bare => true)
     assert_equal "a content", b["a"]
     
     a.add("a" => "A content").commit("updated file")
@@ -554,11 +554,11 @@ class GitTest < Test::Unit::TestCase
   end
   
   def test_clone_and_pull_in_a_custom_env
-    FileUtils.mkdir_p(method_root[:tmp])
+    FileUtils.mkdir_p(method_root.path)
     
-    git_dir = method_root.path(:tmp, "c.git")
-    work_tree = method_root.path(:tmp, "d")
-    index_file = method_root.path(:tmp, "e")
+    git_dir = method_root.path("c.git")
+    work_tree = method_root.path("d")
+    index_file = method_root.path("e")
     `GIT_DIR='#{git_dir}' git init --bare`
     
     current_env = {}
@@ -571,15 +571,15 @@ class GitTest < Test::Unit::TestCase
       ENV['GIT_WORK_TREE'] = work_tree
       ENV['GIT_INDEX_FILE'] = index_file
       
-      a = Git.init(method_root.path(:tmp, "a"))
+      a = Git.init(method_root.path("a"))
       a.add("a" => "a content").commit("added a file")
       
-      b = a.clone(method_root.path(:tmp, "b"))
+      b = a.clone(method_root.path("b"))
       b.add("b" => "b content").commit("added a file")
   
       assert_equal a.branch, b.branch
-      assert_equal method_root.path(:tmp, "a/.git"), a.path
-      assert_equal method_root.path(:tmp, "b/.git"), b.path
+      assert_equal method_root.path("a/.git"), a.path
+      assert_equal method_root.path("b/.git"), b.path
   
       assert_equal "a content", a["a"]
       assert_equal nil, a["b"]
@@ -598,7 +598,7 @@ class GitTest < Test::Unit::TestCase
   #
   
   def test_push_only_pushes_the_specified_branch
-    a = Git.init(method_root.path(:tmp, "a"), :is_bare => true)
+    a = Git.init(method_root.path("a"), :is_bare => true)
     
     a.checkout('master')
     initial_master_head = a.add("a" => "a content").commit("added a file")
@@ -607,7 +607,7 @@ class GitTest < Test::Unit::TestCase
     initial_alt_head = a.add("b" => "b content").commit("added a file")
     
     a.checkout('master')
-    b = a.clone(method_root.path(:tmp, "b"))
+    b = a.clone(method_root.path("b"))
     
     b.checkout('master')
     current_master_head = b.add("c" => "c content").commit("added a file")
@@ -631,10 +631,10 @@ class GitTest < Test::Unit::TestCase
   #
   
   def test_pull_fast_fowards_when_possible
-    a = Git.init(method_root.path(:tmp, "a"))
+    a = Git.init(method_root.path("a"))
     a.add("a" => "a content").commit("added a file")
     
-    b = a.clone(method_root.path(:tmp, "b"))
+    b = a.clone(method_root.path("b"))
     a.add("a" => "A content").commit("updated file")
     
     b.pull
@@ -642,10 +642,10 @@ class GitTest < Test::Unit::TestCase
   end
   
   def test_pull_does_nothing_unless_necessary
-    a = Git.init(method_root.path(:tmp, "a"))
+    a = Git.init(method_root.path("a"))
     a.add("a" => "a content").commit("added a file")
     
-    b = a.clone(method_root.path(:tmp, "b"))
+    b = a.clone(method_root.path("b"))
     
     previous = b.head
     b.pull
@@ -665,7 +665,7 @@ class GitTest < Test::Unit::TestCase
   end
   
   def test_pull_only_pulls_the_specified_branch
-    a = Git.init(method_root.path(:tmp, "a"))
+    a = Git.init(method_root.path("a"))
     
     a.checkout('master')
     initial_master_head = a.add("a" => "a content").commit("added a file")
@@ -674,7 +674,7 @@ class GitTest < Test::Unit::TestCase
     initial_alt_head = a.add("b" => "b content").commit("added a file")
     
     a.checkout('master')
-    b = a.clone(method_root.path(:tmp, "b"))
+    b = a.clone(method_root.path("b"))
     
     a.checkout('master')
     current_master_head = a.add("c" => "c content").commit("added a file")

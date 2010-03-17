@@ -1,3 +1,4 @@
+require 'enumerator'
 require 'gitgo/index/index_file'
 
 module Gitgo

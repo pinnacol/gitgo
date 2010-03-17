@@ -10,7 +10,7 @@ class IndexTest < Test::Unit::TestCase
   
   def setup
     super
-    @index = Index.new method_root.root
+    @index = Index.new method_root.path
   end
   
   def digest(str)
@@ -63,7 +63,7 @@ class IndexTest < Test::Unit::TestCase
     end
     
     table = {a => :a, b => :b}
-    index = Index.new method_root.root, table
+    index = Index.new method_root.path, table
     
     assert_equal({:a => :b}, index.map)
   end
@@ -112,7 +112,7 @@ class IndexTest < Test::Unit::TestCase
     end
     
     table = {a => :a, b => :b}
-    index = Index.new method_root.root, table
+    index = Index.new method_root.path, table
     
     assert_equal([:a, :b], index['key']['value'])
   end

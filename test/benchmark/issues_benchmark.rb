@@ -12,7 +12,7 @@ class IssuesBenchmark < Test::Unit::TestCase
   
   def setup
     super
-    @repo = Gitgo::Repo.init(method_root[:tmp], :bare => true)
+    @repo = Gitgo::Repo.init(method_root.path, :bare => true)
     @app = Gitgo::Controllers::Issue.new(nil, repo)
   end
   
