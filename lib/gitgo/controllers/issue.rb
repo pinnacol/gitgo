@@ -8,9 +8,10 @@ module Gitgo
       
       get('/issue')        { index }
       get('/issue/new')    { preview }
-      get('/issue/:id')    {|id| show(id) }
+      get('/issue/:id')      {|id| show(id) }
+      get('/issue/:id/edit') {|id| edit(id) }
       
-      post('/issue')       { create }
+      post('/issue')         { create }
       post('/issue/:id') do |id|
         _method = request[:_method]
         case _method
@@ -75,12 +76,20 @@ module Gitgo
         redirect_to_issue(issue)
       end
       
-      def show(issue)
-        unless issue = Issue.read(issue)
-          raise "unknown issue: #{issue.inspect}"
+      def show(sha)
+        unless issue = Issue.read(sha)
+          raise "unknown issue: #{sha.inspect}"
         end
         
         erb :show, :locals => {:issue => issue}
+      end
+      
+      def edit(sha)
+        unless issue = Issue.read(sha)
+          raise "unknown issue: #{sha.inspect}"
+        end
+        
+        erb :edit, :locals => {:issue => issue}
       end
       
       def update(sha)
@@ -105,7 +114,7 @@ module Gitgo
       
       def redirect_to_issue(doc)
         sha = doc.origin? ? "#{doc.origin}##{doc.sha}" : doc.origin
-        redirect "issue/#{sha}"
+        redirect "/issue/#{sha}"
       end
     end
   end
