@@ -25,7 +25,7 @@ class IssueTest < Test::Unit::TestCase
   #
   
   def test_find_returns_original_issue
-    orig = Issue.create('title' => 'original')
+    orig = Issue.create('title' => 'original', 'state' => 'open')
     up = Issue.update(orig, 'title' => 'up')
     
     assert_equal orig.sha, up.origin
@@ -33,18 +33,18 @@ class IssueTest < Test::Unit::TestCase
   end
   
   def test_find_searches_issues_by_tails
-    a = Issue.create('title' => 'original', 'tags' => ['open'])
-    b = Issue.create('tags' => 'closed', 'origin' => a, 'parents' => [a])
-    assert_equal [a], Issue.find('tags' => ['closed'])
+    a = Issue.create('title' => 'original', 'state' => 'open')
+    b = Issue.create('state' => 'closed', 'origin' => a, 'parents' => [a])
+    assert_equal [a], Issue.find('state' => 'closed')
     
-    c = Issue.create('tags' => 'open', 'origin' => a, 'parents' => [b])
-    assert_equal [], Issue.find('tags' => ['closed'])
+    c = Issue.create('state' => 'open', 'origin' => a, 'parents' => [b])
+    assert_equal [], Issue.find('state' => 'closed')
   end
   
   def test_find_does_not_return_duplicate_issues_for_multiple_matching_tails
-    a = Issue.create('title' => 'original', 'tags' => ['open'])
-    b = Issue.create('tags' => 'b', 'origin' => a, 'parents' => [a])
-    c = Issue.create('tags' => 'c', 'origin' => a, 'parents' => [a])
+    a = Issue.create('title' => 'original', 'state' => 'open')
+    b = Issue.create('tags' => 'b', 'state' => 'open', 'origin' => a, 'parents' => [a])
+    c = Issue.create('tags' => 'c', 'state' => 'open', 'origin' => a, 'parents' => [a])
     
     assert_equal [a], Issue.find(nil, 'tags' => ['b', 'c'])
   end
@@ -54,13 +54,13 @@ class IssueTest < Test::Unit::TestCase
   #
   
   def test_current_titles_returns_all_tail_titles
-    a = Issue.create('title' => 'original')
+    a = Issue.create('title' => 'original', 'state' => 'open')
     assert_equal ['original'], a.current_titles
     
-    b = Issue.create('title' => 'b', 'origin' => a, 'parents' => [a])
+    b = Issue.create('title' => 'b', 'state' => 'open', 'origin' => a, 'parents' => [a])
     assert_equal ['b'], a.reset.current_titles
     
-    c = Issue.create('title' => 'c', 'origin' => a, 'parents' => [a])
+    c = Issue.create('title' => 'c', 'state' => 'open', 'origin' => a, 'parents' => [a])
     assert_equal ['b', 'c'], a.reset.current_titles.sort
   end
   
@@ -69,13 +69,28 @@ class IssueTest < Test::Unit::TestCase
   #
   
   def test_current_tags_returns_all_unique_tail_tags
-    a = Issue.create('title' => 'original', 'tags' => ['a', 'b'])
+    a = Issue.create('title' => 'original', 'state' => 'open', 'tags' => ['a', 'b'])
     assert_equal ['a', 'b'], a.current_tags.sort
     
-    b = Issue.create('tags' => ['c', 'd'], 'origin' => a, 'parents' => [a])
+    b = Issue.create('tags' => ['c', 'd'], 'state' => 'open', 'origin' => a, 'parents' => [a])
     assert_equal ['c', 'd'], a.reset.current_tags.sort
     
-    c = Issue.create('tags' => ['d', 'e'], 'origin' => a, 'parents' => [a])
+    c = Issue.create('tags' => ['d', 'e'], 'state' => 'open', 'origin' => a, 'parents' => [a])
     assert_equal ['c', 'd', 'e'], a.reset.current_tags.sort
+  end
+  
+  #
+  # current_states test
+  #
+  
+  def test_current_states_returns_all_unique_states
+    a = Issue.create('title' => 'original', 'state' => 'open')
+    assert_equal ['open'], a.current_states.sort
+    
+    b = Issue.create('state' => 'closed', 'origin' => a, 'parents' => [a])
+    assert_equal ['closed'], a.reset.current_states.sort
+    
+    c = Issue.create('state' => 'open', 'origin' => a, 'parents' => [a])
+    assert_equal ['closed', 'open'], a.reset.current_states.sort
   end
 end

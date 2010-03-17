@@ -25,6 +25,7 @@ module Gitgo
       
       define_attributes do
         attr_accessor(:title)   {|title| !origin? || validate_not_blank(title) }
+        attr_accessor(:state)   {|state| validate_not_blank(state) }
         attr_accessor(:content)
       end
       
@@ -43,6 +44,19 @@ module Gitgo
         tags
       end
       
+      def current_states
+        states = tails.collect {|tail| tail.state }
+        states.uniq!
+        states
+      end
+      
+      def each_index
+        if state = attrs['state']
+          yield('state', state)
+        end
+        
+        super
+      end
     end
   end
 end
