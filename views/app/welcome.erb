@@ -1,9 +1,12 @@
-<h1>Welcome to Gitgo!</h1><% unless grit.remotes.empty? %>
+<h1>Welcome to Gitgo!</h1>
 
 <p>
-  Set up tracking of a remote gitgo branch using the form below,
-  or get started and a local branch will be created for you as
-  needed.
+  Gitgo will store data on the '<%= branch %>' branch.  You can synchronize
+  your local data with remotes through the <a href="/repo">Repo</a> page.
+</p><% unless grit.remotes.empty? %>
+
+<p>
+  To setup tracking of an existing remote, use the form below:
 </p>
 
 <form action="<%= form.url('setup') %>" method="post">
