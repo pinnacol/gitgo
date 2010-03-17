@@ -186,7 +186,7 @@ module Gitgo
     
       def update(sha)
         comment = Comment.update(sha, request['doc'])
-        repo.commit!if request['commit']
+        repo.commit! if request['commit']
         redirect_to_origin(comment)
       end
 
@@ -204,10 +204,6 @@ module Gitgo
         # else
         #   erb(:_comments, :locals => {:comments => comments}, :layout => false)
         # end
-      end
-      
-      def redirect_to_origin(comment)
-        redirect "#{comment.origin}##{comment.sha}"
       end
     end
   end

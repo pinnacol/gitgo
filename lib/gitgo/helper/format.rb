@@ -103,11 +103,11 @@ module Gitgo
         timeline.reverse_each do |doc|
           type_a = case doc.type
           when 'comment'
-            sha_a doc.re
+            sha_a doc.origin
           when 'issue'
             issue_a doc
           when 'update'   
-            issue_doc = Document[doc.re]
+            issue_doc = Document[doc.origin]
             issue_a issue_doc
           else 
             sha_a doc.sha
@@ -157,11 +157,11 @@ module Gitgo
       end
       
       def at(at)
-        sha(at)
+        at.empty? ? '(none)' : sha(at)
       end
       
-      def re(re)
-        sha(re)
+      def origin(origin)
+        sha(origin)
       end
       
       def tags(tags)

@@ -5,11 +5,10 @@ module Gitgo
   module Controllers
     class Issue < Controller
       set :views, File.expand_path("views/issue", ROOT)
-
+      
       get('/issue')        { index }
       get('/issue/new')    { preview }
       get('/issue/:id')    {|id| show(id) }
-      get('/issue/:id/:update') {|id, update| show(id, update) }
       
       post('/issue')       { create }
       post('/issue/:id') do |id|
@@ -40,9 +39,10 @@ module Gitgo
       # the sort with reverse=true. Multiple sort criteria are currently not
       # supported.
       def index
-        tags = request['tags'] || []
-        criteria = {'tags' => tags}
-        criteria.delete_if {|key, value| value.empty? }
+        criteria = {
+          'state' => request['state'] || [],
+          'tags'  => request['tags'] || []
+        }.delete_if {|key, value| value.empty? }
         
         issues = Issue.find(criteria)
         
@@ -55,7 +55,8 @@ module Gitgo
         
         erb :index, :locals => {
           :issues => issues,
-          :tags => tags,
+          :tags => criteria['tags'],
+          :state => criteria['state'],
           :sort => sort,
           :reverse => reverse
         }
@@ -63,96 +64,36 @@ module Gitgo
     
       def preview
         erb :new, :locals => {
-          :doc => request['doc'] || {}, 
-          :content => request['content']
+          :doc => request['doc'] || {}
         }
       end
     
       def create
         return preview if request['preview'] == 'true'
-      
-        doc = document('type' => 'issue', 'state' => 'open')
-        if doc['title'].to_s.strip.empty? && doc.empty?
-          raise "no title or content specified"
-        end
-        issue = repo.store(doc, :rev_parse => ['at'])
-      
-        # if specified, link the issue to a commit
-        if commit = doc['at']
-          repo.link(commit, issue, :ref => issue)
-        end
-      
-        repo.commit!("issue #{issue}") if request['commit'] == 'true'
-        redirect url("/issue/#{issue}")
+        
+        issue = Issue.create(request['doc'])
+        repo.commit! if request['commit']
+        redirect_to_origin(issue)
       end
-    
-      def show(issue, update=nil)
-        unless doc = cache[issue]
+      
+      def show(issue)
+        unless issue = Issue.read(issue)
           raise "unknown issue: #{issue.inspect}"
         end
-        issue = doc.sha
         
-        # get updates
-        updates = repo.comments(issue, cache)
-        
-        # resolve tails
-        tails = cache.keys.collect {|sha| cache[sha] }.select {|document| document && document[:tail] }
-        tails << doc if tails.empty?
-        
-        tail_states = []
-        tail_tags = []
-        tails.each do |document|
-          tail_states << document['state']
-          tail_tags.concat(document.tags)
-        end
-        tail_states.uniq!
-        tail_tags.uniq!
-      
-        erb :show, :locals => {
-          :doc => doc,
-          :updates => updates,
-          :tails => tails,
-          :tail_states => tail_states,
-          :tail_tags => tail_tags
-        }
+        erb :show, :locals => {:issue => issue}
       end
-    
-      # Update adds a comment to the specified issue.
-      def update(issue)
-        unless doc = cache[issue]
-          raise "unknown issue: #{issue.inspect}"
-        end
-        issue = doc.sha
-        
-        # the comment is always in regards to the issue internally (ie re => issue)
-        doc = inherit(doc, 'type' => 'update', 're' => issue)
-        update = repo.store(doc, :rev_parse => ['at', 're'])
+      
+      def update(sha)
+        issue = Issue.update(sha, request['doc'])
+        repo.commit! if request['commit']
+        redirect_to_origin(issue)
+      end
 
-        # link the comment to each parent and update the index
-        parents = request['parents'] || [issue]
-        parents.each do |parent|
-          unless sha = repo.sha(parent)
-            raise "unknown re: #{parent.inspect}"
-          end
-          
-          repo.link(sha, update)
-        end
-      
-        # if specified, link the issue to a commit
-        if commit = doc['at']
-          repo.link(commit, update, :ref => issue)
-        end
-      
-        repo.commit!("update #{update} re #{issue}") if request['commit'] == 'true'
-        redirect url("/issue/#{issue}/#{update}")
-      end
-      
-      # Same as document, but ensures each of the INHERIT attributes is
-      # inherited from doc if it is not specified in the request.
-      def inherit(doc, overrides=nil)
-        base = document(overrides)
-        INHERIT.each {|key| base[key] ||= doc[key] }
-        base
+      def destroy(sha)
+        issue = Issue.delete(sha)
+        repo.commit! if request['commit']
+        redirect_to_origin(issue)
       end
     end
   end

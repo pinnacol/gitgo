@@ -192,7 +192,7 @@ namespace :test do
   end
   
   task :controllers => :bundle do
-    run_tests ["test/gitgo/controller_test.rb"] + Dir.glob("test/gitgo/controllers/{code,repo}_test.rb")
+    run_tests ["test/gitgo/controller_test.rb"] + Dir.glob("test/gitgo/controllers/*_test.rb")
   end
   
   task :helpers => :bundle do

@@ -45,8 +45,9 @@ module Gitgo
       
       def arrayify(obj)
         case obj
-        when Array then obj
-        when nil   then []
+        when Array  then obj
+        when nil    then []
+        when String then obj.strip.empty? ? [] : [obj]
         else [obj]
         end
       end

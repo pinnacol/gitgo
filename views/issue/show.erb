@@ -1,53 +1,20 @@
-<h1>Issue <%= format.sha_a doc.sha %></h1>
+<h1>Issue <%= format.sha_a issue.sha %></h1>
 
 <div class="issue">
-  <dl class="issue" active="<%= active?(doc['at']) %>">
+  <dl class="issue" active="<%= issue.active?(head) %>">
   <dt class="title">Title</dt>
-  <dd class="title"><%= format.title doc['title'] %></dd>
+  <dd class="title"><%= format.title issue.title %></dd>
   <dt class="content">Description</dt>
-  <dd class="content"><%= format.content doc.content %></dd><% unless tail_tags.empty? %>
+  <dd class="content"><%= format.content issue.content %></dd>
   <dt class="tags">Tags</dt>
-  <dd class="tags"><%= format.tags tail_tags %></dd><% end %>
+  <dd class="tags"><%= format.tags issue.current_tags %></dd>
   <dt class="state">State</dt>
-  <dd class="state"><%= format.states tail_states %></dd>
+  <dd class="state"><%= format.states issue.current_states %></dd>
   <dt class="author">Author</dt>
-  <dd class="author"><%= format.author doc.author %></dd>
+  <dd class="author"><%= format.author issue.author %></dd>
   <dt class="date">Date</dt>
-  <dd class="date"><%= format.date doc.date %></dd>
+  <dd class="date"><%= format.date issue.date %></dd>
   <dt class="at">At</dt>
-  <dd class="at"><%= format.at doc['at'] %></dd>
-  <dt class="updates">Updates</dt>
-  <dd class="updates"><%= erb :_updates, :locals => {:parent => doc, :updates => updates}, :layout => false %></dd>
-  <dt class="update">Update Issue</dt>
-  <dd class="update">
-  <form class="update" action="<%= url('issue', doc.sha) %>" method="post">
-    <input type="hidden" name="_method" value="update" /><% tails.each do |tail| %>
-    <input type="hidden" name="parents[]" value="<%= form.value tail.sha %>" /><% end %>
-    
-    <dl class="form">
-    <dt><label for="content">Comment</label></dt>
-    <dd><textarea id="content" name="content"></textarea></dd>
-    <dt><label for="tags">Tags</label></dt>
-    <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value tail_tags %>" /></dd>
-    <dt><label for="state">State</label></dt>
-    <dd>
-      <select id="state" name="doc[state]"><% form.each_state(tail_states[-1]) do |value, selection, content| %>
-      <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-      </select>
-    </dd>
-    <dt><label for="at">At</label></dt>
-    <dd>
-      <select id="at" name="doc[at]"><% form.each_ref(grit.head.name) do |value, selection, content| %>
-      <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-      <option value="">(none)</option>
-      </select>
-    </dd>
-    <dt><label for="commit">Commit</label></dt>
-    <dd><input id="commit" type="checkbox" name="commit" value="true" checked="true"/></dd>
-    <dt><input type="submit" value="Submit" /></dt>
-    <dd></dd>
-    </dl>
-  </form>
-  </dd>
+  <dd class="at"><%= format.at issue.at %></dd>
   </dl>
 </div>

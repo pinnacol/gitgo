@@ -10,15 +10,16 @@ class IssueControllerTest < Test::Unit::TestCase
   
   def setup
     super
-    @repo = Gitgo::Repo.init(method_root[:tmp], :is_bare => true)
+    @repo = Gitgo::Repo.init(method_root.path, :is_bare => true)
     @app = Gitgo::Controllers::Issue.new(nil, repo)
   end
   
   # open an issue using a post, and return the sha of the new issue
   def open_issue(title, attrs={})
     attrs["doc[title]"] = title
+    attrs["doc[state]"] = 'open'
     post("/issue", attrs)
-    last_response_location
+    last_issue
   end
   
   # close an issue by put
@@ -26,9 +27,10 @@ class IssueControllerTest < Test::Unit::TestCase
     put("/issue/#{id}", "doc[state]" => "closed")
   end
   
-  def last_response_location
-    last_response["Location"] =~ /\/(.{40})(?:\/(.{40}))?\z/
-    $2 ? [$1, $2] : $1
+  def last_issue
+    assert last_response.redirect?
+    url, anchor = last_response['Location'].split('#', 2)
+    anchor
   end
   
   #
@@ -40,8 +42,6 @@ class IssueControllerTest < Test::Unit::TestCase
     b = open_issue("Issue B")
     c = open_issue("Issue C")
     close_issue(c)
-    
-    repo.commit "created fixture"
     
     get("/issue")
     assert last_response.ok?
@@ -71,8 +71,6 @@ class IssueControllerTest < Test::Unit::TestCase
     close_issue(b)
     c = open_issue("Issue C", "doc[tags]" => "two")
     
-    repo.commit "created fixture"
-    
     get("/issue")
     assert last_response.ok?
     
@@ -94,7 +92,7 @@ class IssueControllerTest < Test::Unit::TestCase
     assert last_response.body !~ /Issue B/
     assert last_response.body !~ /Issue C/
     
-    get("/issue", "state" => ["open", "closed"], "tags" => "two")
+    get("/issue", "tags" => "two")
     assert last_response.ok?
     
     assert last_response.body !~ /Issue A/
@@ -108,8 +106,6 @@ class IssueControllerTest < Test::Unit::TestCase
     c = open_issue("Issue C")
     close_issue(c)
     
-    repo.commit "created fixture"
-    
     get("/issue", "sort" => "title")
     assert last_response.ok?
     assert last_response.body =~ /Issue A.*Issue B.*Issue C/m
@@ -120,36 +116,36 @@ class IssueControllerTest < Test::Unit::TestCase
   end
   
   def test_index_indicates_active_state_of_issue
-    repo.checkout('master')
+    repo.git.checkout('master')
     repo['state'] = 'point a -- issue A is open'
-    point_a = repo.commit("added content")
+    point_a = repo.commit!
     
     repo['state'] = 'point b -- issue B is shown invalid'
-    point_b = repo.commit("added content")
+    point_b = repo.commit!
     
     repo['state'] = 'point c -- issue C is open, B is open'
-    point_c = repo.commit("added content")
+    point_c = repo.commit!
     
-    repo.checkout('gitgo')
+    repo.git.checkout('gitgo')
     a = open_issue("Issue A", "doc[at]" => point_a)
     b = open_issue("Issue B", "doc[at]" => point_c)
     c = open_issue("Issue C", "doc[at]" => point_c)
     put("/issue/#{b}", "doc[state]" => "invalid", "doc[at]" => point_b)
-    repo.commit "created fixture"
+    repo.commit!
     
-    get("/issue", {}, {'rack.session' => {'at' => point_c}})
+    get("/issue", {}, {'rack.session' => {Gitgo::Controller::HEAD => point_c}})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="true"/
     assert last_response.body =~ /id="#{c}" active="true"/
     
-    get("/issue", {}, {'rack.session' => {'at' => point_b}})
+    get("/issue", {}, {'rack.session' => {Gitgo::Controller::HEAD => point_b}})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="true"/
     assert last_response.body =~ /id="#{c}" active="false"/
     
-    get("/issue", {}, {'rack.session' => {'at' => point_a}})
+    get("/issue", {}, {'rack.session' => {Gitgo::Controller::HEAD => point_a}})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="false"/
@@ -180,10 +176,10 @@ class IssueControllerTest < Test::Unit::TestCase
   def test_get_issue_provides_form_to_close_all_tails
     issue = open_issue("Issue A")
     put("/issue/#{issue}", "doc[state]" => "closed")
-    iss, a = last_response_location
+    iss, a = last_issue
     
     put("/issue/#{issue}", "doc[state]" => "invalid")
-    iss, b = last_response_location
+    iss, b = last_issue
     
     get("/issue/#{issue}")
     assert last_response.ok?
@@ -207,7 +203,7 @@ class IssueControllerTest < Test::Unit::TestCase
     post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
     assert last_response.redirect?
     
-    id = last_response_location
+    id = last_issue
     issue = repo.read(id)
     
     assert_equal "New Issue", issue['title']
@@ -225,7 +221,7 @@ class IssueControllerTest < Test::Unit::TestCase
     post("/issue", "doc[title]" => "issue from ref", "doc[at]" => 'caps', "commit" => "true")
     assert last_response.redirect?
     
-    id = last_response_location
+    id = last_issue
     issue = repo.read(id)
     
     assert_equal "issue from ref", issue['title']
@@ -235,7 +231,7 @@ class IssueControllerTest < Test::Unit::TestCase
     post("/issue", "doc[title]" => "issue from sha", "doc[at]" => '19377b7ec7b83909b8827e52817c53a47db96cf0', "commit" => "true")
     assert last_response.redirect?
     
-    id = last_response_location
+    id = last_issue
     issue = repo.read(id)
     
     assert_equal "issue from sha", issue['title']
@@ -248,7 +244,7 @@ class IssueControllerTest < Test::Unit::TestCase
     post("/issue", "doc[title]" => "issue", "doc[at]" => commit, "commit" => "true")
     assert last_response.redirect?
     
-    issue = last_response_location
+    issue = last_issue
     assert_equal [issue], repo.children(commit)
     assert_equal issue, repo.reference(commit, issue)
   end
@@ -275,7 +271,7 @@ class IssueControllerTest < Test::Unit::TestCase
     
     put("/issue/#{issue}", "content" => "Comment on the Issue", "commit" => "true")
     assert last_response.redirect?
-    id, comment = last_response_location
+    id, comment = last_issue
     
     assert_equal issue, id
     assert_equal [comment], repo.children(issue)
@@ -311,7 +307,7 @@ class IssueControllerTest < Test::Unit::TestCase
     
     put("/issue/#{issue}", "content" => "Comment on A", "parents" => [a], "commit" => "true")
     assert last_response.redirect?, last_response.body
-    id, comment = last_response_location
+    id, comment = last_issue
     
     assert_equal issue, id
     assert_equal [], repo.children(issue)
@@ -332,7 +328,7 @@ class IssueControllerTest < Test::Unit::TestCase
     
     put("/issue/#{issue}", "content" => "Comment on A and B", "parents" => [a, b], "commit" => "true")
     assert last_response.redirect?, last_response.body
-    id, comment = last_response_location
+    id, comment = last_issue
     
     assert_equal issue, id
     assert_equal [], repo.children(issue)
@@ -349,7 +345,7 @@ class IssueControllerTest < Test::Unit::TestCase
     
     put("/issue/#{issue}", "doc[at]" => commit, "commit" => "true")
     assert last_response.redirect?, last_response.body
-    id, comment = last_response_location
+    id, comment = last_issue
     
     assert_equal issue, id
     assert_equal [comment], repo.children(commit)
@@ -367,7 +363,7 @@ class IssueControllerTest < Test::Unit::TestCase
     
     put("/issue/#{issue[0,8]}", "content" => "Comment on A and B", "parents" => [a[0,8], b[0,8]], "commit" => "true")
     assert last_response.redirect?, last_response.body
-    id, comment = last_response_location
+    id, comment = last_issue
     
     assert_equal issue, id
     assert_equal [], repo.children(issue)

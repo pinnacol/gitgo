@@ -3,6 +3,8 @@ require 'gitgo/document'
 module Gitgo
   module Documents
     class Issue < Document
+      register_as 'update'
+      
       class << self
         def find(all={}, any=nil, update_idx=true)
           self.update_idx if update_idx
