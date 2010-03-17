@@ -5,10 +5,15 @@
 </form>
 
 <form class="issue" action="<%= form.url('issue') %>" method="get">
+  <h3>State</h3>
+  <ul><% form.each_state(*states) do |value, selection, content| %>
+  <li><input type="checkbox" name="state[]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
+  </ul><% unless form.tags.empty? %>
+  
   <h3>Tags</h3>
   <ul><% form.each_tag(*tags) do |value, selection, content| %>
   <li><input type="checkbox" name="tags[]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
-  </ul>
+  </ul><% end %>
   
   <h3>Sort</h3>
   <ul>
@@ -17,12 +22,12 @@
   <li><input type="checkbox" name="reverse" value="true" <%= html.check(reverse) %>>Reverse</input>
   </ul>
   
-  <input type="submit" value="Search" >
+  <input type="submit" value="Filter" >
 </form>
 
 <div class="issues">
   <ul class="issues"><% issues.each do |doc| %>
-  <li><%= format.issue_a doc %></li><% end %>
+  <li active="<%= doc.active?(active_sha) %>"><%= format.issue_a doc %></li><% end %>
   </ul>
 </div>
 

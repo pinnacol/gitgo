@@ -205,6 +205,10 @@ module Gitgo
         #   erb(:_comments, :locals => {:comments => comments}, :layout => false)
         # end
       end
+      
+      def redirect_to_origin(doc)
+        redirect "#{doc.origin}##{doc.sha}"
+      end
     end
   end
 end

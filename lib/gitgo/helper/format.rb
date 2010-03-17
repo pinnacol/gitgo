@@ -71,9 +71,9 @@ module Gitgo
       def issue_a(doc)
         title = doc.title
         title = "(nameless issue)" if title.to_s.empty?
-        state = doc.state
+        state = escape_html doc.state
         
-        "<a class=\"#{escape_html state}\" id=\"#{doc.sha}\" active=\"#{doc.active?}\" href=\"#{url('issue', doc.sha)}\">#{escape_html title}</a>"
+        "<a class=\"#{state}\" id=\"#{doc.sha}\" href=\"#{url('issue', doc.sha)}\">#{escape_html title}</a>"
       end
       
       def index_key_a(key)

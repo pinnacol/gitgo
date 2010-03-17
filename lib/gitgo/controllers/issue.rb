@@ -39,12 +39,10 @@ module Gitgo
       # the sort with reverse=true. Multiple sort criteria are currently not
       # supported.
       def index
-        criteria = {
-          'state' => request['state'] || [],
-          'tags'  => request['tags'] || []
-        }.delete_if {|key, value| value.empty? }
+        states = request['state'] || []
+        tags = request['tags'] || []
         
-        issues = Issue.find(criteria)
+        issues = Issue.find('state' => states, 'tags' => tags)
         
         # sort results
         sort = request['sort'] || 'date'
@@ -55,10 +53,11 @@ module Gitgo
         
         erb :index, :locals => {
           :issues => issues,
-          :tags => criteria['tags'],
-          :state => criteria['state'],
+          :states => states,
+          :tags => tags,
           :sort => sort,
-          :reverse => reverse
+          :reverse => reverse, 
+          :active_sha => head
         }
       end
     
@@ -71,9 +70,9 @@ module Gitgo
       def create
         return preview if request['preview'] == 'true'
         
-        issue = Issue.create(request['doc'])
+        issue = Issue.create(doc_attrs)
         repo.commit! if request['commit']
-        redirect_to_origin(issue)
+        redirect_to_issue(issue)
       end
       
       def show(issue)
@@ -85,15 +84,28 @@ module Gitgo
       end
       
       def update(sha)
-        issue = Issue.update(sha, request['doc'])
+        issue = Issue.update(sha, doc_attrs)
         repo.commit! if request['commit']
-        redirect_to_origin(issue)
+        redirect_to_issue(issue)
       end
 
       def destroy(sha)
         issue = Issue.delete(sha)
         repo.commit! if request['commit']
-        redirect_to_origin(issue)
+        redirect_to_issue(issue)
+      end
+      
+      def doc_attrs
+        attrs = request['doc']
+        if tags = attrs['tags']
+          attrs['tags'] = tags.split(',').collect {|tag| tag.strip }
+        end
+        attrs
+      end
+      
+      def redirect_to_issue(doc)
+        sha = doc.origin? ? "#{doc.origin}##{doc.sha}" : doc.origin
+        redirect "issue/#{sha}"
       end
     end
   end

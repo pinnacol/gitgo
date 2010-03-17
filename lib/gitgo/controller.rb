@@ -98,9 +98,5 @@ module Gitgo
     def html
       Helper::Html
     end
-    
-    def redirect_to_origin(doc)
-      redirect "#{doc.origin}##{doc.sha}"
-    end
   end
 end
