@@ -1,22 +1,4 @@
 <h1>Issue <%= format.sha_a issue.sha %></h1>
 
-<div class="issue">
-  <dl class="issue" active="<%= issue.active?(head) %>">
-  <dt class="title">Title</dt>
-  <dd class="title"><%= format.title issue.title %></dd>
-  <dt class="content">Description</dt>
-  <dd class="content"><%= format.content issue.content %></dd>
-  <dt class="tags">Tags</dt>
-  <dd class="tags"><%= format.tags issue.current_tags %></dd>
-  <dt class="state">State</dt>
-  <dd class="state"><%= format.states issue.current_states %></dd>
-  <dt class="author">Author</dt>
-  <dd class="author"><%= format.author issue.author %></dd>
-  <dt class="date">Date</dt>
-  <dd class="date"><%= format.date issue.date %></dd>
-  <dt class="at">At</dt>
-  <dd class="at"><%= format.at issue.at %></dd>
-  <dt class="edit"><a href="<%= format.url('issue', issue.sha, 'edit') %>">edit</a></dt>
-  <dd></dd>
-  </dl>
+<div class="issue"><%= format.tree(issue.graph.tree) {|sha| format.issue(sha) }  %>
 </div>

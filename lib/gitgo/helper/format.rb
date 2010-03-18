@@ -139,6 +139,10 @@ module Gitgo
         render(nodes, io, &block)
       end
       
+      def issue(sha)
+        controller.erb :_issue, :locals => {:issue => Gitgo::Documents::Issue.read(sha) }, :layout => false
+      end
+      
       # a document title
       def title(title)
         escape_html(title)
