@@ -162,6 +162,10 @@ module Gitgo
         sha(origin)
       end
       
+      def titles(titles)
+        escape_html titles.join(', ')
+      end
+      
       def tags(tags)
         # add links/clouds
         escape_html tags.join(', ')

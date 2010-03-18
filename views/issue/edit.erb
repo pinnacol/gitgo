@@ -1,7 +1,6 @@
 <h1>Issue <%= format.sha_a issue.sha %></h1>
 
 <form action="<%= form.url('issue', issue.sha) %>" method="post">
-  <input type="hidden" name="_method" value="update"/>
-  <input type="hidden" name="commit" value="true"/>
-<%= erb :_form, :locals => {:doc => issue.attrs, :submit => 'Update'}, :layout => false %>
+  <input type="hidden" name="_method" value="revise"/>
+<%= erb :_issue_form, :locals => {:doc => issue.attrs, :origin => issue.origin?, :submit => 'Update'}, :layout => false %>
 </form>

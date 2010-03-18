@@ -1,20 +1,5 @@
-<% if doc['content'] %>
-<h1>Preview Issue</h1>
-<div class="preview">
-  <dl class="description">
-  <dt class="title">Title</dt>
-  <dd class="title"><%= format.title doc['title'] %></dd>
-  <dt class="content">Description</dt>
-  <dd class="content"><%= format.content doc['content'] %></dd>
-  <dt class="state">State</dt>
-  <dd class="state"><%= format.state doc['state'] %></dd>
-  <dt class="at">At</dt>
-  <dd class="at"><%= format.at doc['at'] %></dd>
-  </dl>
-</div><% else %>
-<h1>New Issue</h1><% end %>
+<h1>New Issue</h1>
 
 <form class="issue" action="<%= form.url('issue') %>" method="post">
-  <input type="hidden" name="commit" value="true"/>
-<%= erb :_form, :locals => {:doc => doc, :submit => 'Create'}, :layout => false %>
+<%= erb :_issue_form, :locals => {:doc => doc, :origin => true, :submit => 'Create'}, :layout => false %>
 </form>

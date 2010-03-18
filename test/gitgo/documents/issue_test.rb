@@ -50,18 +50,18 @@ class IssueTest < Test::Unit::TestCase
   end
   
   #
-  # current_titles test
+  # titles test
   #
   
-  def test_current_titles_returns_all_tail_titles
+  def test_titles_returns_all_head_titles
     a = Issue.create('title' => 'original', 'state' => 'open')
-    assert_equal ['original'], a.current_titles
+    assert_equal ['original'], a.titles
     
-    b = Issue.create('title' => 'b', 'state' => 'open', 'origin' => a, 'parents' => [a])
-    assert_equal ['b'], a.reset.current_titles
+    b = Issue.update(a.sha, 'title' => 'b', 'state' => 'open')
+    assert_equal ['b'], a.reset.titles
     
-    c = Issue.create('title' => 'c', 'state' => 'open', 'origin' => a, 'parents' => [a])
-    assert_equal ['b', 'c'], a.reset.current_titles.sort
+    c = Issue.update(a.sha, 'title' => 'c', 'state' => 'open')
+    assert_equal ['b', 'c'], a.reset.titles.sort
   end
   
   #

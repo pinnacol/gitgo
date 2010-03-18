@@ -29,12 +29,16 @@ module Gitgo
         attr_accessor(:content)
       end
       
+      def heads
+        graph.versions(origin).collect {|sha| Issue[sha] }
+      end
+      
       def tails
         graph.tails.collect {|tail| Issue[tail] }
       end
       
-      def current_titles
-        tails.collect! {|tail| tail.title }
+      def titles
+        heads.collect! {|head| head.title }
       end
       
       def current_tags

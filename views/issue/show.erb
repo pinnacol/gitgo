@@ -1,7 +1,23 @@
 <h1>Issue <%= format.sha_a issue.sha %></h1>
 
+<dl class="issue">
+<dt class="title">Title</dt>
+<dd class="title"><%= format.titles issue.titles %></dd>
+<dt class="tags">Current Tags</dt>
+<dd class="tags"><%= format.tags issue.current_tags %></dd>
+<dt class="state">Current State</dt>
+<dd class="state"><%= format.states issue.current_states %></dd>
+</dl>
+
 <div class="issue"><%= format.tree(issue.graph.tree) do |sha|
   erb :_issue, :locals => {:issue => Gitgo::Documents::Issue.read(sha) }, :layout => false
   end
 %>
 </div>
+
+<form action="<%= form.url('issue', issue.sha) %>" method="post">
+  <input type="hidden" name="_method" value="update" />
+  <input type="hidden" name="doc[origin]" value="<%= issue.sha %>" /><% (update['parents'] || []).each do |sha| %>
+  <input type="hidden" name="doc[parents][]" value="<%= form.value sha %>" /><% end %>
+<%= erb :_issue_form, :locals => {:doc => update, :origin => false, :submit => 'Update'}, :layout => false %>
+</form>

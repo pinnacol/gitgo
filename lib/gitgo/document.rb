@@ -40,7 +40,7 @@ module Gitgo
         sha = repo.resolve(sha)
         attrs = repo.read(sha)
         
-        cast(attrs, sha)
+        attrs ? cast(attrs, sha) : nil
       end
       
       def cast(attrs, sha)
@@ -402,6 +402,11 @@ module Gitgo
     def reset(new_sha=sha)
       @graph = nil
       @sha = new_sha
+      self
+    end
+    
+    def commit!
+      repo.commit!
       self
     end
     
