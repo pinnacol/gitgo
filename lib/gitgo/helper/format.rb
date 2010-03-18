@@ -73,7 +73,7 @@ module Gitgo
         title = "(nameless issue)" if title.to_s.empty?
         state = escape_html doc.state
         
-        "<a class=\"#{state}\" id=\"#{doc.sha}\" href=\"#{url('issue', doc.sha)}\">#{escape_html title}</a>"
+        "<a class=\"#{state}\" id=\"#{doc.sha}\" href=\"#{url('issue', doc.origin)}\">#{escape_html title}</a>"
       end
       
       def index_key_a(key)
@@ -82,6 +82,15 @@ module Gitgo
       
       def index_value_a(key, value)
         "<a href=\"#{url('repo', 'idx', key, value)}\">#{escape_html value}</a>"
+      end
+      
+      def type_a(doc)
+        case doc.type
+        when 'issue'
+          issue_a(doc)
+        else
+          sha_a(doc.origin)
+        end
       end
       
       def each_path(treeish, path)
@@ -101,20 +110,9 @@ module Gitgo
       
       def each_activity(timeline)
         timeline.reverse_each do |doc|
-          type_a = case doc.type
-          when 'comment'
-            sha_a doc.origin
-          when 'issue'
-            issue_a doc
-          when 'update'   
-            issue_doc = Document[doc.origin]
-            issue_a issue_doc
-          else 
-            sha_a doc.sha
-          end
-          
           type = (doc.type || 'unknown').capitalize
-          yield(doc, escape_html(type), type_a)
+          type = "Edit to #{type}" unless doc.original?
+          yield(doc, escape_html(type), type_a(doc))
         end
       end
       
@@ -137,10 +135,6 @@ module Gitgo
         nodes.shift
         
         render(nodes, io, &block)
-      end
-      
-      def issue(sha)
-        controller.erb :_issue, :locals => {:issue => Gitgo::Documents::Issue.read(sha) }, :layout => false
       end
       
       # a document title

@@ -1,4 +1,7 @@
 <h1>Issue <%= format.sha_a issue.sha %></h1>
 
-<div class="issue"><%= format.tree(issue.graph.tree) {|sha| format.issue(sha) }  %>
+<div class="issue"><%= format.tree(issue.graph.tree) do |sha|
+  erb :_issue, :locals => {:issue => Gitgo::Documents::Issue.read(sha) }, :layout => false
+  end
+%>
 </div>
