@@ -27,7 +27,7 @@
 
 <div class="issues">
   <ul class="issues"><% issues.each do |issue| %>
-  <li active="<%= issue.active_tail?(active_sha) %>"><%= format.issue_a issue %></li><% end %>
+  <li id="<%= issue.sha %>" active="<%= issue.active_tail?(active_sha) %>"><%= format.issue_a issue %></li><% end %>
   </ul>
 </div>
 

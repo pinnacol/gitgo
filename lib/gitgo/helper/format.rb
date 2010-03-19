@@ -155,7 +155,7 @@ module Gitgo
       end
       
       def at(at)
-        at.empty? ? '(none)' : sha(at)
+        at.nil? || at.empty? ? '(none)' : sha(at)
       end
       
       def origin(origin)
@@ -163,12 +163,12 @@ module Gitgo
       end
       
       def titles(titles)
-        escape_html titles.join(', ')
+        escape_html(titles.nil? ? '' : titles.join(', '))
       end
       
       def tags(tags)
         # add links/clouds
-        escape_html tags.join(', ')
+        escape_html(tags.nil? ? '' : tags.join(', '))
       end
       
       def state(state)
@@ -176,7 +176,7 @@ module Gitgo
       end
       
       def states(states)
-        escape_html states.join(', ')
+        escape_html(states.nil? ? '' : states.join(', '))
       end
       
       #

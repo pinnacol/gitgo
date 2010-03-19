@@ -23,25 +23,31 @@ class IssueControllerTest < Test::Unit::TestCase
   end
   
   # close an issue by put
-  def close_issue(id)
-    put("/issue/#{id}", "doc[state]" => "closed")
+  def update_issue(sha, attrs={})
+    issue = repo.scope { Gitgo::Documents::Issue.read(sha) }
+    attrs['doc[tags]'] ||= issue.tags
+    attrs['doc[origin]'] ||= issue.origin
+    attrs['doc[parents]'] ||= [sha]
+    attrs['doc[state]'] ||= 'closed'
+    
+    put("/issue/#{sha}", attrs)
   end
   
   def last_issue
     assert last_response.redirect?
     url, anchor = last_response['Location'].split('#', 2)
-    anchor
+    anchor || File.basename(url)
   end
   
   #
   # get test
   #
   
-  def test_get_shows_index_of_tickets_by_state
+  def test_index_filters_tickets_by_tail_state
     a = open_issue("Issue A")
     b = open_issue("Issue B")
     c = open_issue("Issue C")
-    close_issue(c)
+    update_issue(c)
     
     get("/issue")
     assert last_response.ok?
@@ -65,10 +71,10 @@ class IssueControllerTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue C/
   end
   
-  def test_index_filters_on_all_filter_params
+  def test_index_filters_on_tail_tags
     a = open_issue("Issue A", "doc[tags]" => "one")
-    b = open_issue("Issue B", "doc[tags]" => "two")
-    close_issue(b)
+    b = open_issue("Issue B", "doc[tags]" => "one")
+    update_issue(b, "doc[tags]" => ["two", "three"])
     c = open_issue("Issue C", "doc[tags]" => "two")
     
     get("/issue")
@@ -78,14 +84,7 @@ class IssueControllerTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue B/
     assert last_response.body =~ /Issue C/
     
-    get("/issue", "state" => "open")
-    assert last_response.ok?
-    
-    assert last_response.body =~ /Issue A/
-    assert last_response.body !~ /Issue B/
-    assert last_response.body =~ /Issue C/
-    
-    get("/issue", "state" => "open", "tags" => "one")
+    get("/issue", "tags" => "one")
     assert last_response.ok?
     
     assert last_response.body =~ /Issue A/
@@ -98,13 +97,20 @@ class IssueControllerTest < Test::Unit::TestCase
     assert last_response.body !~ /Issue A/
     assert last_response.body =~ /Issue B/
     assert last_response.body =~ /Issue C/
+    
+    get("/issue", "tags" => ["two", "three"])
+    assert last_response.ok?
+    
+    assert last_response.body !~ /Issue A/
+    assert last_response.body =~ /Issue B/
+    assert last_response.body !~ /Issue C/
   end
   
   def test_index_sorts_by_sort_attribute
     a = open_issue("Issue A")
     b = open_issue("Issue B")
     c = open_issue("Issue C")
-    close_issue(c)
+    update_issue(c)
     
     get("/issue", "sort" => "title")
     assert last_response.ok?
@@ -115,7 +121,7 @@ class IssueControllerTest < Test::Unit::TestCase
     assert last_response.body =~ /Issue C.*Issue B.*Issue A/m
   end
   
-  def test_index_indicates_active_state_of_issue
+  def test_index_indicates_active_according_to_tails
     repo.git.checkout('master')
     repo['state'] = 'point a -- issue A is open'
     point_a = repo.commit!
@@ -130,22 +136,22 @@ class IssueControllerTest < Test::Unit::TestCase
     a = open_issue("Issue A", "doc[at]" => point_a)
     b = open_issue("Issue B", "doc[at]" => point_c)
     c = open_issue("Issue C", "doc[at]" => point_c)
-    put("/issue/#{b}", "doc[state]" => "invalid", "doc[at]" => point_b)
-    repo.commit!
+    update_issue(c, "doc[at]" => point_b)
     
-    get("/issue", {}, {'rack.session' => {Gitgo::Controller::HEAD => point_c}})
+    head = Gitgo::Controller::HEAD
+    get("/issue", {}, {'rack.session' => {head => point_c}})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="true"/
     assert last_response.body =~ /id="#{c}" active="true"/
     
-    get("/issue", {}, {'rack.session' => {Gitgo::Controller::HEAD => point_b}})
+    get("/issue", {}, {'rack.session' => {head => point_b}})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
-    assert last_response.body =~ /id="#{b}" active="true"/
-    assert last_response.body =~ /id="#{c}" active="false"/
+    assert last_response.body =~ /id="#{b}" active="false"/
+    assert last_response.body =~ /id="#{c}" active="true"/
     
-    get("/issue", {}, {'rack.session' => {Gitgo::Controller::HEAD => point_a}})
+    get("/issue", {}, {'rack.session' => {head => point_a}})
     assert last_response.ok?
     assert last_response.body =~ /id="#{a}" active="true"/
     assert last_response.body =~ /id="#{b}" active="false"/
@@ -163,7 +169,7 @@ class IssueControllerTest < Test::Unit::TestCase
   end
   
   def test_get_new_issue_previews_content
-    get("/issue/new", "content" => "h1. A big header")
+    get("/issue/new", "preview" => true, "doc[content]" => "h1. A big header")
     assert last_response.ok?
     assert last_response.body.include?("Preview")
     assert last_response.body.include?("<h1>A big header</h1>")
@@ -175,16 +181,16 @@ class IssueControllerTest < Test::Unit::TestCase
   
   def test_get_issue_provides_form_to_close_all_tails
     issue = open_issue("Issue A")
-    put("/issue/#{issue}", "doc[state]" => "closed")
-    iss, a = last_issue
+    update_issue(issue, "doc[state]" => "closed")
+    a = last_issue
     
-    put("/issue/#{issue}", "doc[state]" => "invalid")
-    iss, b = last_issue
+    update_issue(issue, "doc[state]" => "invalid")
+    b = last_issue
     
     get("/issue/#{issue}")
     assert last_response.ok?
-    assert last_response.body.include?(%Q{name="parents[]" value="#{a}"})
-    assert last_response.body.include?(%Q{name="parents[]" value="#{b}"})
+    assert last_response.body.include?(%Q{name="doc[parents][]" value="#{a}"}), last_response.body
+    assert last_response.body.include?(%Q{name="doc[parents][]" value="#{b}"})
   end
   
   def test_get_rev_parses_issue
@@ -200,188 +206,76 @@ class IssueControllerTest < Test::Unit::TestCase
   #
   
   def test_post_creates_a_new_doc
-    post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
-    assert last_response.redirect?
-    
-    id = last_issue
-    issue = repo.read(id)
+    post("/issue", "doc[title]" => "New Issue", "doc[state]" => "open")
+    issue = repo.read(last_issue)
     
     assert_equal "New Issue", issue['title']
-    assert_equal "Issue Description", issue.content
-    assert_equal app.author.email, issue.author.email
-     
-    assert_equal "/issue/#{id}", last_response['Location']
+    assert_equal "/issue/#{last_issue}", last_response['Location']
   end
   
   def test_post_rev_parses_at
-    @repo = Gitgo::Repo.new(setup_repo("simple.git"))
+    @repo = Gitgo::Repo.init(setup_repo("simple.git"))
     @app = Gitgo::Controllers::Issue.new(nil, repo)
     
     #
-    post("/issue", "doc[title]" => "issue from ref", "doc[at]" => 'caps', "commit" => "true")
+    post("/issue", "doc[title]" => "title", "doc[state]" => "open", "doc[at]" => 'caps')
     assert last_response.redirect?
     
-    id = last_issue
-    issue = repo.read(id)
-    
-    assert_equal "issue from ref", issue['title']
-    assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", issue['at']
-    
-    #
-    post("/issue", "doc[title]" => "issue from sha", "doc[at]" => '19377b7ec7b83909b8827e52817c53a47db96cf0', "commit" => "true")
-    assert last_response.redirect?
-    
-    id = last_issue
-    issue = repo.read(id)
-    
-    assert_equal "issue from sha", issue['title']
+    issue = repo.read(last_issue)
     assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", issue['at']
   end
   
-  def test_post_links_issue_at_commit_referencing_issue
-    commit = repo.set(:blob, "")
+  def test_post_links_issue_to_parents
+    post("/issue", "doc[title]" => "a", "doc[state]" => "open")
+    parent = last_issue
     
-    post("/issue", "doc[title]" => "issue", "doc[at]" => commit, "commit" => "true")
-    assert last_response.redirect?
+    post("/issue", "doc[title]" => "b", "doc[state]" => "open", "doc[origin]" => parent, "doc[parents]" => [parent])
     
-    issue = last_issue
-    assert_equal [issue], repo.children(commit)
-    assert_equal issue, repo.reference(commit, issue)
+    child = last_issue
+    assert_equal [child], repo.links(parent)
   end
   
-  def test_post_with_preview_renders_preview
-    post("/issue", "content" => "h1. Issue Description", "doc[title]" => "New Issue", "preview" => "true")
-    assert last_response.ok?
-    assert last_response.body.include?("Preview")
-    assert last_response.body.include?("<h1>Issue Description</h1>")
-  end
-  
-  def test_post_redirects_raises_error_if_no_meaningful_content_or_title_is_given
-    err = assert_raises(RuntimeError) { post("/issue", "content" => "  \n \t\t \r\n ", "doc[title]" => "  \n \t\t \r ") }
-    assert_equal "no title or content specified", err.message
-  end
-  
-  #
-  # put test
-  #
-  
-  def test_put_creates_a_comment_on_an_issue
-    issue = open_issue("Issue A")
-    assert_equal [], repo.children(issue)
+  def test_post_rev_parses_parents
+    post("/issue", "doc[title]" => "a", "doc[state]" => "open")
+    parent = last_issue
     
-    put("/issue/#{issue}", "content" => "Comment on the Issue", "commit" => "true")
-    assert last_response.redirect?
-    id, comment = last_issue
+    post("/issue", "doc[title]" => "b", "doc[state]" => "open", "doc[origin]" => parent, "doc[parents]" => [parent[0,8]])
     
-    assert_equal issue, id
-    assert_equal [comment], repo.children(issue)
-    
-    comment = repo.read(comment)
-    assert_equal "Comment on the Issue", comment.content
-    assert_equal app.author.email, comment.author.email
-  end
-  
-  def test_put_can_close_an_issue
-    issue = open_issue("Issue A")
-    repo.commit "created fixture"
-    
-    get("/issue")
-    assert last_response.body =~ /Issue A/
-    
-    put("/issue/#{issue}", "doc[state]" => "closed", "commit" => "true")
-    assert last_response.redirect?
-    
-    get("/issue", "state" => "open")
-    assert last_response.body !~ /Issue A/
-    
-    get("/issue", "state" => "closed")
-    assert last_response.body =~ /Issue A/
-  end
-  
-  def test_put_links_comment_to_parents
-    issue = open_issue("Issue A")
-    a = repo.create("Comment A")
-    
-    assert_equal [], repo.children(issue)
-    assert_equal [], repo.children(a)
-    
-    put("/issue/#{issue}", "content" => "Comment on A", "parents" => [a], "commit" => "true")
-    assert last_response.redirect?, last_response.body
-    id, comment = last_issue
-    
-    assert_equal issue, id
-    assert_equal [], repo.children(issue)
-    assert_equal [comment], repo.children(a)
-    
-    comment = repo.read(comment)
-    assert_equal "Comment on A", comment.content
-  end
-  
-  def test_put_links_comment_to_multiple_parents
-    issue = repo.create("New Issue")
-    a = repo.create("Comment A")
-    b = repo.create("Comment B")
-    
-    assert_equal [], repo.children(issue)
-    assert_equal [], repo.children(a)
-    assert_equal [], repo.children(a)
-    
-    put("/issue/#{issue}", "content" => "Comment on A and B", "parents" => [a, b], "commit" => "true")
-    assert last_response.redirect?, last_response.body
-    id, comment = last_issue
-    
-    assert_equal issue, id
-    assert_equal [], repo.children(issue)
-    assert_equal [comment], repo.children(a)
-    assert_equal [comment], repo.children(b)
-    
-    comment = repo.read(comment)
-    assert_equal "Comment on A and B", comment.content
-  end
-  
-  def test_put_links_comment_at_commit_referencing_issue
-    issue = repo.create("New Issue")
-    commit = repo.create("")
-    
-    put("/issue/#{issue}", "doc[at]" => commit, "commit" => "true")
-    assert last_response.redirect?, last_response.body
-    id, comment = last_issue
-    
-    assert_equal issue, id
-    assert_equal [comment], repo.children(commit)
-    assert_equal issue, repo.reference(commit, comment)
-  end
-  
-  def test_put_rev_parses_issue_and_parents
-    issue = repo.create("New Issue")
-    a = repo.create("Comment A")
-    b = repo.create("Comment B")
-    
-    assert_equal [], repo.children(issue)
-    assert_equal [], repo.children(a)
-    assert_equal [], repo.children(a)
-    
-    put("/issue/#{issue[0,8]}", "content" => "Comment on A and B", "parents" => [a[0,8], b[0,8]], "commit" => "true")
-    assert last_response.redirect?, last_response.body
-    id, comment = last_issue
-    
-    assert_equal issue, id
-    assert_equal [], repo.children(issue)
-    assert_equal [comment], repo.children(a)
-    assert_equal [comment], repo.children(b)
-    
-    comment = repo.read(comment)
-    assert_equal "Comment on A and B", comment.content
-  end
-  
-  def test_put_raises_error_for_unknown_issue
-    err = assert_raises(RuntimeError) { put("/issue/unknown") }
-    assert_equal 'unknown issue: "unknown"', err.message
+    child = last_issue
+    assert_equal [child], repo.links(parent)
   end
   
   def test_put_raises_error_for_invalid_parents
-    issue = repo.create("New Issue")
-    err = assert_raises(RuntimeError) { put("/issue/#{issue}", "parents" => ["unknown"]) }
-    assert_equal 'unknown re: "unknown"', err.message
+    post("/issue", "doc[title]" => "a", "doc[state]" => "open")
+    parent = last_issue
+    
+    err = assert_raises(RuntimeError) do
+      post("/issue", "doc[title]" => "b", "doc[state]" => "open", "doc[parents]" => [parent])
+    end
+    
+    assert_equal 'parent and child have different origins', err.message
+  end
+  
+  def test_post_with_preview_renders_preview
+    post("/issue", "doc[content]" => "h1. Description", "doc[state]" => "open", "preview" => "true")
+    assert last_response.ok?
+    assert last_response.body.include?("Preview")
+    assert last_response.body.include?("<h1>Description</h1>")
+  end
+  
+  def test_post_to_sha_with_preview_renders_show_and_preview
+    post("/issue", "doc[title]" => "parent title", "doc[state]" => "open")
+    parent = last_issue
+    
+    post("/issue/#{parent}", "doc[title]" => "child title", "doc[content]" => "h1. Update", "doc[state]" => "open", "preview" => "true")
+    assert last_response.ok?
+    assert last_response.body.include?("parent title")
+    assert last_response.body.include?("Preview")
+    assert last_response.body.include?("<h1>Update</h1>")
+  end
+  
+  def test_post_raises_error_if_no_meaningful_title_is_given
+    err = assert_raises(Gitgo::Document::InvalidDocumentError) { post("/issue", "doc[title]" => "  \n \t\t \r ", "doc[state]" => "open") }
+    assert_equal "nothing specified", err.errors['title'].message
   end
 end

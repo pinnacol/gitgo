@@ -16,7 +16,6 @@
 </div>
 
 <form action="<%= form.url('issue', issue.sha) %>" method="post">
-  <input type="hidden" name="_method" value="update" />
   <input type="hidden" name="doc[origin]" value="<%= issue.sha %>" /><% (update['parents'] || []).each do |sha| %>
   <input type="hidden" name="doc[parents][]" value="<%= form.value sha %>" /><% end %>
 <%= erb :_issue_form, :locals => {:doc => update, :origin => false, :submit => 'Update'}, :layout => false %>

@@ -6,24 +6,23 @@ module Gitgo
     class Issue < Controller
       set :views, File.expand_path("views/issue", ROOT)
       
-      get('/issue')        { index }
-      get('/issue/new')    { preview }
-      get('/issue/:id')      {|id| show(id) }
-      get('/issue/:id/edit') {|id| edit(id) }
+      get('/issue')           { index }
+      get('/issue/new')       { preview }
+      get('/issue/:sha')      {|sha| show(sha) }
+      get('/issue/:sha/edit') {|sha| edit(sha) }
       
-      post('/issue')         { create }
-      post('/issue/:id') do |id|
+      post('/issue')          { create }
+      post('/issue/:sha')     {|sha|
         _method = request[:_method]
         case _method
-        when /\Aupdate\z/i then update(id)
-        when /\Arevise\z/i then revise(id)
-        when /\Adelete\z/i then destroy(id)
-        else raise("unknown post method: #{_method}")
+        when /\Aupdate\z/i then update(sha)
+        when /\Adelete\z/i then destroy(sha)
+        else create(sha)
         end
-      end
+      }
       
-      put('/issue/:id')    {|id| update(id) }
-      delete('/issue/:id') {|id| destroy(id) }
+      put('/issue/:sha')      {|sha| update(sha) }
+      delete('/issue/:sha')   {|sha| destroy(sha) }
       
       #
       # actions
@@ -71,8 +70,8 @@ module Gitgo
         erb :new, :locals => {:doc => doc_attrs}
       end
     
-      def create
-        return preview if preview?
+      def create(sha=nil)
+        return(sha.nil? ? preview : show(sha)) if preview?
         
         issue = Issue.create(doc_attrs).commit!
         redirect_to_issue(issue)
@@ -87,7 +86,7 @@ module Gitgo
         erb :edit, :locals => {:issue => issue}
       end
       
-      def revise(sha)
+      def update(sha)
         return edit(sha) if preview?
         
         issue = Issue.update(sha, doc_attrs).commit!
@@ -113,13 +112,6 @@ module Gitgo
         }
       end
       
-      def update(sha)
-        return show(sha) if preview?
-        
-        issue = Issue.create(doc_attrs).commit!
-        redirect_to_issue(issue)
-      end
-
       def destroy(sha)
         issue = Issue.delete(sha).commit!
         redirect_to_issue(issue)
@@ -128,13 +120,15 @@ module Gitgo
       def doc_attrs
         attrs = request['doc'] || {}
         if tags = attrs['tags']
-          attrs['tags'] = tags.split(',').collect {|tag| tag.strip }
+          if tags.kind_of?(String)
+            attrs['tags'] = tags.split(',').collect {|tag| tag.strip }
+          end
         end
         attrs
       end
       
       def redirect_to_issue(doc)
-        sha = doc.origin? ? "#{doc.origin}##{doc.sha}" : doc.origin
+        sha = doc.origin? ? doc.origin : "#{doc.origin}##{doc.sha}"
         redirect "/issue/#{sha}"
       end
     end
