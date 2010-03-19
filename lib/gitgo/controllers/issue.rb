@@ -105,8 +105,11 @@ module Gitgo
         }
         
         erb :show, :locals => {
-          :issue => issue, 
-          :update => update
+          :issue => issue,
+          :update => update,
+          :current_titles => issue.titles,
+          :current_tags => issue.current_tags,
+          :current_states => issue.current_states
         }
       end
       

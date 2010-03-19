@@ -2,11 +2,11 @@
 
 <dl class="issue">
 <dt class="title">Title</dt>
-<dd class="title"><%= format.titles issue.titles %></dd>
-<dt class="tags">Current Tags</dt>
-<dd class="tags"><%= format.tags issue.current_tags %></dd>
-<dt class="state">Current State</dt>
-<dd class="state"><%= format.states issue.current_states %></dd>
+<dd class="title"><%= format.titles current_titles %></dd>
+<dt class="tags">Tags</dt>
+<dd class="tags"><%= format.tags current_tags %></dd>
+<dt class="state">State</dt>
+<dd class="state"><%= format.states current_states %></dd>
 </dl>
 
 <div class="issue"><%= format.tree(issue.graph.tree) do |sha|

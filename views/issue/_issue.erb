@@ -1,8 +1,6 @@
 
-  <dl class="issue" active="<%= issue.active?(head) %>"><% if issue.origin? %>
-  <dt class="title">Title</dt>
-  <dd class="title"><%= format.title issue.title %></dd><% end %>
-  <dt class="content">Description</dt>
+  <dl class="issue" active="<%= issue.active?(head) %>">
+  <dt class="content"><%= issue.origin? ? 'Description' : 'Comment' %></dt>
   <dd class="content"><%= format.content issue.content %></dd>
   <dt class="tags">Tags</dt>
   <dd class="tags"><%= format.tags issue.tags %></dd>
