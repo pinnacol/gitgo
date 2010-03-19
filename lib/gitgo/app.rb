@@ -12,7 +12,6 @@ module Gitgo
     get('/')         { repo.head.nil? ? welcome : timeline }
     get('/timeline') { timeline }
     get('/welcome')  { welcome }
-    
     post('/setup')   { setup }
     
     use Controllers::Code
@@ -34,7 +33,7 @@ module Gitgo
         
       remote_branch = request['remote_branch']
       
-      unless remote_branch.empty?
+      unless remote_branch.nil? || remote_branch.empty?
         git.track(remote_branch)
         git.pull(remote_branch)
         Document.update_idx

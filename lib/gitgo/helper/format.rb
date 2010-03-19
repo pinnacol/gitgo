@@ -147,10 +147,12 @@ module Gitgo
       end
       
       def author(author)
+        return nil if author.nil?
         "#{escape_html(author.name)} (<a href=\"#{url('timeline')}?#{build_query(:author => author.email)}\">#{escape_html author.email}</a>)"
       end
       
       def date(date)
+        return nil if date.nil?
         "<abbr title=\"#{date.iso8601}\">#{date.strftime('%Y/%m/%d %H:%M %p')}</abbr>"
       end
       

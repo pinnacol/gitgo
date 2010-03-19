@@ -11,7 +11,7 @@ class AppTest < Test::Unit::TestCase
   
   def setup
     super
-    @repo = Gitgo::Repo.new(setup_repo("simple.git"))
+    @repo = Gitgo::Repo.init(setup_repo("simple.git"))
     @server = Gitgo::App.new
     
     @app = lambda do |env|
@@ -28,21 +28,9 @@ class AppTest < Test::Unit::TestCase
   # setup test
   #
   
-  def test_setup_sets_up_a_new_gitgo_branch
-    assert_equal nil, git.head
-    assert_equal nil, git.grit.refs.find {|ref| ref.name == git.branch }
-    
-    post("/setup")
-    assert last_response.redirect?
-    assert_equal "/", last_response['Location']
-    
-    gitgo = git.grit.refs.find {|ref| ref.name == git.branch }
-    assert_equal gitgo.commit.sha, git.head
-  end
-  
   def test_setup_sets_up_tracking_of_specified_remote
     @repo = Gitgo::Repo.new Gitgo::Repo::GIT => git.clone(method_root.path('clone'))
-    @app = Gitgo::Controllers::Repo.new(nil, repo)
+    @app = Gitgo::App.new(nil, repo)
     
     assert_equal nil, git.head
     
@@ -60,91 +48,48 @@ class AppTest < Test::Unit::TestCase
     repo.commit!
     git.checkout('gitgo')
     
-    @repo = Gitgo::Repo.new Gitgo::Repo::GIT => git.clone(method_root.path('clone'))
-    @app = Gitgo::Controllers::Repo.new(nil, repo)
+    @repo = Gitgo::Repo.new(Gitgo::Repo::GIT => git.clone(method_root.path('clone')))
     
-    post("/setup", :remote_branch => 'origin/track')
+    post("/setup", {:remote_branch => 'origin/track'}, {Gitgo::Repo::REPO => repo})
     assert last_response.redirect?
     assert_equal "/", last_response['Location']
     
-    get("/repo/idx/tags/tag")
+    get("/repo/idx/tags/tag", {}, {Gitgo::Repo::REPO => repo})
     assert last_response.ok?
-    assert last_response.body.include?(sha)
-  end
-  
-  #
-  # error test
-  #
-  
-  def test_invalidated_repo_errors_provide_opportunity_to_reset_repo
-    server.options.set(:raise_errors, false)
-    
-    begin
-      repo.create("content")
-      repo.commit("new commit")
-    
-      get("/")
-      assert last_response.ok?
-    
-      repo.sandbox {|git,w,i| git.gc }
-    
-      get("/")
-      assert !last_response.ok?
-      assert last_response.body.include?('Errno::ENOENT')
-      assert last_response.body =~ /No such file or directory - .*idx/
-      assert last_response.body.include?('Reset')
-    ensure
-      server.options.set(:raise_errors, true)
-    end
-  end
-  
-  #
-  # index test
-  #
-  
-  def test_index_provides_link_to_repo_page_the_repo_branch_doesnt_exist
-    assert_equal true, repo.head.nil?
-    
-    get("/")
-    assert last_response.ok? 
-    assert last_response.body.include?("setup a #{repo.branch} branch")
-    
-    post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
-    assert_equal false, repo.head.nil?
-    
-    get("/")
-    assert last_response.ok? 
-    assert !last_response.body.include?("setup a #{repo.branch} branch")
+    assert last_response.body.include?(sha), last_response.body
   end
   
   #
   # timeline test
   #
   
+  def last_doc
+    assert last_response.redirect?
+    url, anchor = last_response['Location'].split('#', 2)
+    anchor || File.basename(url)
+  end
+  
   def test_timeline_shows_latest_activity
-    post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
-    assert last_response.redirect?
-    issue = File.basename(last_response['Location'])
+    post("/issue", "doc[title]" => "New Issue", "doc[state]" => "open", "doc[date]" => "2010-03-19T14:51:53-06:00")
+    issue = last_doc
     
-    post("/comment", "re" => "ee9a1ca4441ab2bf937808b26eab784f3d041643", "content" => "New comment", "commit" => "true")
-    assert last_response.redirect?
-    comment = File.basename(last_response['Location'])
+    post("/comment", "doc[origin]" => "ee9a1c", "doc[content]" => "New comment", "doc[date]" => "2010-03-19T14:51:54-06:00")
+    comment = last_doc
     
-    post("/comment", "re" => "ee9a1ca4441ab2bf937808b26eab784f3d041643", "parents" => [comment], "content" => "Comment on a comment", "commit" => "true")
+    post("/comment", "doc[origin]" => "ee9a1c", "parents" => [comment], "doc[content]" => "Comment on a comment", "doc[date]" => "2010-03-19T14:51:55-06:00")
     assert last_response.redirect?
     
-    put("/issue/#{issue}", "content" => "Comment on the Issue", "commit" => "true")
+    post("/issue/#{issue}", "doc[origin]" => issue, "parents" => [issue], "doc[state]" => "closed", "doc[date]" => "2010-03-19T14:51:56-06:00")
     assert last_response.redirect? 
 
     get("/timeline")
     
     assert last_response.body =~ /#{issue}.*ee9a1ca4441ab2bf937808b26eab784f3d041643.*ee9a1ca4441ab2bf937808b26eab784f3d041643.*#{issue}/m
-    assert last_response.body =~ /Update.*Comment.*Comment.*Issue/m
+    assert last_response.body =~ /Issue.*Comment.*Comment.*Issue/m, last_response.body
   end
   
   def test_timeline_shows_helpful_message_if_no_results_are_available
-    post("/issue", "content" => "Issue Description", "doc[title]" => "New Issue", "commit" => "true")
-    get("/timeline", "page" => 10)
-    assert last_response.body.include?('No results to show...')
+    get("/timeline")
+    assert last_response.body.include?('No activity yet...'), last_response.body
   end
 end
