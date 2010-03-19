@@ -1,15 +1,16 @@
 <html>
   <head>
     <title>Gitgo Tests</title>
-    <link type="text/css" rel="stylesheet" href="/spec/jspec.css" />
-    <link type="text/css" rel="stylesheet" href="/css/gitgo.css">
-    <script src="/spec/jspec.js"></script>
-    <script src="/javascript/gitgo.js"></script>
+    <link type="text/css" rel="stylesheet" href="./spec/jspec.css" />
+    <link type="text/css" rel="stylesheet" href="./css/gitgo.css">
+    <script src="./spec/jspec.js"></script>
+    <script src="./javascript/jquery-1.4.2.min.js"></script>
+    <script src="./javascript/gitgo.js"></script>
     <script>
       function runSuites() {
         JSpec
-        .exec('/spec/gitgo_spec.js')
-        .run()
+        .exec('./spec/gitgo_spec.js')
+        .run({ fixturePath: './spec/fixtures' })
         .report()
       }
     </script>
