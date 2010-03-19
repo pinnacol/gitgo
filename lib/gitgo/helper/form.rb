@@ -60,7 +60,7 @@ module Gitgo
       end
       
       def tags_value(tags)
-        tags.join(', ')
+        tags ? tags.join(', ') : ''
       end
       
       def content_value(content)

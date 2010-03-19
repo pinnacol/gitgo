@@ -329,7 +329,13 @@ module Gitgo
     end
     
     def rev_list(sha)
-      git.rev_list(sha)
+      rev_lists = idx['cache']
+      
+      unless rev_lists.has_key?(sha)
+        rev_lists[sha] = git.rev_list(sha)
+      end
+      
+      rev_lists[sha]
     end
     
     def diff(a, b)
