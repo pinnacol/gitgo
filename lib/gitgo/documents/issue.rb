@@ -54,6 +54,10 @@ module Gitgo
         states
       end
       
+      def active_tail?(sha)
+        tails.any? {|tail| tail.active?(sha) }
+      end
+      
       def each_index
         if state = attrs['state']
           yield('state', state)

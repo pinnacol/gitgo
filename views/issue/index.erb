@@ -26,8 +26,8 @@
 </form>
 
 <div class="issues">
-  <ul class="issues"><% issues.each do |doc| %>
-  <li active="<%= doc.active?(active_sha) %>"><%= format.issue_a doc %></li><% end %>
+  <ul class="issues"><% issues.each do |issue| %>
+  <li active="<%= issue.active_tail?(active_sha) %>"><%= format.issue_a issue %></li><% end %>
   </ul>
 </div>
 
