@@ -80,50 +80,6 @@ module Gitgo
         io << list_close
         io
       end
-      
-      def traverse(tree, parent=nil, visited=[])
-        visited.unshift(parent)
-        tree[parent].each do |child|
-          traverse(tree, child, visited)
-        end
-        visited
-      end
-      
-      OPEN = nil
-      CLOSED = false
-      
-      def nodes(tree)
-        # number if occupied, false if closed, nil if open
-        slots = []
-        
-        # (node, slot) pairs
-        slot = {nil => 0}
-        
-        order = traverse(tree)
-        order.uniq!
-        order.reverse!
-        
-        order.collect do |node|
-          children = tree[node]
-          parent_slot  = slot[node]
-          
-          # free the parent slot if possible
-          slots[parent_slot] = children.empty? ? false : nil
-          
-          # determine occupied slots
-          occupied_slots = slots.select {|index| index }
-          
-          # determine the slot for each child
-          child_slots = children.collect do |child|
-            child_slot = slot[child] ||= (slots.index(nil) || slots.length)
-            slots[child_slot] = child_slot >= parent_slot ? child_slot : nil
-            child_slot
-          end
-          
-          [node, slot[node], occupied_slots, child_slots]
-        end
-      end
-      
     end
   end
 end

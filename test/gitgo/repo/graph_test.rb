@@ -369,4 +369,141 @@ class GraphTest < Test::Unit::TestCase
     graph = repo.graph(nil)
     assert_equal({}, graph.tree)
   end
+  
+  #
+  # nodes test
+  #
+  
+  def test_nodes_for_single_line
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.link(a, b)
+    repo.link(b, c)
+    
+    assert_equal [
+      [nil, 0, [], [0]], 
+      [a, 0, [], [0]], 
+      [b, 0, [], [0]], 
+      [c, 0, [], []]
+    ], repo.graph(a).collect
+  end
+  
+  def test_nodes_for_fork
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd').sort
+    repo.link(a, b)
+    repo.link(a, c)
+    repo.link(a, d)
+    
+    assert_equal [
+      [nil, 0, [], [0]], 
+      [a, 0, [], [0,1,2]], 
+      [b, 0, [1,2], []], 
+      [c, 1, [2], []],
+      [d, 2, [], []]
+    ], repo.graph(a).sort.collect
+  end
+  
+  def test_nodes_for_fork_with_partial_merge
+    a, b, c, d, e = create_nodes('a', 'b', 'c', 'd', 'e').sort
+    repo.link(a, b)
+    repo.link(a, c)
+    repo.link(a, d)
+    
+    repo.link(b, e)
+    repo.link(d, e)
+    
+    assert_equal [
+      [nil, 0, [], [0]],
+      [a, 0, [], [0, 1, 2]],
+      [b, 0, [1, 2], [0]],
+      [c, 1, [0, 2], []],
+      [d, 2, [0], [0]],
+      [e, 0, [], []]
+    ], repo.graph(a).sort.collect
+  end
+  
+  def test_nodes_for_multiple_merge_inward
+    a, b, c, d, e = create_nodes('a', 'b', 'c', 'd', 'e').sort
+    repo.link(a, b)
+    repo.link(a, c)
+    
+    repo.link(b, e)
+    
+    repo.link(c, d)
+    repo.link(c, e)
+    
+    repo.link(d, e)
+    
+    assert_equal [
+      [nil, 0, [], [0]],
+      [a, 0, [], [0, 1]],
+      [b, 0, [1], [0]],
+      [c, 1, [0], [1, 0]],
+      [d, 1, [], [0]],
+      [e, 0, [], []]
+    ], repo.graph(a).sort.collect
+  end
+  
+  def test_nodes_for_multiple_merge_outward
+    a, b, c, d, e, f, g = create_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
+    repo.link(a, b)
+    repo.link(a, c)
+    
+    repo.link(b, g)
+    
+    repo.link(c, d)
+    repo.link(c, f)
+    
+    repo.link(d, e)
+    repo.link(e, f)
+    repo.link(f, g)
+
+    assert_equal [
+      [nil, 0, [], [0]],
+      [a, 0, [], [0, 1]],
+      [b, 0, [1], [0]],
+      [c, 1, [0], [1, 2]],
+      [d, 1, [0, 2], [1]],
+      [e, 1, [0, 2], [2]],
+      [f, 2, [0], [0]],
+      [g, 0, [], []]
+    ], repo.graph(a).sort.collect
+  end
+  
+  def test_nodes_for_fork_merge_refork
+    a, b, c, d, e, f, g, h, i = create_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i').sort
+    repo.link(a, b)
+    repo.link(a, c)
+    repo.link(a, d)
+    repo.link(b, e)
+    repo.link(d, e)
+    repo.link(e, f)
+    repo.link(e, i)
+    repo.link(f, g)
+    repo.link(f, h)
+    
+    assert_equal [
+      [nil, 0, [], [0]],
+      [a, 0, [], [0, 1, 2]],
+      [b, 0, [1, 2], [0]],
+      [c, 1, [0, 2], []],
+      [d, 2, [0], [0]],
+      [e, 0, [], [0, 2]],
+      [f, 0, [2], [0, 3]],
+      [g, 0, [2, 3], []],
+      [h, 3, [2], []],
+      [i, 2, [], []]
+    ], repo.graph(a).sort.collect
+  end
+  
+  def test_nodes_for_multiple_heads
+    a, b, c = create_nodes('a', 'b', 'c').sort
+    repo.update(a, b)
+    repo.update(a, c)
+    
+    assert_equal [
+      [nil, 0, [], [0,1]], 
+      [b, 0, [1], []], 
+      [c, 1, [], []]
+    ], repo.graph(a).sort.collect
+  end
 end

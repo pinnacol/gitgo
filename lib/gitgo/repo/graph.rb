@@ -1,7 +1,8 @@
 module Gitgo
   class Repo
     class Graph
-    
+      include Enumerable
+      
       attr_reader :repo
       attr_reader :head
     
@@ -61,6 +62,43 @@ module Gitgo
           end
           tree
         end
+      end
+      
+      def sort(&block)
+        tree.each_value do |children|
+          children.sort!(&block)
+        end
+        self
+      end
+      
+      def each(head=nil)
+        slots = []
+        slot = {head => 0}
+        
+        order = visit(tree, head)
+        order.uniq!
+        
+        order.reverse_each do |sha|
+          children = tree[sha]
+          parent_slot  = slot[sha]
+          
+          # free the parent slot if possible
+          slots[parent_slot] = children.empty? ? false : nil
+          
+          # determine occupied slots
+          occupied_slots = slots.select {|index| index }
+          
+          # determine the slot for each child
+          child_slots = children.collect do |child|
+            child_slot = slot[child] ||= (slots.index(nil) || slots.length)
+            slots[child_slot] = child_slot >= parent_slot ? child_slot : nil
+            child_slot
+          end
+          
+          yield(sha, slot[sha], occupied_slots, child_slots)
+        end
+        
+        self
       end
       
       def reset
@@ -144,7 +182,7 @@ module Gitgo
         end
       end
       
-      def collect_nodes(node, tree, trail=[])
+      def collect_nodes(node, tree, trail=[]) # :nodoc:
         circular = trail.include?(node)
         trail.push node
 
@@ -161,6 +199,14 @@ module Gitgo
         end
         
         trail.pop
+      end
+      
+      def visit(tree, parent, visited=[]) # :nodoc:
+        visited.unshift(parent)
+        tree[parent].each do |child|
+          visit(tree, child, visited)
+        end
+        visited
       end
     end
   end
