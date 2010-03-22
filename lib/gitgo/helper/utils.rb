@@ -120,7 +120,7 @@ module Gitgo
             child_slot
           end
           
-          [slot[node], occupied_slots, child_slots]
+          [node, slot[node], occupied_slots, child_slots]
         end
       end
       
