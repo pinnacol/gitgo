@@ -371,10 +371,10 @@ class GraphTest < Test::Unit::TestCase
   end
   
   #
-  # nodes test
+  # graph test
   #
   
-  def test_nodes_for_single_line
+  def test_graph_for_single_line
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.link(b, c)
@@ -387,7 +387,7 @@ class GraphTest < Test::Unit::TestCase
     ], repo.graph(a).collect
   end
   
-  def test_nodes_for_fork
+  def test_graph_for_fork
     a, b, c, d = create_nodes('a', 'b', 'c', 'd').sort
     repo.link(a, b)
     repo.link(a, c)
@@ -402,7 +402,7 @@ class GraphTest < Test::Unit::TestCase
     ], repo.graph(a).sort.collect
   end
   
-  def test_nodes_for_fork_with_partial_merge
+  def test_graph_for_fork_with_partial_merge
     a, b, c, d, e = create_nodes('a', 'b', 'c', 'd', 'e').sort
     repo.link(a, b)
     repo.link(a, c)
@@ -421,7 +421,7 @@ class GraphTest < Test::Unit::TestCase
     ], repo.graph(a).sort.collect
   end
   
-  def test_nodes_for_multiple_merge_inward
+  def test_graph_for_multiple_merge_inward
     a, b, c, d, e = create_nodes('a', 'b', 'c', 'd', 'e').sort
     repo.link(a, b)
     repo.link(a, c)
@@ -443,7 +443,7 @@ class GraphTest < Test::Unit::TestCase
     ], repo.graph(a).sort.collect
   end
   
-  def test_nodes_for_multiple_merge_outward
+  def test_graph_for_multiple_merge_outward
     a, b, c, d, e, f, g = create_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
     repo.link(a, b)
     repo.link(a, c)
@@ -469,7 +469,7 @@ class GraphTest < Test::Unit::TestCase
     ], repo.graph(a).sort.collect
   end
   
-  def test_nodes_for_fork_merge_refork
+  def test_graph_for_fork_merge_refork
     a, b, c, d, e, f, g, h, i = create_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i').sort
     repo.link(a, b)
     repo.link(a, c)
@@ -495,7 +495,29 @@ class GraphTest < Test::Unit::TestCase
     ], repo.graph(a).sort.collect
   end
   
-  def test_nodes_for_multiple_heads
+  def test_graph_for_merge_and_fork_on_separate_branches
+    a, b, c, d, e, f, g = create_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
+    repo.link(a, b)
+    repo.link(a, c)
+    repo.link(a, e)
+    repo.link(b, d)
+    repo.link(c, d)
+    repo.link(e, f)
+    repo.link(e, g)
+
+    assert_equal [
+      [nil, 0, [], [0]],
+      [a, 0, [], [0, 1, 2]],
+      [b, 0, [1, 2], [0]],
+      [c, 1, [0, 2], [0]],
+      [d, 0, [2], []],
+      [e, 2, [], [1, 2]],
+      [f, 1, [2], []],
+      [g, 2, [], []]
+    ], repo.graph(a).sort.collect
+  end
+  
+  def test_graph_for_multiple_heads
     a, b, c = create_nodes('a', 'b', 'c').sort
     repo.update(a, b)
     repo.update(a, c)

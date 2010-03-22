@@ -91,7 +91,7 @@ module Gitgo
           # determine the slot for each child
           child_slots = children.collect do |child|
             child_slot = slot[child] ||= (slots.index(nil) || slots.length)
-            slots[child_slot] = child_slot >= parent_slot ? child_slot : nil
+            slots[child_slot] = child_slot >= parent_slot ? child_slot : false
             child_slot
           end
           
