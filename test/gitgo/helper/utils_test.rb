@@ -120,4 +120,116 @@ class HelperUtilsTest < Test::Unit::TestCase
 
     assert_equal expected, "\n" + render(list).join + "\n"
   end
+  
+  #
+  # nodes test
+  #
+  
+  def test_nodes_for_single_line
+    tree = {
+      nil => [0],
+      0 => [1],
+      1 => [2],
+      2 => []
+    }
+    
+    assert_equal [
+      [0, [], [0]], 
+      [0, [], [0]], 
+      [0, [], [0]], 
+      [0, [], []]
+    ], nodes(tree)
+  end
+  
+  def test_nodes_for_branch_with_partial_merge
+    tree = {
+      nil => [0],
+      0 => [1,2,3],
+      1 => [4],
+      2 => [],
+      3 => [4],
+      4 => []
+    }
+    
+    assert_equal [
+      [0, [], [0]],
+      [0, [], [0, 1, 2]],
+      [0, [1, 2], [0]],
+      [1, [0, 2], []],
+      [2, [0], [0]],
+      [0, [], []]
+    ], nodes(tree)
+  end
+  
+  def test_nodes_for_multiline_branch_points
+    tree = {
+      nil => [0],
+      0 => [1,2],
+      1 => [6],
+      2 => [3,5],
+      3 => [4],
+      4 => [5],
+      5 => [6],
+      6 => []
+    }
+    
+    assert_equal [
+      [0, [], [0]],
+      [0, [], [0, 1]],
+      [0, [1], [0]],
+      [1, [0], [1, 2]],
+      [1, [0, 2], [1]],
+      [1, [0, 2], [2]],
+      [2, [0], [0]],
+      [0, [], []]
+    ], nodes(tree)
+  end
+  
+  def test_nodes_for_multiple_branch_points
+    tree = {
+      nil => [0],
+      0 => [1,2],
+      1 => [4],
+      2 => [3,4],
+      3 => [4],
+      4 => []
+    }
+    
+    assert_equal [
+      [0, [], [0]],
+      [0, [], [0, 1]],
+      [0, [1], [0]],
+      [1, [0], [1, 0]],
+      [1, [], [0]],
+      [0, [], []]
+    ], nodes(tree)
+  end
+  
+  def test_nodes_for_branch_merge_rebranch
+    tree = {
+      nil => [0],
+      0 => [1,2,3],
+      1 => [4],
+      2 => [],
+      3 => [4],
+      4 => [5,6],
+      5 => [7,8],
+      6 => [],
+      7 => [],
+      8 => []
+    }
+    
+    assert_equal [
+      [0, [], [0]],
+      [0, [], [0, 1, 2]],
+      [0, [1, 2], [0]],
+      [1, [0, 2], []],
+      [2, [0], [0]],
+      [0, [], [0, 2]],
+      [0, [2], [0, 3]],
+      [0, [2, 3], []],
+      [3, [2], []],
+      [2, [], []]
+    ], nodes(tree)
+  end
 end
