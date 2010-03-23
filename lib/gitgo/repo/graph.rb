@@ -81,7 +81,7 @@ module Gitgo
       # need to be linked to produce the graph.  For example, a simple
       # fork-merge could be graphed like this:
       #
-      #   Graph    node  x  y  current link-to
+      #   Graph    node  x  y  current transistions
       #   *        :a    0  0  []      [0,1]
       #   |--+
       #   *  |     :b    0  1  [1]     [0]
@@ -102,6 +102,9 @@ module Gitgo
         slots = []
         slot = {head => 0}
         
+        # visit walks each branch in the tree and collects the visited nodes
+        # in reverse; that way uniq + reverse_each will iterate the nodes in
+        # order, with merges pushed down as far as necessary
         order = visit(tree, head)
         order.uniq!
         

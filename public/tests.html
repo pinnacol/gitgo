@@ -12,15 +12,34 @@
         .exec('./spec/gitgo_spec.js')
         .run({ fixturePath: './spec/fixtures' })
         .report()
-      }
+      };
+      
+      function updateExample(src, target, canvas) {
+        var url = "./spec/fixtures/" + $(src).attr('value') + ".html";
+        $.get(url, function(data) { 
+          $(target).html(data);
+          Gitgo.Graph.draw(canvas, target);
+        }, "text");
+      };
     </script>
   </head>
   <body class="jspec" onLoad="runSuites();">
     <div id="jspec-top"><h2 id="jspec-title">JSpec <em><script>document.write(JSpec.version)</script></em></h2></div>
     <div id="jspec"></div>
     <div id="jspec-bottom"></div>
-    <ul>
-      <li><a href="/">Back to Index</a></li>
-    </ul>
+    
+    <div id="test">
+      <form onsubmit="updateExample('#fixture', '#data', '#graph');return false;">
+        <input id="fixture" type="text"></input>
+        <input type="submit" value="switch">
+      </form>
+      
+      <canvas id="graph" width="200" height="200">
+      <p>Your browser doesn't support canvas.</p>
+      </canvas>
+      
+      <div id="data">
+      </div>
+    </div>
   </body>
 </html>
