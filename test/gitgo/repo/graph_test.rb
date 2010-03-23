@@ -380,10 +380,10 @@ class GraphTest < Test::Unit::TestCase
     repo.link(b, c)
     
     assert_equal [
-      [nil, 0, [], [0]], 
-      [a, 0, [], [0]], 
-      [b, 0, [], [0]], 
-      [c, 0, [], []]
+      [nil, 0, 0, [], [0]], 
+      [a, 0, 1, [], [0]], 
+      [b, 0, 2, [], [0]], 
+      [c, 0, 3, [], []]
     ], repo.graph(a).collect
   end
   
@@ -394,11 +394,27 @@ class GraphTest < Test::Unit::TestCase
     repo.link(a, d)
     
     assert_equal [
-      [nil, 0, [], [0]], 
-      [a, 0, [], [0,1,2]], 
-      [b, 0, [1,2], []], 
-      [c, 1, [2], []],
-      [d, 2, [], []]
+      [nil, 0, 0, [], [0]], 
+      [a, 0, 1, [], [0,1,2]], 
+      [b, 0, 2, [1,2], []], 
+      [c, 1, 3, [2], []],
+      [d, 2, 4, [], []]
+    ], repo.graph(a).sort.collect
+  end
+  
+  def test_graph_for_fork_and_merge
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd').sort
+    repo.link(a, b)
+    repo.link(a, c)
+    repo.link(b, d)
+    repo.link(c, d)
+    
+    assert_equal [
+      [nil, 0, 0, [], [0]],
+      [a, 0, 1, [], [0,1]],
+      [b, 0, 2, [1], [0]],
+      [c, 1, 3, [0], [0]],
+      [d, 0, 4, [], []]
     ], repo.graph(a).sort.collect
   end
   
@@ -412,12 +428,12 @@ class GraphTest < Test::Unit::TestCase
     repo.link(d, e)
     
     assert_equal [
-      [nil, 0, [], [0]],
-      [a, 0, [], [0, 1, 2]],
-      [b, 0, [1, 2], [0]],
-      [c, 1, [0, 2], []],
-      [d, 2, [0], [0]],
-      [e, 0, [], []]
+      [nil, 0, 0, [], [0]],
+      [a, 0, 1, [], [0, 1, 2]],
+      [b, 0, 2, [1, 2], [0]],
+      [c, 1, 3, [0, 2], []],
+      [d, 2, 4, [0], [0]],
+      [e, 0, 5, [], []]
     ], repo.graph(a).sort.collect
   end
   
@@ -434,12 +450,12 @@ class GraphTest < Test::Unit::TestCase
     repo.link(d, e)
     
     assert_equal [
-      [nil, 0, [], [0]],
-      [a, 0, [], [0, 1]],
-      [b, 0, [1], [0]],
-      [c, 1, [0], [1, 0]],
-      [d, 1, [], [0]],
-      [e, 0, [], []]
+      [nil, 0, 0, [], [0]],
+      [a, 0, 1, [], [0, 1]],
+      [b, 0, 2, [1], [0]],
+      [c, 1, 3, [0], [1, 0]],
+      [d, 1, 4, [0], [0]],
+      [e, 0, 5, [], []]
     ], repo.graph(a).sort.collect
   end
   
@@ -458,14 +474,14 @@ class GraphTest < Test::Unit::TestCase
     repo.link(f, g)
 
     assert_equal [
-      [nil, 0, [], [0]],
-      [a, 0, [], [0, 1]],
-      [b, 0, [1], [0]],
-      [c, 1, [0], [1, 2]],
-      [d, 1, [0, 2], [1]],
-      [e, 1, [0, 2], [2]],
-      [f, 2, [0], [0]],
-      [g, 0, [], []]
+      [nil, 0, 0, [], [0]],
+      [a, 0, 1, [], [0, 1]],
+      [b, 0, 2, [1], [0]],
+      [c, 1, 3, [0], [1, 2]],
+      [d, 1, 4, [0, 2], [1]],
+      [e, 1, 5, [0, 2], [2]],
+      [f, 2, 6, [0], [0]],
+      [g, 0, 7, [], []]
     ], repo.graph(a).sort.collect
   end
   
@@ -482,16 +498,16 @@ class GraphTest < Test::Unit::TestCase
     repo.link(f, h)
     
     assert_equal [
-      [nil, 0, [], [0]],
-      [a, 0, [], [0, 1, 2]],
-      [b, 0, [1, 2], [0]],
-      [c, 1, [0, 2], []],
-      [d, 2, [0], [0]],
-      [e, 0, [], [0, 2]],
-      [f, 0, [2], [0, 3]],
-      [g, 0, [2, 3], []],
-      [h, 3, [2], []],
-      [i, 2, [], []]
+      [nil, 0, 0, [], [0]],
+      [a, 0, 1, [], [0, 1, 2]],
+      [b, 0, 2, [1, 2], [0]],
+      [c, 1, 3, [0, 2], []],
+      [d, 2, 4, [0], [0]],
+      [e, 0, 5, [], [0, 2]],
+      [f, 0, 6, [2], [0, 3]],
+      [g, 0, 7, [2, 3], []],
+      [h, 3, 8, [2], []],
+      [i, 2, 9, [], []]
     ], repo.graph(a).sort.collect
   end
   
@@ -506,14 +522,14 @@ class GraphTest < Test::Unit::TestCase
     repo.link(e, g)
 
     assert_equal [
-      [nil, 0, [], [0]],
-      [a, 0, [], [0, 1, 2]],
-      [b, 0, [1, 2], [0]],
-      [c, 1, [0, 2], [0]],
-      [d, 0, [2], []],
-      [e, 2, [], [1, 2]],
-      [f, 1, [2], []],
-      [g, 2, [], []]
+      [nil, 0, 0, [], [0]],
+      [a, 0, 1, [], [0, 1, 2]],
+      [b, 0, 2, [1, 2], [0]],
+      [c, 1, 3, [0, 2], [0]],
+      [d, 0, 4, [2], []],
+      [e, 2, 5, [], [1, 2]],
+      [f, 1, 6, [2], []],
+      [g, 2, 7, [], []]
     ], repo.graph(a).sort.collect
   end
   
@@ -523,9 +539,9 @@ class GraphTest < Test::Unit::TestCase
     repo.update(a, c)
     
     assert_equal [
-      [nil, 0, [], [0,1]], 
-      [b, 0, [1], []], 
-      [c, 1, [], []]
+      [nil, 0, 0, [], [0,1]], 
+      [b, 0, 1, [1], []], 
+      [c, 1, 2, [], []]
     ], repo.graph(a).sort.collect
   end
 end

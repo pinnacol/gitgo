@@ -64,6 +64,7 @@ module Gitgo
         end
       end
       
+      # Sorts each of the children in tree, using the block if given.
       def sort(&block)
         tree.each_value do |children|
           children.sort!(&block)
@@ -71,31 +72,62 @@ module Gitgo
         self
       end
       
-      def each(head=nil)
+      # Yields each node in the tree to the block with coordinates for
+      # rendering a graph of relationships between the nodes.  The nodes are
+      # ordered from head to tails and respect the order of children.
+      #
+      # Each node is assigned a slot (x), and at each iteration (y), there is
+      # information regarding which slots are currently open, and which slots
+      # need to be linked to produce the graph.  For example, a simple
+      # fork-merge could be graphed like this:
+      #
+      #   Graph    node  x  y  current link-to
+      #   *        :a    0  0  []      [0,1]
+      #   |--+
+      #   *  |     :b    0  1  [1]     [0]
+      #   |  |
+      #   |  *     :c    1  2  [0]     [0]
+      #   |--+
+      #   *        :d    0  3  []      []
+      #
+      # Where the coordinates are the arguments yielded to the block:
+      #
+      #   sha::   the sha for the node
+      #   slot::  the slot where the node belongs (x-axis)
+      #   index:: a counter for the number of nodes yielded (y-axis)
+      #   current_slots:: slots currently open (|)
+      #   transitions:: the slots that this node should connect to (|,--+)
+      #
+      def each(head=nil) # :yields: sha, slot, index, current_slots, transitions
         slots = []
         slot = {head => 0}
         
         order = visit(tree, head)
         order.uniq!
         
+        index = 0
         order.reverse_each do |sha|
           children = tree[sha]
           parent_slot  = slot[sha]
           
-          # free the parent slot if possible
+          # free the parent slot if possible - if no children exist then the
+          # sha is an open tail; block off the slot with false so that it will
+          # be unavailable for further occupation
           slots[parent_slot] = children.empty? ? false : nil
           
-          # determine occupied slots
-          occupied_slots = slots.select {|index| index }
+          # determine currently occupied slots - any slots with a non-nil,
+          # non-false value; in this case a number
+          current_slots = slots.select {|s| s }
           
-          # determine the slot for each child
-          child_slots = children.collect do |child|
+          transitions = children.collect do |child|
+            # determine the next open (ie nil) slot for the child and occupy
             child_slot = slot[child] ||= (slots.index(nil) || slots.length)
-            slots[child_slot] = child_slot >= parent_slot ? child_slot : false
+            slots[child_slot] = child_slot
             child_slot
           end
           
-          yield(sha, slot[sha], occupied_slots, child_slots)
+          yield(sha, slot[sha], index, current_slots, transitions)
+          index += 1
         end
         
         self
