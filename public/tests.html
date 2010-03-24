@@ -14,12 +14,11 @@
         .report()
       };
       
-      function updateExample(src, target, canvas, debug) {
+      function updateExample(src, target, canvas) {
         var url = "./spec/fixtures/" + $(src).attr('value') + ".html";
         $.get(url, function(data) { 
           $(target).html(data);
           Gitgo.Graph.draw(canvas, target);
-          Gitgo.Graph.debug(canvas, debug);
         }, "text");
       };
     </script>
@@ -29,19 +28,16 @@
     <div id="jspec"></div>
     <div id="jspec-bottom">
       
-      <form onsubmit="updateExample('#fixture', '#data', '#graph', '#debug');return false;" style="float:left;padding-left:2em;">
+      <form onsubmit="updateExample('#fixture', '#data', '#graph');return false;" style="float:left;padding-left:2em">
         <input id="fixture" type="text"></input>
         <input type="submit" value="switch">
       </form>
       
-      <canvas id="graph" style="float:left;clear:both;padding-left:2em;">
+      <canvas id="graph" height="1000" style="float:left;clear:both;padding-left:2em;">
       <p>Your browser doesn't support canvas.</p>
       </canvas>
       
-      <div id="data" style="float:left">
-      </div>
-      
-      <div id="debug" style="float:left;clear:both;padding-left:2em;">
+      <div id="data" style="float:left;width:50%">
       </div>
     </div>
   </body>

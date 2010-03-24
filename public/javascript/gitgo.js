@@ -5,56 +5,62 @@ Gitgo.Graph = {
     var data = $(data);
     var canvas = $(canvas);
     var context = canvas.get(0).getContext('2d');
-    var graph = this;
     
-    var slot_width = 20;
+    // clear the context for rendering, and resize as necessary
     context.clearRect(0, 0, canvas.width(), canvas.height());
     
-    data.top = data.get(0).offsetTop;
+    var graph = this;
+    var offset = graph.offset(data);
     $(data).find('li').each(function(node) {
-      var node = graph.node($(this));
+      var node = graph.node($(this), offset.top);
       
       // draw node
-      context.fillRect(node.x * slot_width, node.top - data.top, 3, 3);
+      context.fillRect(offset(node.x), node.top, 3, 3);
       
       // draw verticals for current slots
       $.each(node.current, function(i, x) {
         context.beginPath();
-        context.moveTo(x * slot_width, node.top - data.top);
-        context.lineTo(x * slot_width, node.top - data.top + node.height);
+        context.moveTo(offset(x), node.top);
+        context.lineTo(offset(x), node.bottom);
         context.stroke();
       });
       
       // draw transitions
-      $.each(node.transitions, function(i, x) {
+      $.each(node.transitions, function(i, target) {
         context.beginPath();
-        context.moveTo(node.x * slot_width, node.top - data.top);
-        context.lineTo(node.x * slot_width, node.top - data.top + (node.height / 2));
-        context.lineTo(x * slot_width, node.top - data.top + (node.height / 2));
-        context.lineTo(x * slot_width, node.top - data.top + node.height);
+        context.moveTo(offset(node.x), node.top);
+        context.lineTo(offset(node.x), node.middle);
+        context.lineTo(offset(target), node.middle);
+        context.lineTo(offset(target), node.bottom);
         context.stroke();
       });
     });
   },
   
-  debug: function(canvas, debug) {
-    var canvas = $(canvas);
-    var context = $(canvas).get(0).getContext('2d');
+  // Memoize function to calculate the x offset for slots by slot number.
+  // Additionally carries a 'top' attribute indicating the offset for
+  // all nodes within element.
+  offset: function(element) {
+    var width = parseInt(element.attr('width') || 20);
+    var memo = [];
     
-    context.beginPath();
-    context.lineTo(300, 0);
-    context.lineTo(300, 150);
-    context.lineTo(0, 150);
-    context.lineTo(0, 0);
-    context.closePath();
-    context.stroke();
+    var offsetter = function(x) {
+      var pos = memo[x];
+      if (typeof pos !== 'number') {
+        pos = x * width;
+        memo[x] = pos;
+      }
+      return pos;
+    }
     
-    $(debug).html(canvas.width() + ", " + canvas.height() + " (width, height)");
+    offsetter.top = element.position().top;
+    return offsetter;
   },
   
-  node: function(element) {
+  node: function(element, offset) {
     var data = element.attr('graph').split(':', 4);
-    var element = element.get(0);
+    var position = element.position();
+    var height = element.outerHeight();
     
     var parseIntArray = function (string) {
       if (string.length == 0) { return []; };
@@ -68,11 +74,12 @@ Gitgo.Graph = {
     };
     
     var node = {
-      id: element.getAttribute('id'),
-      top: element.offsetTop,
-      left: element.offsetLeft,
-      width: element.offsetWidth,
-      height: element.offsetHeight,
+      id: element.attr('id'),
+      top: position.top - offset,
+      middle: position.top + (height/2) - offset,
+      bottom: position.top + height - offset,
+      left: position.left,
+      height: height,
       x: parseInt(data[0]),
       y: parseInt(data[1]),
       current: parseIntArray(data[2]), 
