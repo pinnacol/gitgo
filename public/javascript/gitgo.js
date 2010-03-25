@@ -6,23 +6,30 @@ Gitgo.Graph = {
     var canvas = $(canvas);
     var context = canvas.get(0).getContext('2d');
     
-    // clear the context for rendering, and resize as necessary
-    context.clearRect(0, 0, canvas.width(), canvas.height());
-    canvas.attr('height', list.height());
-    
     var graph  = this;
     var attrs  = graph.attrs(canvas);
     var offset = graph.offset(list);
     
-    context.strokeStyle = attrs.color;
+    var max_x = 0
+    var nodes = []
     $(list).find('li').each(function(item) {
       var node = graph.node($(this), offset.top);
-      
+      if (node.x > max_x) { max_x = node.x };
+      nodes.push(node);
+    });
+    
+    // clear the context for rendering, and resize as necessary
+    context.clearRect(0, 0, canvas.width(), canvas.height());
+    canvas.attr('height', list.height());
+    canvas.attr('width', offset(max_x + 1));
+    
+    context.strokeStyle = attrs.color;
+    $.each(nodes, function(i, node) {
       // draw node
       context.fillRect(offset(node.x), node.top, attrs.radius, attrs.radius);
       
       // draw verticals for current slots
-      $.each(node.current, function(i, x) {
+      $.each(node.current, function(j, x) {
         context.beginPath();
         context.moveTo(offset(x), node.top);
         context.lineTo(offset(x), node.bottom);
@@ -30,7 +37,7 @@ Gitgo.Graph = {
       });
       
       // draw transitions
-      $.each(node.transitions, function(i, target) {
+      $.each(node.transitions, function(k, target) {
         context.beginPath();
         context.moveTo(offset(node.x), node.top);
         context.lineTo(offset(node.x), node.middle);
@@ -38,17 +45,10 @@ Gitgo.Graph = {
         context.lineTo(offset(target), node.bottom);
         context.stroke();
       });
+      
+      // indent the item
+      node.item.css('margin-left', offset(node.x));
     });
-    
-    // reposition the graph and data next to one another
-    // note this assumes positioning on the items
-    if (canvas.offset().top < list.offset().top) {
-      list.css('top', offset.height);
-    } else {
-      canvas.css('top', offset.height);
-    };
-    
-    list.css('left', offset.max());
   },
   
   attrs: function(canvas) {
@@ -65,21 +65,18 @@ Gitgo.Graph = {
   offset: function(list) {
     var width = parseInt(list.attr('width') || 20);
     var memo = [];
-    var max = 0;
     
     var offsetter = function(x) {
       var pos = memo[x];
       if (typeof pos !== 'number') {
         pos = x * width;
         memo[x] = pos;
-        if (x > max) { max = x };
       }
       return pos;
     }
     
     offsetter.top = list.offset().top;
     offsetter.height = -1 * list.height() - 20;
-    offsetter.max = function() { return memo[max]; };
     return offsetter;
   },
   
@@ -102,7 +99,7 @@ Gitgo.Graph = {
     };
     
     var node = {
-      id:     item.attr('id'),
+      item:   item,
       top:    top,
       middle: top + (height/2),
       bottom: top + height,

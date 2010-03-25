@@ -10,11 +10,11 @@ describe 'Gitgo.Graph'
       node.transitions.should.eql([0, 1, 2]);
     end
     
-    it 'should record the element id'
+    it 'should record the element'
       var element = $(fixture('fork')).find('li');
       var node = Gitgo.Graph.node(element)
       
-      node.id.should.be(element.attr('id'));
+      node.item.should.be(element);
     end
   end
 end
