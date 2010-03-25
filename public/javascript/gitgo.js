@@ -8,6 +8,7 @@ Gitgo.Graph = {
     
     // clear the context for rendering, and resize as necessary
     context.clearRect(0, 0, canvas.width(), canvas.height());
+    canvas.attr('height', data.height());
     
     var graph = this;
     var offset = graph.offset(data);
