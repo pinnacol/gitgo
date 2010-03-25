@@ -1,18 +1,19 @@
 var Gitgo = {};
 
 Gitgo.Graph = {
-  draw: function(canvas, data) {
-    var data = $(data);
+  draw: function(canvas, list) {
+    var list = $(list);
     var canvas = $(canvas);
     var context = canvas.get(0).getContext('2d');
     
     // clear the context for rendering, and resize as necessary
     context.clearRect(0, 0, canvas.width(), canvas.height());
-    canvas.attr('height', data.height());
+    canvas.attr('height', list.height());
     
-    var graph = this;
-    var offset = graph.offset(data);
-    $(data).find('li').each(function(node) {
+    var graph  = this;
+    var offset = graph.offset(list);
+    
+    $(list).find('li').each(function(item) {
       var node = graph.node($(this), offset.top);
       
       // draw node
@@ -38,11 +39,11 @@ Gitgo.Graph = {
     });
   },
   
-  // Memoize function to calculate the x offset for slots by slot number.
-  // Additionally carries a 'top' attribute indicating the offset for
-  // all nodes within element.
-  offset: function(element) {
-    var width = parseInt(element.attr('width') || 20);
+  // Returns a function to calculate and memoize the x offset for slots by slot
+  // number. Additionally carries a 'top' attribute indicating the vertical
+  // offset for all items in the list.
+  offset: function(list) {
+    var width = parseInt(list.attr('width') || 20);
     var memo = [];
     
     var offsetter = function(x) {
@@ -54,14 +55,16 @@ Gitgo.Graph = {
       return pos;
     }
     
-    offsetter.top = element.position().top;
+    offsetter.top = list.position().top;
     return offsetter;
   },
   
-  node: function(element, offset) {
-    var data = element.attr('graph').split(':', 4);
-    var position = element.position();
-    var height = element.outerHeight();
+  // Returns an object containing attributes used to render a node for the
+  // specified list item.
+  node: function(item, offset) {
+    var top    = item.position().top - offset;
+    var height = item.outerHeight();
+    var data   = item.attr('graph').split(':', 4);
     
     var parseIntArray = function (string) {
       if (string.length == 0) { return []; };
@@ -75,12 +78,10 @@ Gitgo.Graph = {
     };
     
     var node = {
-      id: element.attr('id'),
-      top: position.top - offset,
-      middle: position.top + (height/2) - offset,
-      bottom: position.top + height - offset,
-      left: position.left,
-      height: height,
+      id:     item.attr('id'),
+      top:    top,
+      middle: top + (height/2),
+      bottom: top + height,
       x: parseInt(data[0]),
       y: parseInt(data[1]),
       current: parseIntArray(data[2]), 
