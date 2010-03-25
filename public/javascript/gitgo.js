@@ -11,13 +11,15 @@ Gitgo.Graph = {
     canvas.attr('height', list.height());
     
     var graph  = this;
+    var attrs  = graph.attrs(canvas);
     var offset = graph.offset(list);
     
+    context.strokeStyle = attrs.color;
     $(list).find('li').each(function(item) {
       var node = graph.node($(this), offset.top);
       
       // draw node
-      context.fillRect(offset(node.x), node.top, 3, 3);
+      context.fillRect(offset(node.x), node.top, attrs.radius, attrs.radius);
       
       // draw verticals for current slots
       $.each(node.current, function(i, x) {
@@ -37,6 +39,24 @@ Gitgo.Graph = {
         context.stroke();
       });
     });
+    
+    // reposition the graph and data next to one another
+    // note this assumes positioning on the items
+    if (canvas.offset().top < list.offset().top) {
+      list.css('top', offset.height);
+    } else {
+      canvas.css('top', offset.height);
+    };
+    
+    list.css('left', offset.max());
+  },
+  
+  attrs: function(canvas) {
+    var attrs = {
+      radius: 5,
+      color: 'black'
+    };
+    return attrs;
   },
   
   // Returns a function to calculate and memoize the x offset for slots by slot
@@ -45,24 +65,28 @@ Gitgo.Graph = {
   offset: function(list) {
     var width = parseInt(list.attr('width') || 20);
     var memo = [];
+    var max = 0;
     
     var offsetter = function(x) {
       var pos = memo[x];
       if (typeof pos !== 'number') {
         pos = x * width;
         memo[x] = pos;
+        if (x > max) { max = x };
       }
       return pos;
     }
     
-    offsetter.top = list.position().top;
+    offsetter.top = list.offset().top;
+    offsetter.height = -1 * list.height() - 20;
+    offsetter.max = function() { return memo[max]; };
     return offsetter;
   },
   
   // Returns an object containing attributes used to render a node for the
   // specified list item.
   node: function(item, offset) {
-    var top    = item.position().top - offset;
+    var top    = item.offset().top - offset;
     var height = item.outerHeight();
     var data   = item.attr('graph').split(':', 4);
     

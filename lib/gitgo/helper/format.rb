@@ -181,6 +181,13 @@ module Gitgo
         escape_html(states.nil? ? '' : states.join(', '))
       end
       
+      def graph(graph)
+        graph.each do |sha, slot, index, current_slots, transitions|
+          next unless sha
+          yield(sha, "#{slot}:#{index}:#{current_slots.join(',')}:#{transitions.join(',')}")
+        end
+      end
+      
       #
       # repo
       #
