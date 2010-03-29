@@ -20,10 +20,6 @@ Gitgo.Graph = {
     list.find('>li').each(function(item) {
       var node = graph.node($(this));
       
-      node.top    -= offset.top;
-      node.middle -= offset.top;
-      node.bottom -= offset.top;
-      
       node.x = offset(node.x);
       offset.each(node.current);
       offset.each(node.transitions);
@@ -40,10 +36,18 @@ Gitgo.Graph = {
     canvas.attr('height', offset.height);
     canvas.attr('width', offset.width);
     
+    doc.css('height', canvas.outerHeight(true));
+    canvas.css('top', 0);
+    canvas.css('left', 0);
+    
+    list.css('top', -1 * (canvas.outerHeight(true) + (list.outerHeight(true) - list.innerHeight() - canvas.outerHeight() + canvas.innerHeight()) / 2));
+    list.css('left', canvas.outerWidth(true));
+    list.css('width', doc.width() - canvas.outerWidth(true) - list.outerWidth(true) + list.width());
+
     context.strokeStyle = attrs.color;
     $.each(nodes, function(i, node) {
       // draw node
-      context.fillRect(node.x - offset.x, node.top - offset.y, attrs.radius * 2, attrs.radius * 2);
+      context.fillRect(node.x - offset.x, node.top, attrs.radius * 2, attrs.radius * 2);
       
       // draw verticals for current slots
       $.each(node.current, function(j, x) {
@@ -99,8 +103,10 @@ Gitgo.Graph = {
       };
     };
     
-    offset.top    = list.position().top + attrs.radius;
-    offset.height = list.height() + 2 * attrs.radius;
+    // margin + border + padding on list
+    offset.top = list.outerHeight(true) - list.height();
+    offset.left = 0;
+    offset.height = list.height();
     offset.width  = 0;
     offset.x = attrs.radius;
     offset.y = attrs.radius;
@@ -111,7 +117,7 @@ Gitgo.Graph = {
   // Returns an object containing attributes used to render a node for the
   // specified list item.
   node: function(item) {
-    var top    = item.offset().top;
+    var top    = item.position().top;
     var height = item.outerHeight(true);
     var data   = item.attr('graph').split(':', 4);
     
