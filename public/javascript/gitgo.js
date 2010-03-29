@@ -36,14 +36,6 @@ Gitgo.Graph = {
     canvas.attr('height', offset.height);
     canvas.attr('width', offset.width);
     
-    doc.css('height', canvas.outerHeight(true));
-    canvas.css('top', 0);
-    canvas.css('left', 0);
-    
-    list.css('top', -1 * (canvas.outerHeight(true) + (list.outerHeight(true) - list.innerHeight() - canvas.outerHeight() + canvas.innerHeight()) / 2));
-    list.css('left', canvas.outerWidth(true));
-    list.css('width', doc.width() - canvas.outerWidth(true) - list.outerWidth(true) + list.width());
-
     context.strokeStyle = attrs.color;
     $.each(nodes, function(i, node) {
       // draw node
@@ -70,6 +62,18 @@ Gitgo.Graph = {
       // indent the item
       node.item.css('margin-left', node.x);
     });
+    
+    // align css so proportions are correct
+    canvas.css('margin-top', list.css('margin-top'));
+    canvas.css('margin-bottom', list.css('margin-bottom'));
+    canvas.css('padding-top', list.css('padding-top'));
+    canvas.css('padding-bottom', list.css('padding-bottom'));
+    
+    list.css('top', -1 * canvas.outerHeight(true));
+    list.css('left', canvas.outerWidth(true));
+    list.css('width', doc.width() - canvas.outerWidth(true) - (list.outerWidth(true) - list.width()));
+    
+    doc.css('height', Math.max(canvas.outerHeight(true), list.outerHeight(true)));
   },
   
   attrs: function(canvas) {
@@ -103,13 +107,9 @@ Gitgo.Graph = {
       };
     };
     
-    // margin + border + padding on list
-    offset.top = list.outerHeight(true) - list.height();
-    offset.left = 0;
     offset.height = list.height();
     offset.width  = 0;
     offset.x = attrs.radius;
-    offset.y = attrs.radius;
     
     return offset;
   },
