@@ -114,9 +114,8 @@ module Gitgo
           parent_slot  = slot[sha]
           
           # free the parent slot if possible - if no children exist then the
-          # sha is an open tail; block off the slot with false so that it will
-          # be unavailable for further occupation
-          slots[parent_slot] = children.empty? ? false : nil
+          # sha is an open tail; keep these slots occupied
+          slots[parent_slot] = nil unless children.empty?
           
           # determine currently occupied slots - any slots with a non-nil,
           # non-false value; in this case a number
