@@ -16,7 +16,7 @@ module Gitgo
       post('/repo/track')    { track }
       post('/repo/commit')   { commit }
       post('/repo/update')   { update }
-      post('/repo/reindex')  { reindex }
+      post('/repo/reindex')  { reset }
       post('/repo/reset')    { reset }
       post('/repo/prune')    { prune }
       post('/repo/gc')       { gc }
