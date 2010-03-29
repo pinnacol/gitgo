@@ -4,6 +4,7 @@ Gitgo.Graph = {
   draw: function(doc) {
     var doc = $(doc).prepend('<canvas><p>Your browser doesn\'t support canvas.</p></canvas>');
     this.refresh(doc);
+    return doc;
   },
   
   refresh: function(doc) {
@@ -65,8 +66,6 @@ Gitgo.Graph = {
       // indent the item
       node.item.css('margin-left', node.x);
     });
-    
-    return canvas;
   },
   
   attrs: function(canvas) {

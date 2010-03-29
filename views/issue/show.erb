@@ -13,7 +13,10 @@
   <ul><% format.graph(issue.graph) do |sha, attrs| %>
   <li graph="<%= attrs %>"><%= erb :_issue, :locals => {:issue => Gitgo::Documents::Issue.read(sha) }, :layout => false %></li><% end %>
   </ul>
-  <script>Gitgo.Graph.draw("#doc-<%= issue.sha %>");</script>
+  <script>
+  var doc = Gitgo.Graph.draw("#doc-<%= issue.sha %>");
+  $(window).resize(function() { Gitgo.Graph.refresh(doc) });
+  </script>
 </div>
 
 <form action="<%= form.url('issue', issue.sha) %>" method="post" style="clear:both">
