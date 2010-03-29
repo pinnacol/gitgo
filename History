@@ -1,0 +1,19 @@
+== 0.2.0 03/29/10
+
+This release significantly changes the internals of Gitgo. Old gitgo branches
+will not be compatible. To migrate a gitgo-0.1.* branch to the new storage
+format:
+
+  % git clone git://github.com/bahuvrihi/gitgo.git
+  % cd gitgo
+  % git checkout migrate-0.2.0
+  % ruby script/migrate.rb PATH_TO_REPO SOURCE_BRANCH TARGET_BRANCH
+
+Then rename the target branch as necessary.
+
+* changed document serialization format to JSON
+* complete overhaul of internal classes
+* implemented a more robust system for calculating
+  (and drawing) a document graph
+* temporary removal of comments
+* improvements to indexing system

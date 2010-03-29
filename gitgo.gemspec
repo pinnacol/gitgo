@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = "gitgo"
-  s.version = "0.1.2"
+  s.version = "0.2.0"
   s.author = "Simon Chiang"
   s.email = "simon.a.chiang@gmail.com"
   s.homepage = "http://github.com/pinnacol/gitgo"
@@ -41,21 +41,31 @@ Gem::Specification.new do |s|
     lib/gitgo/controllers/repo.rb
     lib/gitgo/controllers/wiki.rb
     lib/gitgo/document.rb
-    lib/gitgo/helpers.rb
-    lib/gitgo/helpers/form.rb
-    lib/gitgo/helpers/format.rb
-    lib/gitgo/helpers/html.rb
+    lib/gitgo/document/invalid_document_error.rb
+    lib/gitgo/document/utils.rb
+    lib/gitgo/documents/comment.rb
+    lib/gitgo/documents/issue.rb
+    lib/gitgo/git.rb
+    lib/gitgo/git/tree.rb
+    lib/gitgo/git/utils.rb
+    lib/gitgo/helper.rb
+    lib/gitgo/helper/doc.rb
+    lib/gitgo/helper/form.rb
+    lib/gitgo/helper/format.rb
+    lib/gitgo/helper/html.rb
+    lib/gitgo/helper/utils.rb
     lib/gitgo/index.rb
     lib/gitgo/index/index_file.rb
     lib/gitgo/patches/grit.rb
     lib/gitgo/repo.rb
-    lib/gitgo/repo/tree.rb
+    lib/gitgo/repo/graph.rb
     lib/gitgo/repo/utils.rb
     lib/gitgo/server.rb
     public/css/gitgo.css
     public/javascript/gitgo.js
-    public/javascript/jquery-1.3.2.min.js
+    public/javascript/jquery-1.4.2.min.js
     views/app/timeline.erb
+    views/app/welcome.erb
     views/code/_comment.erb
     views/code/_comment_form.erb
     views/code/_comments.erb
@@ -74,8 +84,9 @@ Gem::Specification.new do |s|
     views/code/obj/tree.erb
     views/code/tree.erb
     views/error.erb
-    views/issue/_update.erb
-    views/issue/_updates.erb
+    views/issue/_issue.erb
+    views/issue/_issue_form.erb
+    views/issue/edit.erb
     views/issue/index.erb
     views/issue/new.erb
     views/issue/show.erb
