@@ -63,6 +63,18 @@ a.each do |sha|
     raise "no date found... #{sha}"
   end
   
+  if attrs['type'] == 'update'
+    attrs['type'] = 'issue'
+  end
+  
+  if re = attrs.delete('re')
+    if origin.has_key?(sha) && origin[sha] != re
+      raise "wtf: #{sha} - #{origin[sha]}- #{re}"
+    end
+    
+    origin[sha] = re
+  end
+
   date = Time.at(date).utc
   attrs['date'] = date.iso8601
   docs[sha] = [attrs, date]
@@ -85,7 +97,7 @@ end
 # store docs with mapped origins
 docs.each_pair do |sha, (attrs, date)|
   if origin.has_key?(sha)
-    attrs['re'] = map[origin[sha]] or raise "no map for origin: #{origin[sha]}"
+    attrs['origin'] = map[origin[sha]] or raise "no map for origin: #{origin[sha]}"
   end
   map[sha] = b.store(attrs, date)
 end
