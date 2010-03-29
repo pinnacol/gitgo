@@ -4,44 +4,20 @@
 <dt>Path</dt>
 <dd><%= format.path path %></dd>
 <dt>Branch</dt>
-<dd><%= format.branch branch %></dd><% if session %>
-<dt>Active Branch</dt>
-<dd>
-  <form action="<%= url('repo', 'session') %>" method="post">
-    <select id="ref" name="ref"><% form.each_ref_name(active_commit) do |value, selection, content| %>
-    <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-    </select>
-    <input type="submit" value="Change" />
-  </form>
-</dd><% end %>
+<dd><%= format.branch branch %></dd>
 <dt>Commit</dt>
 <dd><% if commit.nil? %>
-  <em>Select a tracking branch and click setup to create the '<%= format.branch repo.branch %>' branch.</em>
-  
-  <form action="<%= url('repo', 'setup') %>" method="post">
-    <dl>
-    <dt><label for="remote">Track</label></dt>
-    <dd>
-      <select id="remote" name="remote">
-      <option value="">None</option><% form.each_remote_name(track) do |value, selection, content| %>
-      <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-      </select>
-    </dd>
-    <dt><input type="submit" value="Setup" /></dt>
-    <dd></dd>
-    </dl>
-  </form>
+  <p>The <%= format.branch repo.git.branch %> branch has not been created.</p>
+  <p><em>Pull from an existing remote branch, or let gitgo create it as needed.</p></em>
 <% else %><%= erb :_commit, :locals => {:commit => commit}, :views => path('views/code'), :layout => false %><% end %></dd>
 <dt>Update</dt>
 <dd>
-  <p>
-    Synchronize with a remote (pull and push), or simply pull updates.
-  </p>
-  <form action="<%= url('repo', 'update') %>" method="post">
+  <p>Synchronize with a remote (pull and push), or simply pull updates.</p>
+  <form action="<%= form.url('repo', 'update') %>" method="post">
     <dl>
-    <dt><label for="remote">Remote</label></dt>
+    <dt><label for="upstream_branch">Remote</label></dt>
     <dd>
-      <select id="remote" name="remote"><% form.each_remote_name(track) do |value, selection, content| %>
+      <select name="upstream_branch"><% form.each_remote_name(upstream_branch) do |value, selection, content| %>
       <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
       </select>
     </dd>
@@ -53,25 +29,24 @@
     <dd></dd>
     </dl>
   </form>
-  <p><em>Note: updates can fail silently, for example when the remote cannot be reached.</em></p>
+  <p><em>Updates can fail silently, for example when the remote cannot be reached, but such failures cause no damage.</em></p>
 </dd>
-<dt>Reset</dt>
+<dt>Active Commit</dt>
 <dd>
-  <p>
-    Reinitialize the internal bindings gitgo uses to access the git repository.
-    Uncommitted updates in gitgo (see <a href="<%= url('repo', 'status') %>">status</a>)
-    will be lost.
-  </p>
-  <form action="<%= url('repo', 'reset') %>" method="post">
-    <input type="checkbox" name="full" value="true">Reindex</input>
-    <input type="submit" value="Reset" />
-  </form>
+  <form action="<%= form.url('repo', 'setup') %>" method="post">
+    <select id="active_commit" name="head"><% form.each_ref_name(head) do |value, selection, content| %>
+    <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
+    </select>
+    <input type="submit" value="Change" />
+  </form><% if active_commit.nil? %>
+  <p>No commit has been selected as active (or the selected commit is invalid).</p><% else %><%= erb :_commit, :locals => {:commit => active_commit}, :views => path('views/code'), :layout => false %><% end %>
+  <p><em>The active commit indicates code the user sees as current.</em></p>
 </dd>
 </dl>
 
 <ul>
-<li><a href="<%= url('/repo/status') %>">Status</a></li>
-<li><a href="<%= url('/repo/idx') %>">Index</a></li>
-<li><a href="<%= url('/repo/maintenance') %>">Maintenance</a></li>
-<li><a href="<%= url('/repo/reference') %>">Reference</a></li>
+<li><a href="<%= format.url('/repo/status') %>">Status</a></li>
+<li><a href="<%= format.url('/repo/idx') %>">Index</a></li>
+<li><a href="<%= format.url('/repo/maintenance') %>">Maintenance</a></li>
+<li><a href="<%= format.url('/repo/reference') %>">Reference</a></li>
 </ul>

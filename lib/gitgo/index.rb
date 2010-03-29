@@ -1,3 +1,4 @@
+require 'enumerator'
 require 'gitgo/index/index_file'
 
 module Gitgo
@@ -7,20 +8,29 @@ module Gitgo
     # determine when a reindex is required relative to some other ref.
     HEAD = 'head'
     
+    MAP = 'map'
+    
     attr_reader :head_file
+    
+    attr_reader :map_file
     
     # Returns an in-memory cache of index files
     attr_reader :cache
     
-    def initialize(path)
+    attr_reader :string_table
+    
+    def initialize(path, string_table=nil)
       @path = path
       @head_file = File.expand_path(HEAD, path)
+      @map_file = File.expand_path(MAP, path)
+      @string_table = string_table
       
       @cache = Hash.new do |key_hash, key|
         key_hash[key] = Hash.new do |value_hash, value|
           value_hash[value] = begin
             index = self.path(key, value)
-            File.exists?(index) ? IndexFile.read(index) : []
+            values = File.exists?(index) ? IndexFile.read(index) : []
+            stringify(values)
           end
         end
       end
@@ -31,32 +41,48 @@ module Gitgo
       File.exists?(head_file) ? File.open(head_file) {|io| io.read(40) } : nil
     end
     
+    def map
+      @map ||= begin
+        map = {}
+        array = File.exists?(map_file) ? IndexFile.read(map_file) : []
+        stringify(array).each_slice(2) {|sha, origin| map[sha] = origin }
+        map
+      end
+    end
+    
+    def filter
+      self['tail']['filter']
+    end
+    
     # Returns the segments joined to the path used to initialize self.
     def path(*segments)
       segments.collect! {|segment| segment.to_s }
       File.join(@path, *segments)
     end
     
-    # Adds the document sha to each index file the doc belongs to.  Changes
-    # are solely in-memory until write is called.
-    def add(doc, sha=doc.sha)
-      each(doc) {|key, value| cache[key][value].push(sha) }
+    #--
+    # note be careful not to modify idx[k][v], it is the actual storage
+    def [](key)
+      cache[key]
+    end
+    
+    def get(key, value)
+      cache[key][value].dup
+    end
+    
+    def set(key, value, *shas)
+      cache[key][value] = shas
       self
     end
     
-    # Removes the document sha from each index file the doc belongs to. 
-    # Changes are solely in-memory until write is called.
-    def rm(doc, sha=doc.sha)
-      each(doc) {|key, value| cache[key][value].delete(sha) }
+    def add(key, value, sha)
+      cache[key][value] << sha
       self
     end
     
-    # Yields each indexable (key, value) attribute pair for the document.
-    def each(doc)
-      doc.each_index do |key, value|
-        value = value.to_s
-        yield(key, value) unless value.empty?
-      end
+    def rm(key, value, sha)
+      cache[key][value].delete(sha)
+      self
     end
     
     # Returns a list of possible index keys.
@@ -87,18 +113,38 @@ module Gitgo
       values
     end
     
-    def all(key='author')
+    def all(*keys)
       results = []
-      values(key).each do |value|
-        results.concat(cache[key][value])
+      keys.collect do |key|
+        values(key).each do |value|
+          results.concat(cache[key][value])
+        end
       end
+      results.uniq!
       results
     end
     
-    # Returns an array of shas for documents indexed by the specified
-    # key-value pair and stores them in the cache.
-    def read(key, value)
-      cache[key][value]
+    def join(key, *values)
+      values.collect {|value| cache[key][value] }.flatten
+    end
+    
+    def select(shas, all=nil, any=nil)
+      if all
+        each_pair(all) do |key, value|
+          shas = shas & cache[key][value]
+          break if shas.empty?
+        end
+      end
+      
+      if any
+        matches = []
+        each_pair(any) do |key, value|
+          matches.concat cache[key][value]
+        end
+        shas = shas & matches
+      end
+      
+      shas
     end
     
     def clean
@@ -111,7 +157,7 @@ module Gitgo
     end
     
     # Writes cached changes.
-    def write(sha)
+    def write(sha=nil)
       clean
       
       @cache.each_pair do |key, value_hash|
@@ -121,13 +167,15 @@ module Gitgo
       end
       
       FileUtils.mkdir_p(path) unless File.exists?(path)
-      File.open(head_file, "w") {|io| io.write(sha) }
+      File.open(head_file, "w") {|io| io.write(sha) } if sha
+      IndexFile.write(map_file, map.to_a.join)
       
       self
     end
     
     # Clears the cache.
     def reset
+      @map = nil
       @cache.clear
       self
     end
@@ -140,5 +188,23 @@ module Gitgo
       reset
     end
     
+    private
+    
+    def each_pair(pairs) # :nodoc:
+      pairs.each_pair do |key, values|
+        unless values.kind_of?(Array)
+          values = [values]
+        end
+        
+        values.each do |value|
+          yield(key, value)
+        end
+      end
+    end
+    
+    def stringify(array) # :nodoc:
+      array.collect! {|str| string_table[str.to_s] } if string_table
+      array
+    end
   end
 end

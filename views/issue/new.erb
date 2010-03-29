@@ -1,37 +1,5 @@
-<% if content %>
-<h1>Preview Issue</h1>
-<div class="preview">
-  <dl class="description">
-  <dt class="title">Title</dt>
-  <dd class="title"><%= format.title doc['title'] %></dd>
-  <dt class="content">Description</dt>
-  <dd class="content"><%= format.content content %></dd>
-  <dt class="at">At</dt>
-  <dd class="at"><%= format.at doc['at'] %></dd>
-  </dl>
-</div><% else %>
-<h1>New Issue</h1><% end %>
+<h1>New Issue</h1>
 
-<form class="issue" action="<%= url('issue') %>" method="post">
-  <dl class="form">
-  <dt><label for="title">Title</label></dt>
-  <dd><input id="title" type="text" name="doc[title]" value="<%= form.title_value doc['title'] %>" /></dd>
-  <dt><label for="content">Description</label></dt>
-  <dd><textarea id="content" name="content"><%= form.content_value content %></textarea></dd>
-  <dt><label for="tags">Tags</label></dt>
-  <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value doc['tags'] %>" /></dd>
-  <dt><label for="at">At</label></dt>
-  <dd>
-    <select id="at" name="doc[at]"><% form.each_ref(grit.head.name) do |value, selection, content| %>
-    <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-    <option value="">(none)</option>
-    </select>
-  </dd>
-  <dt><label for="preview">Preview</label></dt>
-  <dd><input id="preview" type="checkbox" name="preview" value="true"/></dd>
-  <dt><label for="commit">Commit</label></dt>
-  <dd><input id="commit" type="checkbox" name="commit" value="true" checked="true"/></dd>
-  <dt><input type="submit" value="Create" /></dt>
-  <dd></dd>
-  </dl>
+<form class="issue" action="<%= form.url('issue') %>" method="post">
+<%= erb :_issue_form, :locals => {:doc => doc, :origin => true, :submit => 'Create'}, :layout => false %>
 </form>

@@ -1,91 +1,75 @@
+require 'grit/actor'
+require 'shellwords'
+
 module Gitgo
   class Repo
-    
-    # A variety of utility methods separated into a module to simplify
-    # testing. These methods are included into and used internally by Repo.
     module Utils
       module_function
       
-      def with_env(env={})
-        overrides = {}
-        begin
-          ENV.keys.each do |key|
-            if key =~ /^GIT_/
-              overrides[key] = ENV.delete(key)
-            end
-          end
-
-          env.each_pair do |key, value|
-            overrides[key] ||= nil
-            ENV[key] = value
-          end
-
-          yield
-        ensure
-          overrides.each_pair do |key, value|
-            if value
-              ENV[key] = value
-            else
-              ENV.delete(key)
-            end
-          end
+      def state_str(state)
+        case state
+        when :add then '+'
+        when :rm  then '-'
+        else '~'
         end
       end
       
-      def path_segments(path)
-        segments = path.kind_of?(String) ? path.split("/") : path.dup
-        segments.shift if segments[0] && segments[0].empty?
-        segments.pop   if segments[-1] && segments[-1].empty?
-        segments
+      def doc_status(sha, attrs)
+        type = attrs['type']
+        origin = attrs['re']
+        
+        [type || 'doc', origin ? "#{yield(sha)} re  #{yield(origin)}" : yield(sha)]
       end
       
-      # Flattens an ancestry hash of (parent, [children]) pairs.  For example:
-      #
-      #   ancestry = {
-      #     "a" => ["b"],
-      #     "b" => ["c", "d"],
-      #     "c" => [],
-      #     "d" => ["e"],
-      #     "e" => []
-      #   }
-      #
-      #   flatten(ancestry) 
-      #   # => {
-      #   # "a" => ["a", ["b", ["c"], ["d", ["e"]]]],
-      #   # "b" => ["b", ["c"], ["d", ["e"]]],
-      #   # "c" => ["c"],
-      #   # "d" => ["d", ["e"]],
-      #   # "e" => ["e"]
-      #   # }
-      #
-      # Note that the flattened ancestry re-uses the array values, such that
-      # modifiying the "b" array will propagate to the "a" ancestry.
-      def flatten(ancestry)
-        ancestry.each_pair do |parent, children|
-          children.collect! {|child| ancestry[child] }
-          children.unshift(parent)
-        end
-        ancestry
-      end
-      
-      # Collapses an nested array hierarchy such that nesting is only
-      # preserved for existing, and not just potential, branches:
-      #
-      #   collapse(["a", ["b", ["c"]]])               # => ["a", "b", "c"]
-      #   collapse(["a", ["b", ["c"], ["d", ["e"]]]]) # => ["a", "b", ["c"], ["d", "e"]]
-      #
-      def collapse(array, result=[])
-        result << array.at(0)
-
-        if (length = array.length) == 2
-          collapse(array.at(1), result)
+      def link_status(parent, child, ref)
+        case
+        when parent == child
+          nil
+        when parent == ref
+          ['update', "#{yield(child)} was #{yield(parent)}"]
         else
-          1.upto(length-1) do |i|
-            result << collapse(array.at(i))
+          ['link', "#{yield(parent)} to  #{yield(child)}"]
+        end 
+      end
+      
+      def format_status(lines)
+        indent = lines.collect {|(state, type, msg)| type.length }.max
+        format = "%s %-#{indent}s %s"
+        lines.collect! {|ary| format % ary }
+        lines.sort!
+        lines
+      end
+      
+      # Creates a nested sha path like:
+      #
+      #   ab/
+      #     xyz...
+      #
+      def sha_path(sha, *paths)
+        paths.unshift sha[2,38]
+        paths.unshift sha[0,2]
+        paths
+      end
+      
+      def date_path(date, sha)
+        date.utc.strftime("%Y/%m%d/#{sha}")
+      end
+    end
+    
+    # A module to replace the Hash#to_yaml function to serialize with sorted keys.
+    #
+    # From: http://snippets.dzone.com/posts/show/5811
+    # The original function is in: /usr/lib/ruby/1.8/yaml/rubytypes.rb
+    #
+    module SortedToYaml # :nodoc:
+      def to_yaml( opts = {} )
+        YAML::quick_emit( object_id, opts ) do |out|
+          out.map( taguri, to_yaml_style ) do |map|
+            sort.each do |k, v|
+              map.add( k, v )
+            end
           end
         end
-
-        result
       end
     end
   end

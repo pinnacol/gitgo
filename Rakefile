@@ -48,35 +48,6 @@ task :print_manifest do
 end
 
 #
-# Bundler tasks
-#
-
-desc "Bundle depenencies for the current wcis_env"
-task :bundle => "vendor/gems/environment.rb"
-
-file "vendor/gems/environment.rb" => ["Gemfile", ENV['GEMSPEC']] do
-  cmd = "gem bundle"
-  
-  if system(cmd)
-    # success -- remove the circular symlink to the pwd
-    # if it exists (note this doesn't affect bundler)
-    spec = gemspec
-    pattern = File.join("vendor/gems/**/gems", spec.full_name)
-    Dir.glob(pattern).each {|install_path| FileUtils.rm_r(install_path) }
-    
-  else
-    # failure -- missing bundler?
-    puts %Q{
-Bundle fail! Are you sure bundler is installed?
-
-  % gem install bundler
-
-}
-    exit(1)
-  end
-end
-
-#
 # Documentation tasks
 #
 
@@ -156,6 +127,22 @@ task :build_fixture => :bundle do
 end
 
 #
+# Dependency tasks
+#
+
+desc 'Bundle dependencies'
+task :bundle do
+  output = `bundle check 2>&1`
+  
+  unless $?.to_i == 0
+    puts output
+    puts "bundle install 2>&1"
+    system "bundle install 2>&1"
+    puts
+  end
+end
+
+#
 # Test tasks
 #
 
@@ -163,7 +150,10 @@ desc 'Default: Run tests.'
 task :default => :test
 
 desc 'Run the tests'
-task :test => ['test:gitgo', 'test:model']
+task :test => ['test:gitgo', 'test:data_model']
+
+desc 'Run the cc tests'
+task :cc => :test
 
 def run_tests(tests)
   tests = tests.select {|path| File.file?(path) }
@@ -181,16 +171,32 @@ namespace :test do
     run_tests Dir.glob("test/gitgo/#{pattern}")
   end
   
-  task :repo => :bundle do
-    run_tests Dir.glob("test/gitgo/repo/*_test.rb") + ["test/gitgo/repo_test.rb"]
+  task :git => :bundle do
+    run_tests Dir.glob("test/gitgo/git/*_test.rb") + ["test/gitgo/git_test.rb"]
   end
   
   task :index => :bundle do
     run_tests Dir.glob("test/gitgo/index/*_test.rb") + ["test/gitgo/index_test.rb"]
   end
   
+  task :repo => :bundle do
+    run_tests ["test/gitgo/repo_test.rb"] + Dir.glob("test/gitgo/repo/*_test.rb")
+  end
+  
+  task :document => :bundle do
+    run_tests ["test/gitgo/document_test.rb"] + Dir.glob("test/gitgo/document/*_test.rb")
+  end
+  
+  task :documents => :bundle do
+    run_tests Dir.glob("test/gitgo/documents/*_test.rb")
+  end
+  
   task :controllers => :bundle do
-    run_tests Dir.glob("test/gitgo/controllers/*_test.rb") + ["test/gitgo/controller_test.rb"]
+    run_tests ["test/gitgo/controller_test.rb"] + Dir.glob("test/gitgo/controllers/*_test.rb")
+  end
+  
+  task :helpers => :bundle do
+    run_tests Dir.glob("test/gitgo/helper/*_test.rb")
   end
   
   desc 'Run data model tests'

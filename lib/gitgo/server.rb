@@ -1,3 +1,4 @@
+require 'gitgo/constants'
 require 'gitgo/app'
 require 'rack/server'
 

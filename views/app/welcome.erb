@@ -1,0 +1,18 @@
+<h1>Welcome to Gitgo!</h1>
+
+<p>
+  Gitgo will store data on the '<%= branch %>' branch.  You can synchronize
+  your local data with remotes through the <a href="/repo">Repo</a> page.
+</p><% unless grit.remotes.empty? %>
+
+<p>
+  To setup tracking of an existing remote, use the form below:
+</p>
+
+<form action="<%= form.url('setup') %>" method="post">
+  <select name="remote_branch"><% form.each_remote_name(Gitgo::Git::DEFAULT_UPSTREAM_BRANCH) do |value, selection, content| %>
+  <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
+  </select>
+  <input type="submit" value="Setup" />
+</form>
+<% end %>

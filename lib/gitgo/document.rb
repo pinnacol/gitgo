@@ -1,286 +1,446 @@
-require 'grit/actor'
-require 'shellwords'
+require 'gitgo/repo'
+require 'gitgo/document/utils'
+require 'gitgo/document/invalid_document_error'
 
 module Gitgo
-  
-  # Document represents the standard format in which Gitgo serializes
-  # comments, issues, and pages.
-  #
-  # == Format
-  #
-  # Documents consist of an attributes section and a content section, joined
-  # as a YAML document plus a string:
-  #
-  #   [example]
-  #   --- 
-  #   author: John Doe <john.doe@email.com>
-  #   date: 1252508400.123
-  #   --- 
-  #   content...
-  #
-  # The author and date fields are mandatory, and must be formatted as shown.
-  # Specifically the author must consist of a user name and email in the git
-  # format and the date must be a number. The content consists of everything
-  # following the break.
-  #
   class Document
     class << self
+      attr_reader :types
+      attr_reader :validators
       
-      # Parses a Document from the string.
-      def parse(str, sha=nil)
-        attrs, content = str.split(/\n--- \n/m, 2)
+      def inherited(base)
+        base.instance_variable_set(:@validators, validators.dup)
+        base.instance_variable_set(:@types, types)
+        base.register_as base.to_s.split('::').last.downcase
+      end
+      
+      def repo
+        Repo.current
+      end
+      
+      def idx
+        repo.idx
+      end
+      
+      def type
+        types[self]
+      end
+      
+      def create(attrs={})
+        parents = attrs.delete('parents')
+        children = attrs.delete('children')
         
-        if attrs.nil? || attrs.empty?
-          raise InvalidDocumentError, "no attributes specified:\n#{str}"
+        doc = new(attrs, repo)
+        doc.save
+        doc.link(parents, children)
+        doc
+      end
+      
+      def read(sha)
+        sha = repo.resolve(sha)
+        attrs = repo.read(sha)
+        
+        attrs ? cast(attrs, sha) : nil
+      end
+      
+      def cast(attrs, sha)
+        type = attrs['type']
+        klass = types[type] or raise "unknown type: #{type}"
+        klass.new(attrs, repo, sha)
+      end
+      
+      def update(sha, attrs={})
+        sha = sha.sha if sha.respond_to?(:sha)
+        doc = read(sha).merge!(attrs)
+        doc.update
+        doc
+      end
+      
+      def find(all={}, any=nil, update_idx=true)
+        self.update_idx if update_idx
+        
+        # use type to determine basis -- note that idx.all('email') should
+        # return all documents because all documents should have an email
+        shas = (all ? all.delete('shas') : nil) || basis
+        shas = [shas] unless shas.kind_of?(Array)
+        
+        idx.select(shas, all, any).collect! {|sha| self[sha] }
+      end
+      
+      def basis
+        type ? idx.get('type', type) : idx.all('email')
+      end
+      
+      def update_idx(reindex=false)
+        idx.clear if reindex
+        repo_head, idx_head = repo.head, idx.head
+        
+        if repo_head.nil? || repo_head == idx_head
+          return []
         end
         
-        attrs = YAML.load(attrs)
-        unless attrs.kind_of?(Hash)
-          raise InvalidDocumentError, "no attributes specified:\n#{str}"
-        end
+        shas = repo.diff(idx_head, repo_head)
+        shas.each {|sha| self[sha].reindex }
         
-        if content.nil?
-          raise InvalidDocumentError, "no content specified:\n#{str}"
+        idx.write(repo.head)
+        shas
+      end
+      
+      def [](sha)
+        cast(repo[sha], sha)
+      end
+      
+      protected
+      
+      def register_as(type)
+        types[type] = self
+        types[self] = type
+      end
+      
+      def define_attributes(&block)
+        begin
+          @define_attributes = true
+          instance_eval(&block)
+        ensure
+          @define_attributes = false
         end
-        
-        new(attrs, content, sha)
-      rescue
-        raise if $DEBUG || $!.kind_of?(InvalidDocumentError)
-        raise InvalidDocumentError, "invalid document: (#{$!.message})\n#{str}"
+      end
+      
+      def attr_reader(*keys)
+        return super unless @define_attributes
+        keys.each do |key|
+          key = key.to_s
+          define_method(key) { attrs[key] }
+        end
+      end
+      
+      def attr_writer(*keys, &block)
+        return super unless @define_attributes
+        keys.each do |key|
+          key = key.to_s
+          define_method("#{key}=") {|value| attrs[key] = value }
+          validate(key, &block) if block_given?
+        end
+      end
+      
+      def attr_accessor(*keys, &block)
+        return super unless @define_attributes
+        attr_reader(*keys)
+        attr_writer(*keys, &block)
+      end
+      
+      def validate(key, validator="validate_#{key}", &block)
+        validators[key.to_s] = validator.to_sym
+        define_method(validator, &block) if block_given?
       end
     end
+    include Utils
     
-    # The author key
-    AUTHOR = 'author'
+    @define_attributes = false
+    @validators = {}
+    @types = {}
+    register_as(nil)
     
-    # The date key
-    DATE = 'date'
+    attr_reader :repo
+    attr_reader :attrs
+    attr_reader :sha
     
-    # The tags key
-    TAGS = 'tags'
+    validate(:author) {|author| validate_format(author, AUTHOR) }
+    validate(:date)   {|date| validate_format(date, DATE) }
+    validate(:origin) {|origin| validate_format_or_nil(origin, SHA) }
     
-    # An array of keys that will be indexed if present (author is automatic)
-    INDEX_KEYS = %w{type state tags}
-    
-    # The sha for self, set by the repo when convenient (for example by read).
-    attr_accessor :sha
-    
-    # A hash of attributes for self
-    attr_reader :attributes
-    
-    # The content for self
-    attr_reader :content
-    
-    # Initializes a new Document.  Author and date can be specified as strings
-    # in their serialized formats:
-    #
-    #   doc = Document.new(
-    #     "author" => "John Doe <john.doe@email.com>",
-    #     "date" => "1252508400.123")
-    #
-    #   doc.author.name       # => "John Doe"
-    #   doc.date.to_f         # => 1252508400.123
-    #
-    # Or as as Grit::Actor and Time objects:
-    #
-    #   author = Grit::Actor.new("John Doe", "john.doe@email.com")
-    #   date = Time.now
-    #
-    #   doc = Document.new("author" => author, "date" => date)
-    #   doc.author.name       # => "John Doe"
-    #   doc.date              # => date
-    #
-    def initialize(attrs={}, content=nil, sha=nil)
-      @attributes = attrs
-      @attributes.delete_if {|key, value| blank?(value) }
-      
-      self[AUTHOR] = attrs[AUTHOR]
-      self[DATE]   = attrs[DATE]
-      self[TAGS]   = attrs[TAGS]
-      
-      @content = content
-      @sha = sha
+    define_attributes do
+      attr_accessor(:at)   {|at| validate_format_or_nil(at, SHA) }
+      attr_writer(:tags)   {|tags| validate_array_or_nil(tags) }
+      attr_accessor(:type)
     end
     
-    # Gets an attribute.
+    def initialize(attrs={}, repo=nil, sha=nil)
+      @repo = repo || Repo.current
+      @attrs = attrs
+      reset(sha)
+    end
+    
+    def idx
+      repo.idx
+    end
+    
     def [](key)
-      attributes[key]
+      attrs[key]
     end
     
-    # Sets an attribute.  Author and date attributes are parsed and validated.
-    # Nil and empty values remove the attribute.
-    # 
-    # ==== Author and Date
-    #
-    # Author can be specified as a Grit::Actor or as a string in the standard
-    # author format.  Author may not be set to nil.
-    #
-    # Date can be specified as a Time, a numeric, or a string in the standard
-    # date format. Date may not be set to nil.
     def []=(key, value)
-      value = case key
-      when AUTHOR then parse_author(value)
-      when DATE   then parse_date(value)
-      when TAGS   then parse_tags(value)
-      else value
+      attrs[key] = value
+    end
+    
+    def author=(author)
+      if author.kind_of?(Grit::Actor)
+        author = author.email ? "#{author.name} <#{author.email}>" : author.name
       end
-      
-      if blank?(value)
-        attributes.delete(key)
-      else
-        attributes[key] = value
+      self['author'] = author
+    end
+    
+    def author(cast=true)
+      author = attrs['author']
+      if cast && author.kind_of?(String)
+        author = Grit::Actor.from_string(author)
       end
+      author
     end
     
-    # Returns the author as set in attributes.
-    def author
-      attributes[AUTHOR]
+    def date=(date)
+      if date.respond_to?(:iso8601)
+        date = date.iso8601
+      end
+      self['date'] = date
     end
     
-    # Returns the date as set in attributes.
-    def date
-      attributes[DATE]
+    def date(cast=true)
+      date = attrs['date']
+      if cast && date.kind_of?(String)
+        date = Time.parse(date)
+      end
+      date
     end
     
-    # Returns the tags as set in attributes, or an empty array if no tags are
-    # set.
+    def origin
+      self['origin'] || (sha ? repo.original(sha) : nil)
+    end
+    
+    def origin=(sha)
+      self['origin'] = sha
+      reset
+    end
+    
+    def origin?
+      self['origin'].nil?
+    end
+    
+    def original?
+      repo.original?(sha)
+    end
+    
+    def current?
+      repo.current?(sha)
+    end
+    
+    def tail?
+      repo.tail?(sha)
+    end
+    
+    def active?(commit=nil)
+      return true if at.nil? || commit.nil?
+      repo.rev_list(commit).include?(at)
+    end
+    
+    def graph
+      @graph ||= repo.graph(resolve origin)
+    end
+    
+    def parents
+      graph.parents(sha)
+    end
+    
+    def children
+      graph.children(sha)
+    end
+    
     def tags
-      attributes[TAGS] || []
+      self['tags'] ||= []
     end
     
-    # Yields each attribute to the block, sorted by key.
-    def each_pair
-      attributes.keys.sort!.each do |key|
-        yield(key, attributes[key])
-      end
+    def merge(attrs)
+      dup.merge!(attrs)
     end
     
-    # Yields each indexed key-value pair to the block.
-    def each_index
-      INDEX_KEYS.each do |key|
-        next unless value = attributes[key]
-        
-        if value.respond_to?(:each)
-          value.each {|val| yield(key, val) }
-        else
-          yield(key, value)
-        end
+    def merge!(attrs)
+      self.attrs.merge!(attrs)
+      self
+    end
+    
+    def normalize
+      dup.normalize!
+    end
+    
+    def normalize!
+      attrs['author'] ||= begin
+        author = repo.author
+        "#{author.name} <#{author.email}>"
       end
       
-      email = author.email
-      yield(AUTHOR, email)
+      attrs['date'] ||= Time.now.iso8601
+      
+      if origin = attrs['origin']
+        attrs['origin'] = resolve(origin)
+      end
+      
+      if at = attrs['at']
+        attrs['at'] = repo.resolve(at)
+      end
+      
+      if tags = attrs['tags']
+        attrs['tags'] = arrayify(tags)
+      end
+      
+      unless type = attrs['type']
+        default_type = self.class.type
+        attrs['type'] = default_type if default_type
+      end
       
       self
     end
     
-    # Merges the attributes and content with self to produce a new Document.
-    # If content is nil, then the content for self will be used.
-    def merge(attrs, content=nil)
-      Document.new(attributes.merge(attrs), content || self.content)
+    def errors
+      errors = {}
+      self.class.validators.each_pair do |key, validator|
+        begin
+          send(validator, attrs[key])
+        rescue
+          errors[key] = $!
+        end
+      end
+      errors
     end
     
-    # Returns a hash of differences in the attributes of self and parent. 
-    # Added and modified attributes will be keyed by strings and removes are
-    # keyed by symbols.  Keys to skip can be specified by exclude.
-    def diff(parent, *exclude)
-      return attributes.dup unless parent
+    def validate(normalize=true)
+      normalize! if normalize
       
-      current = attributes
-      previous = parent.attributes
-      keys = (current.keys + previous.keys - exclude).uniq
+      errors = self.errors
+      unless errors.empty?
+        raise InvalidDocumentError.new(self, errors)
+      end
+      self
+    end
+    
+    def indexes
+      indexes = []
+      each_index {|key, value| indexes << [key, value] }
+      indexes
+    end
+    
+    def each_index
+      if author = attrs['author']
+        actor = Grit::Actor.from_string(author)
+        yield('email', blank?(actor.email) ? 'unknown' : actor.email)
+      end
       
-      diff = {}
-      keys.each do |key|
-        current_value  = current[key]
-        previous_value = previous[key]
-        next if current_value == previous_value
-        
-        if current.has_key?(key)
-          # added or modified
-          diff[key.to_s] = current[key]
-        else
-          # removed
-          diff[key.to_sym] = previous[key]
+      if origin = attrs['origin']
+        yield('origin', origin)
+      end
+      
+      if at = attrs['at']
+        yield('at', at)
+      end
+      
+      if tags = attrs['tags']
+        tags.each do |tag|
+          yield('tags', tag)
         end
       end
       
-      diff
-    end
-    
-    # Returns true if the document has no meaningful content.
-    def empty?
-      blank?(content.to_s.strip)
-    end
-    
-    # Serializes self into a string according to the document format.
-    def to_s
-      attrs = attributes.merge(
-        AUTHOR => "#{author.name} <#{author.email}>",
-        DATE   => date.to_f
-      ).extend(SortedToYaml)
+      if type = attrs['type']
+        yield('type', type)
+      end
       
-      "#{attrs.to_yaml}--- \n#{content}"
+      self
+    end
+    
+    def save
+      validate
+      reset repo.store(attrs, date)
+      reindex
+      self
+    end
+    
+    def saved?
+      sha.nil? ? false : true
+    end
+    
+    def update(old_sha=sha)
+      old_sha = resolve(old_sha)
+      reset old_sha
+      
+      validate
+      reset repo.store(attrs, date)
+      
+      unless old_sha.nil? || old_sha == sha
+        repo.update(old_sha, sha)
+        idx.filter << old_sha
+      end
+      
+      reindex
+      self
+    end
+    
+    def link(parents=nil, children=nil)
+      raise "cannot link unless saved" unless saved?
+      
+      parents  = validate_links(parents)
+      children = validate_links(children)
+      
+      parents.each {|parent| repo.link(parent, sha) }
+      children.each {|child| repo.link(sha, child) }
+      
+      idx.filter.concat(parents)
+      idx.filter << sha unless children.empty?
+      
+      reset(sha)
+      self
+    end
+    
+    def reindex
+      raise "cannot reindex unless saved" unless saved?
+      
+      idx = self.idx
+      each_index {|key, value| idx.add(key, value, sha) }
+      idx.map[sha] = origin
+      idx.filter << sha unless repo.tail?(sha)
+      
+      self
+    end
+    
+    def reset(new_sha=sha)
+      @graph = nil
+      @sha = new_sha
+      self
+    end
+    
+    def commit!
+      repo.commit!
+      self
+    end
+    
+    def initialize_copy(orig)
+      super
+      reset(nil)
+      @attrs = orig.attrs.dup
+    end
+    
+    def inspect
+      "#<#{self.class}:#{object_id} sha=#{sha.inspect}>"
+    end
+    
+    # This is a thin equality -- use with caution.
+    def ==(another)
+      saved? ? sha == another.sha : super
     end
     
     protected
     
-    def blank?(value) # :nodoc:
-      value.nil? || (value.respond_to?(:empty?) && value.empty?)
+    def resolve(ref) # :nodoc:
+      ref = ref.sha if ref.respond_to?(:sha)
+      repo.resolve(ref)
     end
     
-    # helper to parse/validate an author
-    def parse_author(author) # :nodoc:
-      case author
-      when String
-        Grit::Actor.from_string(author)
-      when nil
-        raise "author cannot be nil"
-      else
-        author
-      end
-    end
-    
-    # helper to parse/validate a date
-    def parse_date(date) # :nodoc:
-      case date
-      when Numeric
-        Time.at(date)
-      when String
-        Time.at(date.to_f)
-      when nil
-        raise "date cannot be nil"
-      else
-        date
-      end
-    end
-    
-    # helper to parse/validate tags
-    def parse_tags(tags) # :nodoc:
-      unless tags.kind_of?(Array)
-        tags = Shellwords.shellwords(tags.to_s)
-      end
-      
-      tags.empty? ? nil : tags
-    end
-    
-    # Raised by Document.parse for an invalid document.
-    class InvalidDocumentError < StandardError
-    end
-    
-    # A module to replace the Hash#to_yaml function to serialize with sorted keys.
-    #
-    # From: http://snippets.dzone.com/posts/show/5811
-    # The original function is in: /usr/lib/ruby/1.8/yaml/rubytypes.rb
-    #
-    module SortedToYaml # :nodoc:
-      def to_yaml( opts = {} )
-        YAML::quick_emit( object_id, opts ) do |out|
-          out.map( taguri, to_yaml_style ) do |map|
-            sort.each do |k, v|
-              map.add( k, v )
-            end
-          end
+    def validate_links(links) # :nodoc:
+      arrayify(links).collect do |doc|
+        unless doc.kind_of?(Document)
+          doc = repo.resolve(doc)
+          doc = Document[doc]
         end
+        
+        validate_origins(doc, self)
+        doc.sha
       end
     end
   end

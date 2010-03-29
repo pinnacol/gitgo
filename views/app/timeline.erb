@@ -8,19 +8,17 @@
 <li><a href="<%= url('timeline') %>">All Authors</a></li><% authors.each do |author| %>
 <li><a href="<%= url('timeline') %>?<%= build_query(:author => author) %>"><%= escape_html(author) %></a></li><% end %>
 </ul>
-<% if timeline.nil? %>
-<h2>Welcome to Gitgo!</h2>
-<p>New activity will be listed here after you visit the <a href='<%= url('repo') %>'>repo</a> page and setup a <%= format.branch repo.branch %> branch.</p><% elsif timeline.empty? %>
-<p>No results to show...</p><% else %>
-<ul class="timeline"><% format.each_activity(timeline) do |type, link, author, date| %>
+
+<ul class="timeline"><% if timeline.empty? %>
+<li>No activity yet...</li><% else %><% format.each_activity(timeline) do |doc, type, link| %>
 <li>
-  <dl class="activity">
+  <dl class="activity" active="<%= doc.active?(active_sha) %>">
   <dt class="type"><%= type %></dt>
   <dd class="type"><%= link %></dd>
   <dt class="author">Author</dt>
-  <dd class="author"><%= author %></dd>
+  <dd class="author"><%= format.author doc.author %></dd>
   <dt class="date">Date</dt>
-  <dd class="date"><%= date %></dd>
+  <dd class="date"><%= format.date doc.date %></dd>
   </dl>
-</li><% end %>
-</ul><% end %>
+</li><% end %><% end %>
+</ul>

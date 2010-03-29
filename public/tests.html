@@ -1,25 +1,40 @@
 <html>
   <head>
     <title>Gitgo Tests</title>
-    <link type="text/css" rel="stylesheet" href="/spec/jspec.css" />
-    <link type="text/css" rel="stylesheet" href="/css/gitgo.css">
-    <script src="/spec/jspec.js"></script>
-    <script src="/javascript/gitgo.js"></script>
+    <link type="text/css" rel="stylesheet" href="./spec/jspec.css" />
+    <link type="text/css" rel="stylesheet" href="./css/gitgo.css" />
+    <script src="./spec/jspec.js"></script>
+    <script src="./javascript/jquery-1.4.2.min.js"></script>
+    <script src="./javascript/gitgo.js"></script>
     <script>
       function runSuites() {
         JSpec
-        .exec('/spec/gitgo_spec.js')
-        .run()
+        .exec('./spec/gitgo_spec.js')
+        .run({ fixturePath: './spec/fixtures' })
         .report()
-      }
+      };
+      
+      function updateExample(source, target) {
+        var url = "./spec/fixtures/" + $(source).attr('value') + ".html";
+        $.get(url, function(data) { 
+          $(target).html(data);
+          Gitgo.Graph.draw(target);
+        }, "text");
+      };
     </script>
   </head>
   <body class="jspec" onLoad="runSuites();">
     <div id="jspec-top"><h2 id="jspec-title">JSpec <em><script>document.write(JSpec.version)</script></em></h2></div>
     <div id="jspec"></div>
-    <div id="jspec-bottom"></div>
-    <ul>
-      <li><a href="/">Back to Index</a></li>
-    </ul>
+    <div id="jspec-bottom">
+      
+      <form onsubmit="updateExample('#fixture', '#doc');return false;" style="float:left;padding-left:2em">
+        <input id="fixture" type="text" />
+        <input type="submit" value="switch" />
+      </form>
+      
+      <div class="document" id="doc" style="clear:both;padding-left:2em">
+      </div>
+    </div>
   </body>
 </html>

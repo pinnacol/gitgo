@@ -2,24 +2,31 @@
 <head>
   <title>Gitgo <%= escape_html self.class.to_s.split("::").last.capitalize %></title>
   <link type="text/css" rel="stylesheet" href="/css/gitgo.css">
-  <script src="/javascript/jquery-1.3.2.min.js"></script>
+  <script src="/javascript/jquery-1.4.2.min.js"></script>
   <script src="/javascript/gitgo.js"></script>
 </head>
-<body>
+<body><% unless git.version_ok? %>
+
+<div class="notice">
+  <em>
+    Warning -- Gitgo requires at least git-<%= Gitgo::Git::GIT_VERSION.join('.') %>.
+    Some functionality may be lost or error-prone until you upgrade.
+  </em>
+</div><% end %>
 
 <%= yield %>
 
 <div class="nav">
-<ul class="nav">
-<li><a href="/code">Code</a></li>
-<li><a href="/issue?state=open">Issues</a></li>
-<li><a href="/wiki">Wiki</a></li>
-<li><a href="/repo">Repo</a></li>
-</ul>
+  <ul class="nav">
+  <li><a href="/code">Code</a></li>
+  <li><a href="/issue?state=open">Issues</a></li>
+  <li><a href="/wiki">Wiki</a></li>
+  <li><a href="/repo">Repo</a></li>
+  </ul>
 
-<ul class="nav">
-<li><a href="/">Home</a></li>
-</ul>
+  <ul class="nav">
+  <li><a href="/">Home</a></li>
+  </ul>
 </div>
 
 </body>

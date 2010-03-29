@@ -1,34 +1,34 @@
 require 'gitgo/controller'
+require 'gitgo/documents/issue'
 
 module Gitgo
   module Controllers
     class Issue < Controller
       set :views, File.expand_path("views/issue", ROOT)
-
-      get('/issue')        { index }
-      get('/issue/new')    { preview }
-      get('/issue/:id')    {|id| show(id) }
-      get('/issue/:id/:update') {|id, update| show(id, update) }
       
-      post('/issue')       { create }
-      post('/issue/:id') do |id|
+      get('/issue')           { index }
+      get('/issue/new')       { preview }
+      get('/issue/:sha')      {|sha| show(sha) }
+      get('/issue/:sha/edit') {|sha| edit(sha) }
+      
+      post('/issue')          { create }
+      post('/issue/:sha')     {|sha|
         _method = request[:_method]
         case _method
-        when /\Aupdate\z/i then update(id)
-        when /\Adelete\z/i then destroy(id)
-        else raise("unknown post method: #{_method}")
+        when /\Aupdate\z/i then update(sha)
+        when /\Adelete\z/i then destroy(sha)
+        else create(sha)
         end
-      end
+      }
       
-      put('/issue/:id')    {|id| update(id) }
-      delete('/issue/:id') {|id| destroy(id) }
+      put('/issue/:sha')      {|sha| update(sha) }
+      delete('/issue/:sha')   {|sha| destroy(sha) }
       
       #
       # actions
       #
       
-      INHERIT = %w{state tags}
-      ATTRIBUTES = %w{author date state tags}
+      Issue = Documents::Issue
       
       # Processes requests like: /index?key=value
       #
@@ -40,146 +40,96 @@ module Gitgo
       # the sort with reverse=true. Multiple sort criteria are currently not
       # supported.
       def index
-        # filter issues
-        criteria = {}
-        ATTRIBUTES.each do |key|
-          next unless values = params[key]
-          criteria[key] = values.kind_of?(Array) ? values : [values]
-        end
-      
-        filters = []
-        criteria.each_pair do |key, values|
-          filter = values.collect do |value|
-            repo.index.read(key, value)
-          end.flatten
+        states = request['state'] || []
+        tags = request['tags'] || []
         
-          filters << filter
-        end
-        
-        issues = []
-        repo.index.read("type", "issue").each do |sha|
-          tails = repo.tails(sha)
-          filters.each do |filter|
-            tails = tails & filter
-          end
-          
-          unless tails.empty?
-            # note this lookup is deadly slow.
-            doc = cache[sha]
-            doc[:active] = tails.any? {|tail| active?(cache[tail]['at']) } ? true : active?(doc['at'])
-            
-            issues << doc
-          end
-        end
+        issues = Issue.find('state' => states, 'tags' => tags)
         
         # sort results
-        sort_attr = request['sort'] || 'date'
+        sort = request['sort'] || 'date'
         reverse = request['reverse'] == 'true'
         
-        issues.sort! {|a, b| a[sort_attr] <=> b[sort_attr] }
+        issues.sort! {|a, b| a[sort] <=> b[sort] }
         issues.reverse! if reverse
         
         erb :index, :locals => {
           :issues => issues,
-          :current_states => criteria['state'] || [],
-          :current_tags => criteria['tags'] || [],
-          :sort_attr => sort_attr,
-          :reverse => reverse
+          :states => states,
+          :tags => tags,
+          :sort => sort,
+          :reverse => reverse, 
+          :active_sha => head
         }
       end
-    
+      
+      def preview?
+        request['preview'] == 'true'
+      end
+      
       def preview
-        erb :new, :locals => {
-          :doc => request['doc'] || {}, 
-          :content => request['content']
+        erb :new, :locals => {:doc => doc_attrs}
+      end
+    
+      def create(sha=nil)
+        return(sha.nil? ? preview : show(sha)) if preview?
+        
+        issue = Issue.create(doc_attrs).commit!
+        redirect_to_issue(issue)
+      end
+      
+      def edit(sha)
+        unless issue = Issue.read(sha)
+          raise "unknown issue: #{sha.inspect}"
+        end
+        
+        issue.merge!(doc_attrs)
+        erb :edit, :locals => {:issue => issue}
+      end
+      
+      def update(sha)
+        return edit(sha) if preview?
+        
+        issue = Issue.update(sha, doc_attrs).commit!
+        redirect_to_issue(issue)
+      end
+      
+      def show(sha)
+        unless issue = Issue.read(sha)
+          raise "unknown issue: #{sha.inspect}"
+        end
+        
+        update = request['doc'] ? doc_attrs : {
+          'tags' => issue.current_tags, 
+          'parents' => issue.graph.tails.dup
         }
-      end
-    
-      def create
-        return preview if request['preview'] == 'true'
-      
-        doc = document('type' => 'issue', 'state' => 'open')
-        if doc['title'].to_s.strip.empty? && doc.empty?
-          raise "no title or content specified"
-        end
-        issue = repo.store(doc, :rev_parse => ['at'])
-      
-        # if specified, link the issue to a commit
-        if commit = doc['at']
-          repo.link(commit, issue, :ref => issue)
-        end
-      
-        repo.commit!("issue #{issue}") if request['commit'] == 'true'
-        redirect url("/issue/#{issue}")
-      end
-    
-      def show(issue, update=nil)
-        unless doc = cache[issue]
-          raise "unknown issue: #{issue.inspect}"
-        end
-        issue = doc.sha
         
-        # get updates
-        updates = repo.comments(issue, cache)
-        
-        # resolve tails
-        tails = cache.keys.collect {|sha| cache[sha] }.select {|document| document && document[:tail] }
-        tails << doc if tails.empty?
-        
-        tail_states = []
-        tail_tags = []
-        tails.each do |document|
-          tail_states << document['state']
-          tail_tags.concat(document.tags)
-        end
-        tail_states.uniq!
-        tail_tags.uniq!
-      
         erb :show, :locals => {
-          :doc => doc,
-          :updates => updates,
-          :tails => tails,
-          :tail_states => tail_states,
-          :tail_tags => tail_tags
+          :issue => issue,
+          :update => update,
+          :current_titles => issue.titles,
+          :current_tags => issue.current_tags,
+          :current_states => issue.current_states
         }
       end
-    
-      # Update adds a comment to the specified issue.
-      def update(issue)
-        unless doc = cache[issue]
-          raise "unknown issue: #{issue.inspect}"
-        end
-        issue = doc.sha
-        
-        # the comment is always in regards to the issue internally (ie re => issue)
-        doc = inherit(doc, 'type' => 'update', 're' => issue)
-        update = repo.store(doc, :rev_parse => ['at', 're'])
-
-        # link the comment to each parent and update the index
-        parents = request['parents'] || [issue]
-        parents.each do |parent|
-          unless sha = repo.sha(parent)
-            raise "unknown re: #{parent.inspect}"
-          end
-          
-          repo.link(sha, update)
-        end
       
-        # if specified, link the issue to a commit
-        if commit = doc['at']
-          repo.link(commit, update, :ref => issue)
-        end
-      
-        repo.commit!("update #{update} re #{issue}") if request['commit'] == 'true'
-        redirect url("/issue/#{issue}/#{update}")
+      def destroy(sha)
+        issue = Issue.delete(sha).commit!
+        redirect_to_issue(issue)
       end
       
-      # Same as document, but ensures each of the INHERIT attributes is
-      # inherited from doc if it is not specified in the request.
-      def inherit(doc, overrides=nil)
-        base = document(overrides)
-        INHERIT.each {|key| base[key] ||= doc[key] }
-        base
+      def doc_attrs
+        attrs = request['doc'] || {}
+        if tags = attrs['tags']
+          if tags.kind_of?(String)
+            attrs['tags'] = tags.split(',').collect {|tag| tag.strip }
+          end
+        end
+        attrs
+      end
+      
+      def redirect_to_issue(doc)
+        sha = doc.origin? ? doc.origin : "#{doc.origin}##{doc.sha}"
+        redirect "/issue/#{sha}"
       end
     end
   end

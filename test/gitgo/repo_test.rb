@@ -2,879 +2,506 @@ require File.dirname(__FILE__) + "/../test_helper"
 require 'gitgo/repo'
 
 class RepoTest < Test::Unit::TestCase
-  include RepoTestHelper
+  acts_as_file_test
+  
   Repo = Gitgo::Repo
   
-  attr_writer :repo
+  attr_accessor :repo
   
   def setup
     super
-    @repo = nil
+    @repo = Repo.new(Repo::PATH => method_root.path(:repo))
   end
   
-  def repo
-    @repo ||= Repo.init(method_root[:tmp])
+  def git
+    repo.git
   end
   
-  def setup_repo(repo)
-    @repo = Repo.new(super(repo), :branch => "master")
+  def idx
+    repo.idx
   end
   
-  #
-  # documentation test
-  #
-  
-  def test_repo_documentation
-    repo = Repo.init(method_root.path(:tmp, "example"), :author => "John Doe <jdoe@example.com>")
-    repo.add(
-      "README" => "New Project",
-      "lib/project.rb" => "module Project\nend"
-    ).commit("added files")
-  
-    expected = {
-      "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
-      "lib"    => {
-        "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"]
-      }
-    }
-    assert_equal expected, repo.tree
-  
-    repo.reset
-    expected = {
-      "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
-      :lib     => [:"040000", "cad0dc0df65848aa8f3fee72ce047142ec707320"]
-    }
-    assert_equal expected, repo.tree
-  
-    repo.add("lib/project/utils.rb" => "module Project\n  module Utils\n  end\nend")
-    expected = {
-      "README" => [:"100644", "73a86c2718da3de6414d3b431283fbfc074a79b1"],
-      "lib"    => {
-        "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
-        "project" => {
-          "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"]
-        }
-      }
-    }
-    assert_equal expected, repo.tree
-  
-    repo.rm("README")
-    expected = {
-      "lib"    => {
-        "project.rb" => [:"100644", "636e25a2c9fe1abc3f4d3f380956800d5243800e"],
-        "project" => {
-          "utils.rb" => [:"100644", "c4f9aa58d6d5a2ebdd51f2f628b245f9454ff1a4"]
-        }
-      }
-    }
-    assert_equal expected, repo.tree
-  
-    expected = {
-      "README" => :rm,
-      "lib/project/utils.rb" => :add
-    }
-    assert_equal expected, repo.status
+  def serialize(attrs)
+    JSON.generate(attrs)
   end
   
-  #
-  # init test
-  #
-  
-  def test_init_initializes_non_existant_repos
-    path = method_root[:tmp]
-    assert !File.exists?(path)
-    
-    repo = Repo.init(path)
-    
-    git_path = method_root.path(:tmp, ".git")
-    assert File.exists?(git_path)
-    assert_equal git_path, repo.grit.path
-    assert_equal false, repo.grit.bare
-    
-    repo.add("path" => "content").commit("initial commit")
-    assert_equal "content", repo["path"]
-  end
-  
-  def test_init_initializes_bare_repo_if_specified
-    path = method_root[:tmp]
-    assert !File.exists?(path)
-    
-    repo = Repo.init(path, :is_bare => true)
-    
-    assert !File.exists?(method_root.path(:tmp, ".git"))
-    assert File.exists?(path)
-    assert_equal path, repo.grit.path
-    assert_equal true, repo.grit.bare
-    
-    repo.add("path" => "content").commit("initial commit")
-    assert_equal "content", repo["path"]
-  end
-  
-  #
-  # author test
-  #
-  
-  def test_author_determines_a_default_author_from_the_repo_config
-    setup_repo("simple.git")
-    
-    author = repo.author
-    assert_equal "John Doe", author.name
-    assert_equal "john.doe@email.com", author.email
-  end
-  
-  #
-  # track test
-  #
-  
-  def test_track_returns_the_tracking_branch
-    setup_repo("simple.git")
-    
-    assert_equal nil, repo.grit.config['branch.master.remote']
-    assert_equal nil, repo.grit.config['branch.master.merge']
-    assert_equal nil, repo.track
-    
-    clone = repo.clone(method_root.path(:tmp, 'a'))
-    
-    assert_equal "origin", clone.grit.config['branch.master.remote']
-    assert_equal "refs/heads/master", clone.grit.config['branch.master.merge']
-    assert_equal "origin/master", clone.track
-    
-    clone.sandbox do |git, work_tree, index_file|
-      git.branch({:track => true}, "abc", "origin/xyz")
+  def create_nodes(*contents)
+    date = Time.now
+    contents.collect do |content|
+      date += 1
+      repo.store("content" => content, "date" => date)
     end
-    
-    # reset grit to capture the new configs
-    clone.reset(:full => true)
-    clone.checkout("abc")
-    
-    assert_equal "origin", clone.grit.config['branch.abc.remote']
-    assert_equal "refs/heads/xyz", clone.grit.config['branch.abc.merge']
-    assert_equal "origin/xyz", clone.track
   end
   
   #
-  # version test
+  # Repo.with_env test
   #
   
-  def version_ok?(required, actual)
-    (required <=> actual) <= 0
-  end
-  
-  def test_version_documentation
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2])
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,3])
-    assert_equal false, version_ok?([1,6,4,2], [1,6,4,1])
-  end
-  
-  def test_version_ok
-    # equal
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2])
-    
-    # last slot
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,3])
-    assert_equal false, version_ok?([1,6,4,2], [1,6,4,1])
-    
-    # middle slot
-    assert_equal true, version_ok?([1,6,4,2], [1,7,4,2])
-    assert_equal false, version_ok?([1,6,4,2], [1,5,4,2])
-    
-    # unequal slots
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2,1])
-    assert_equal false, version_ok?([1,6,4,2], [1,6])
-    assert_equal true, version_ok?([1,6,4,2], [1,7])
-  end
-  
-  def test_version_returns_an_array_of_integers
-    version = repo.version
-    assert_equal Array, version.class
-    assert_equal true, version.all? {|item| item.kind_of?(Integer) }
-  end
-  
-  #
-  # get test
-  #
-  
-  def test_get_returns_the_specified_object
-    setup_repo("simple.git")
-    
-    blob = repo.get(:blob, "32f1859c0aaf1394789093c952f2b03ab04a1aad")
-    assert_equal Grit::Blob, blob.class
-    assert_equal "Contents of file ONE.", blob.data
-    
-    tree = repo.get(:tree, "09aa1d0c0d69df84464b72623628acf5c63c79f0")
-    assert_equal Grit::Tree, tree.class
-    assert_equal ["two", "two.txt"], tree.contents.collect {|obj| obj.name }.sort
-  end
-
-  #
-  # set test
-  #
-  
-  def test_set_writes_an_object_of_the_specified_type_to_repo
-    id = repo.set(:blob, "new content")
-    assert_equal "new content", repo.get(:blob, id).data
-  end
-  
-  #
-  # sha test
-  #
-  
-  def test_sha_resolves_id_to_sha
-    setup_repo("simple.git")
-    
-    assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", repo.sha("caps")
-    assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", repo.sha("19377b7ec7")
-    assert_equal "19377b7ec7b83909b8827e52817c53a47db96cf0", repo.sha("19377b7ec7b83909b8827e52817c53a47db96cf0")
-  end
-  
-  def test_sha_returns_nil_for_unresolvable_inputs
-    assert_equal nil, repo.sha(nil)
-    assert_equal nil, repo.sha("missing")
-    assert_equal nil, repo.sha("19377b7ec7b827e52817c53a47db96cf0notasha")
-  end
-  
-  #
-  # AGET test
-  #
-
-  def test_AGET_returns_the_contents_of_the_object_at_path
-    setup_repo("simple.git")
-    
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo[""].sort
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo["/"].sort
-    assert_equal ["two", "two.txt"], repo["one"].sort
-    assert_equal ["two", "two.txt"], repo["/one"].sort
-    assert_equal ["two", "two.txt"], repo["/one/"].sort
-    
-    assert_equal "Contents of file ONE.", repo["one.txt"]
-    assert_equal "Contents of file ONE.", repo["/one.txt"]
-    assert_equal "Contents of file TWO.", repo["/one/two.txt"]
-  
-    assert_equal nil, repo["/non_existant"]
-    assert_equal nil, repo["/one/non_existant.txt"]
-    assert_equal nil, repo["/one/two.txt/path_under_a_blob"]
-  end
-  
-  def test_AGET_accepts_array_paths
-    setup_repo("simple.git")
-  
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo[[]].sort
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo[[""]].sort
-    assert_equal ["two", "two.txt"], repo[["one"]].sort
-    assert_equal ["two", "two.txt"], repo[["", "one", ""]].sort
-    assert_equal "Contents of file ONE.", repo[["", "one.txt"]]
-    assert_equal "Contents of file TWO.", repo[["one", "two.txt"]]
-  
-    assert_equal nil, repo[["non_existant"]]
-    assert_equal nil, repo[["one", "non_existant.txt"]]
-    assert_equal nil, repo[["one", "two.txt", "path_under_a_blob"]]
-  end
-  
-  def test_AGET_is_not_destructive_to_array_paths
-    setup_repo("simple.git")
-  
-    array = ["", "one", ""]
-    assert_equal ["two", "two.txt"], repo[array].sort
-    assert_equal ["", "one", ""], array
-  end
-  
-  def test_AGET_returns_committed_content_if_specified
-    setup_repo("simple.git")
-  
-    assert_equal "Contents of file ONE.", repo["one.txt"]
-    repo.tree["one.txt"] = [Repo::DEFAULT_BLOB_MODE, repo.set(:blob, "new content")]
-    
-    assert_equal "new content", repo["one.txt"]
-    assert_equal "Contents of file ONE.", repo["one.txt", true]
-  end
-  
-  #
-  # ASET test
-  #
-
-  def test_ASET_adds_blob_content
-    assert_equal nil, repo["/a/b.txt"]
-    repo["/a/b.txt"] = "new content"
-    assert_equal "new content", repo["/a/b.txt"]
-  end
-  
-  def test_new_blob_content_is_not_committed_automatically
-    assert_equal nil, repo["/a/b.txt", true]
-    repo["/a/b.txt"] = "new content"
-    assert_equal nil, repo["/a/b.txt", true]
-  end
-
-  #
-  # commit test
-  #
-  
-  def test_commit_raises_error_if_there_are_no_staged_changes
-    err = assert_raises(RuntimeError) { repo.commit("no changes!") }
-    assert_equal "no changes to commit", err.message
-  end
-  
-  def test_commit_writes_index
-    repo.create("content")
-    assert_equal nil, repo.index.head
-    
-    repo.commit("added content")
-    assert_equal repo.head, repo.index.head
-  end
-  
-  #
-  # status test
-  #
-  
-  def test_status_returns_hash_of_staged_changes
-    setup_repo("simple.git")
-    
-    assert_equal({}, repo.status)
-    
-    repo.add(
-      "a.txt" => "file a content",
-      "a/b.txt" => "file b content",
-      "a/c.txt" => "file c content"
-    )
-    
-    assert_equal({
-      "a.txt" => :add,
-      "a/b.txt" => :add,
-      "a/c.txt" => :add
-    }, repo.status)
-    
-    repo.rm("one", "one.txt", "a/c.txt")
-    
-    assert_equal({
-      "a.txt" => :add,
-      "a/b.txt" => :add,
-      "one.txt" => :rm,
-      "one/two.txt" => :rm,
-      "one/two/three.txt"=>:rm
-    }, repo.status)
-  end
-  
-  #
-  # checkout test
-  #
-  
-  def test_checkout_resets_branch_if_specified
-    setup_repo("simple.git")
-    
-    assert_equal "master", repo.branch
-    assert_equal ["one", "one.txt", "x", "x.txt"], repo["/"].sort
-    
-    assert_equal repo, repo.checkout("diff")
-    
-    assert_equal "diff", repo.branch
-    assert_equal ["alpha.txt", "one", "x", "x.txt"], repo["/"].sort
-  end
-  
-  def test_checkout_checks_the_repo_out_into_work_tree_in_the_block
-    setup_repo("simple.git")
-    
-    result = repo.checkout do |work_tree|
-      assert File.directory?(work_tree)
-      assert_equal "Contents of file TWO.", File.read(File.join(work_tree, "/one/two.txt"))
-    end
-    assert_equal repo, result
-  end
-  
-  def paths_in(dir)
-    Dir.glob("#{dir}/*").collect {|path| File.basename(path) }.sort
-  end
-  
-  def test_checkout_does_not_mess_with_current_index_and_work_tree
-    simple = File.expand_path('simple.git', FIXTURE_DIR)
-    a = method_root.path(:tmp, 'a')
-    
-    `git clone '#{simple}' '#{a}'`
-    
-    original_index = File.read("#{a}/.git/index")
-    assert_equal ["one", "one.txt", "x", "x.txt"], paths_in(a)
-    
-    repo = Repo.new(a, :branch => 'c6746dd1882d772e540342f8e180d3125a9364ad')
-    repo.checkout do |work_tree|
-      assert_equal ["one", "one.txt"], paths_in(work_tree)
-      assert_equal ["one", "one.txt", "x", "x.txt"], paths_in(a)
-      assert_equal original_index, File.read("#{a}/.git/index")
-    end
-    
-    assert_equal ["one", "one.txt", "x", "x.txt"], paths_in(a)
-    assert_equal original_index, File.read("#{a}/.git/index")
-  end
-  
-  #
-  # fetch test
-  #
-  
-  def test_fetch_fetches_updates_from_remote
-    simple = File.expand_path('simple.git', FIXTURE_DIR)
-    a = Repo.init method_root.path(:tmp, 'a')
-    
-    assert_equal [], a.grit.remotes
-    
-    a.sandbox do |git, work_tree, index_file|
-      git.remote({}, 'add', 'simple', simple)
-    end
-    
-    a.fetch('simple')
-    assert_equal true, File.exists?(a.path("FETCH_HEAD"))
-    
-    remotes = a.grit.remotes.collect {|remote| remote.name }
-    assert_equal ['simple/caps', 'simple/diff', 'simple/master', 'simple/xyz'], remotes
-  end
-  
-  #
-  # merge? test
-  #
-  
-  def test_merge_returns_true_if_there_is_an_update_available_for_branch
-    a = Repo.init(method_root.path(:tmp, "a"))
-    a.add("one" => "a one").commit("added a file")
-    b = a.clone(method_root.path(:tmp, "b"))
-    
-    assert_equal false, b.merge?
-    b.fetch
-    assert_equal false, b.merge?
-
-    a.add("two" => "a two").commit("added a file")
-    
-    assert_equal false, b.merge?
-    b.fetch
-    assert_equal true, b.merge?
-    
-    #
-    c = a.clone(method_root.path(:tmp, "c"))
-    
-    assert_equal false, c.merge?
-    c.fetch
-    assert_equal false, c.merge?
-
-    a.add("three" => "a three").commit("added a file")
-    c.add("four"  => "b four").commit("added a file")
-    
-    assert_equal false, c.merge?
-    c.fetch
-    assert_equal true, c.merge?
-  end
-  
-  #
-  # clone test
-  #
-  
-  def test_clone_clones_a_repository
-    a = Repo.init(method_root.path(:tmp, "a"))
-    a.add("a" => "a content").commit("added a file")
-    
-    b = a.clone(method_root.path(:tmp, "b"))
-    b.add("b" => "b content").commit("added a file")
-    
-    assert_equal a.branch, b.branch
-    assert_equal method_root.path(:tmp, "a/.git"), a.path
-    assert_equal method_root.path(:tmp, "b/.git"), b.path
-    assert_equal false, a.grit.bare
-    assert_equal false, b.grit.bare
-    
-    assert_equal "a content", a["a"]
-    assert_equal nil, a["b"]
-    assert_equal "a content", b["a"]
-    assert_equal "b content", b["b"]
-  end
-  
-  def test_clone_clones_a_bare_repository
-    a = Repo.init(method_root.path(:tmp, "a.git"))
-    a.add("a" => "a content").commit("added a file")
-    
-    b = a.clone(method_root.path(:tmp, "b.git"), :bare => true)
-    b.add("b" => "b content").commit("added a file")
-  
-    assert_equal a.branch, b.branch
-    assert_equal method_root.path(:tmp, "a.git"), a.path
-    assert_equal method_root.path(:tmp, "b.git"), b.path
-    assert_equal true, a.grit.bare
-    assert_equal true, b.grit.bare
-    
-    assert_equal "a content", a["a"]
-    assert_equal nil, a["b"]
-    assert_equal "a content", b["a"]
-    assert_equal "b content", b["b"]
-  end
-  
-  def test_clone_pulls_from_origin
-    a = Repo.init(method_root.path(:tmp, "a"))
-    a.add("a" => "a content").commit("added a file")
-    
-    b = a.clone(method_root.path(:tmp, "b"))
-    assert_equal "a content", b["a"]
-    
-    a.add("a" => "A content").commit("updated file")
-    assert_equal "a content", b["a"]
-  
-    b.pull
-    assert_equal "A content", b["a"]
-  end
-  
-  def test_bare_clone_pulls_from_origin
-    a = Repo.init(method_root.path(:tmp, "a.git"))
-    a.add("a" => "a content").commit("added a file")
-    
-    b = a.clone(method_root.path(:tmp, "b.git"), :bare => true)
-    assert_equal "a content", b["a"]
-    
-    a.add("a" => "A content").commit("updated file")
-    assert_equal "a content", b["a"]
-    
-    b.pull
-    assert_equal "A content", b["a"]
-  end
-  
-  def test_clone_and_pull_in_a_custom_env
-    FileUtils.mkdir_p(method_root[:tmp])
-    
-    git_dir = method_root.path(:tmp, "c.git")
-    work_tree = method_root.path(:tmp, "d")
-    index_file = method_root.path(:tmp, "e")
-    `GIT_DIR='#{git_dir}' git init --bare`
-    
-    current_env = {}
-    ENV.each_pair do |key, value|
-      current_env[key] = value
-    end
-    
-    begin
-      ENV['GIT_DIR'] = git_dir
-      ENV['GIT_WORK_TREE'] = work_tree
-      ENV['GIT_INDEX_FILE'] = index_file
+  def test_with_env_sets_env_during_block
+    Repo.with_env(:a) do
+      assert_equal :a, Repo.env
       
-      a = Repo.init(method_root.path(:tmp, "a"))
-      a.add("a" => "a content").commit("added a file")
-      
-      b = a.clone(method_root.path(:tmp, "b"))
-      b.add("b" => "b content").commit("added a file")
-  
-      assert_equal a.branch, b.branch
-      assert_equal method_root.path(:tmp, "a/.git"), a.path
-      assert_equal method_root.path(:tmp, "b/.git"), b.path
-  
-      assert_equal "a content", a["a"]
-      assert_equal nil, a["b"]
-      assert_equal "a content", b["a"]
-      assert_equal "b content", b["b"]
-    ensure
-      ENV.clear
-      current_env.each_pair do |key, value|
-        ENV[key] = value
+      Repo.with_env(:z) do
+        assert_equal :z, Repo.env
       end
+      
+      assert_equal :a, Repo.env
     end
   end
   
   #
-  # pull tests
+  # Repo.env test
   #
   
-  def test_pull_fast_fowards_when_possible
-    a = Repo.init(method_root.path(:tmp, "a"))
-    a.add("a" => "a content").commit("added a file")
-    
-    b = a.clone(method_root.path(:tmp, "b"))
-    a.add("a" => "A content").commit("updated file")
-    
-    b.pull
-    assert_equal a.head, b.head
+  def test_env_returns_thread_specific_env
+    current = Thread.current[Repo::ENVIRONMENT]
+    begin
+      Thread.current[Repo::ENVIRONMENT] = :env
+      assert_equal :env, Repo.env
+    ensure
+      Thread.current[Repo::ENVIRONMENT] = current
+    end
   end
   
-  def test_pull_does_nothing_unless_necessary
-    a = Repo.init(method_root.path(:tmp, "a"))
-    a.add("a" => "a content").commit("added a file")
-    
-    b = a.clone(method_root.path(:tmp, "b"))
-    
-    previous = b.head
-    b.pull
-    assert_equal previous, b.head
-    
-    b.add("b" => "b content").commit("added a file")
-    
-    previous = b.head
-    b.pull
-    assert_equal previous, b.head
-    
-    a.add("a" => "A content").commit("updated a file")
-    
-    previous = b.head
-    b.pull
-    assert previous != b.head
+  def test_env_raises_error_when_no_env_is_in_scope
+    current = Thread.current[Repo::ENVIRONMENT]
+    begin
+      Thread.current[Repo::ENVIRONMENT] = nil
+      
+      err = assert_raises(RuntimeError) { Repo.env }
+      assert_equal "no env in scope", err.message
+    ensure
+      Thread.current[Repo::ENVIRONMENT] = current
+    end
   end
   
   #
-  # rev_parse tests
+  # Repo.current test
   #
   
-  def test_rev_parse_returns_an_array_of_object_refs_parsed_to_their_correct_sha
-    setup_repo("simple.git")
-    
-    assert_equal %w{
-      19377b7ec7b83909b8827e52817c53a47db96cf0
-      ee9a1ca4441ab2bf937808b26eab784f3d041643
-      990191ea92e4dc85f598203e123849df1f8bd124
-    }, repo.rev_parse("19377b7", "xyz", "xyz^")
+  def test_current_returns_repo_set_in_env
+    Repo.with_env(Repo::REPO => :repo) do
+      assert_equal :repo, Repo.current
+    end
   end
   
-  def test_rev_parse_returns_empty_array_for_no_inputs
-    assert_equal [], repo.rev_parse()
-  end
-  
-  def test_rev_parse_raises_error_unless_all_refs_can_be_resolved
-    setup_repo("simple.git")
-    
-    err = assert_raises(RuntimeError) { repo.rev_parse("nonexistant") }
-    assert_equal "could not resolve to a sha: nonexistant", err.message
-    
-    not_a_sha = "x" * 40
-    err = assert_raises(RuntimeError) { repo.rev_parse(not_a_sha) }
-    assert_equal "could not resolve to a sha: #{not_a_sha}", err.message
+  def test_current_auto_initializes_to_env
+    Repo.with_env({}) do
+      repo = Repo.current
+      assert_equal({Repo::REPO => repo}, Repo.env)
+    end
   end
   
   #
-  # rev_list tests
+  # initialize test
   #
   
-  def test_rev_list_returns_an_array_of_commits_reachable_from_the_treeishs
-    setup_repo("simple.git")
-    
-    assert_equal %w{
-      ee9a1ca4441ab2bf937808b26eab784f3d041643
-      19377b7ec7b83909b8827e52817c53a47db96cf0
-      990191ea92e4dc85f598203e123849df1f8bd124
-      c6746dd1882d772e540342f8e180d3125a9364ad
-    }, repo.rev_list("19377b7", "xyz")
-  end
-  
-  def test_rev_list_returns_empty_array_for_no_inputs
-    assert_equal [], repo.rev_list()
+  def test_repo_initializes_to_pwd_by_default
+    repo = Repo.new
+    assert_equal Dir.pwd, repo.path
   end
   
   #
-  # stats test
+  # git test
   #
   
-  def test_stats_returns_a_hash_of_repo_stats
-    stats = repo.stats
-    assert_equal Hash, stats.class
-    assert stats.include?("size")
-    assert stats.include?("count")
+  def test_git_auto_initializes_using_path
+    assert_equal nil, repo.env[Repo::GIT]
+    git = repo.git
+    assert_equal git, repo.env[Repo::GIT]
+    assert_equal File.join(repo.path, '.git'), git.path
   end
   
   #
-  # create test
+  # idx test
   #
   
-  def test_create_adds_a_new_document_to_the_repo_and_returns_the_new_doc_id
-    setup_repo("simple.git") # to setup a default author
-    
-    sha = repo.create("new content")
-    doc = repo.read(sha)
-    
-    assert_equal "new content", doc.content
-    assert_equal "John Doe", doc.author.name
-    assert_equal "john.doe@email.com", doc.author.email
-    assert_equal Time.now.strftime("%Y/%m/%d"), doc.date.strftime("%Y/%m/%d")
+  def test_idx_auto_initializes_using_git_path_and_branch
+    assert_equal nil, repo.env[Repo::IDX]
+    idx = repo.idx
+    assert_equal idx, repo.env[Repo::IDX]
+    assert_equal File.join(git.work_dir, 'index', git.branch), idx.path
   end
   
-  def test_create_respects_any_atttributes_specified_with_the_document
-    sha = repo.create("new content", "author" => Grit::Actor.new("New User", "new.user@email.com"), "key" => "value")
-    doc = repo.read(sha)
-    
-    assert_equal "new content", doc.content
-    assert_equal "New User", doc.author.name
-    assert_equal "new.user@email.com", doc.author.email
-    assert_equal "value", doc.attributes["key"]
+  #
+  # cache test
+  #
+
+  def test_cache_returns_CACHE_set_in_env
+    repo.env[Repo::CACHE] = :cache
+    assert_equal :cache, repo.cache
+  end
+
+  def test_cache_auto_initializes_to_hash
+    assert_equal false, repo.env.has_key?(Repo::CACHE)
+    assert_equal Hash, repo.cache.class
+    assert_equal true, repo.env.has_key?(Repo::CACHE)
+  end
+
+  def test_cache_reads_and_caches_attrs
+    a = repo.store('content' => 'a')
+    b = repo.cache[a]
+
+    assert_equal 'a', b['content']
+    assert_equal b.object_id, repo.cache[a].object_id
   end
   
-  def test_create_adds_doc_by_timestamp
-    date = Time.local(2009, 9, 9)
-    id = repo.create("content", 'date' => date)
-    
-    repo.commit("added a new doc")
-    
-    assert_equal [id], repo["2009/0909"]
+  #
+  # store test
+  #
+  
+  def test_store_serializes_and_stores_attributes
+    sha = repo.store('key' => 'value')
+    assert_equal serialize('key' => 'value'), git.get(:blob, sha).data
   end
   
-  def test_create_indexes_new_docs
-    john = Grit::Actor.new("John Doe", "john.doe@email.com")
-    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
-    
-    assert_equal [], repo.index.read('state', 'one')
-    assert_equal [], repo.index.read('state', 'two')
-    
-    assert_equal [], repo.index.read('author', john.email)
-    assert_equal [], repo.index.read('author', jane.email)
-    
-    a = repo.create("new content", "author" => john, "state" => "one")
-    b = repo.create("new content", "author" => jane, "state" => "two")
-    c = repo.create("new content", "author" => jane, "state" => "one")
-    
-    assert_equal [a,c].sort, repo.index.read('state', 'one').sort
-    assert_equal [b],        repo.index.read('state', 'two')
-    
-    assert_equal [a],        repo.index.read('author', john.email)
-    assert_equal [b,c].sort, repo.index.read('author', jane.email).sort
+  def test_store_stores_attributes_at_current_time_in_utc
+    sha = repo.store
+    date = Time.now.utc
+    assert_equal git.get(:blob, sha).data, git[date.strftime("%Y/%m%d/#{sha}")]
   end
   
-  def test_create_adds_doc_to_index
-    a = repo.create("a")
-    assert_equal [a], repo.index.all
+  def test_store_caches_attrs
+    attrs = {'content' => 'a'}
+    a = repo.store(attrs)
+    
+    assert_equal({a => attrs}, repo.cache)
   end
   
   #
   # read test
   #
   
-  def test_read_returns_document_for_sha
-    id = repo.create "content"
-    doc = repo.read(id)
+  def test_read_returns_a_deserialized_hash_for_sha
+    sha = git.set(:blob, serialize('key' => 'value'))
+    attrs = repo.read(sha)
     
-    assert_equal Gitgo::Document, doc.class
-    assert_equal "content", doc.content
+    assert_equal 'value', attrs['key']
   end
   
   def test_read_returns_nil_for_non_documents
-    id = repo.set :blob, "content"
-    assert_equal nil, repo.read(id)
+    sha = git.set(:blob, "content")
+    assert_equal nil, repo.read(sha)
+  end
+  
+  #
+  # link test
+  #
+
+  def test_link_links_parent_to_child_using_an_empty_sha
+    a, b = create_nodes('a', 'b')
+    repo.link(a, b)
+    
+    assert_equal '', git[Repo::Utils.sha_path(a, b)]
+  end
+  
+  def test_link_raises_an_error_when_linking_to_self
+    a = repo.store
+    err = assert_raises(RuntimeError) { repo.link(a, a) }
+    assert_equal "cannot link to self: #{a} -> #{a}", err.message
+  end
+  
+  def test_update_raises_an_error_when_linking_to_update
+    a, b = create_nodes('a', 'b')
+    repo.update(a, b)
+    
+    err = assert_raises(RuntimeError) { repo.link(a, b) }
+    assert_equal "cannot link to an update: #{a} -> #{b}", err.message
   end
   
   #
   # update test
   #
   
-  def test_update_updates_the_index
-    john = Grit::Actor.new("John Doe", "john.doe@email.com")
-    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
-    
-    a = repo.create("new content", "author" => john, "state" => "one")
-    b = repo.create("new content", "author" => jane, "state" => "two")
-    c = repo.create("new content", "author" => jane, "state" => "one")
-   
-    doc = repo.read(c).merge("state" => "one")
-    d = repo.set(:blob, doc.to_s)
-    
-    assert_equal [a,c].sort, repo.index.read('state', 'one').sort
-    assert_equal [b],        repo.index.read('state', 'two')
-    
-    assert_equal [a],        repo.index.read('author', john.email)
-    assert_equal [b,c].sort, repo.index.read('author', jane.email).sort
-    
-    repo.update(b, doc)
-    
-    assert_equal [a,c,d].sort, repo.index.read('state', 'one').sort
-    assert_equal [],           repo.index.read('state', 'two')
-    
-    assert_equal [a],        repo.index.read('author', john.email)
-    assert_equal [c,d].sort, repo.index.read('author', jane.email)
-  end
-  
-  def test_update_updates_doc_in_index
-    a = repo.create("content")
-    assert_equal [a], repo.index.all
-    
-    b = repo.read(a).merge("state" => "one")
+  def test_update_links_original_to_update_using_original_sha
+    a, b = create_nodes('a', 'b')
     repo.update(a, b)
     
-    assert_equal [b.sha], repo.index.all
+    assert_equal git.get(:blob, a).data, git[Repo::Utils.sha_path(a, b)]
+  end
+  
+  def test_update_creates_a_back_reference_to_original_sha
+    a, b = create_nodes('a', 'b')
+    repo.update(a, b)
+    
+    assert_equal git.get(:blob, a).data, git[Repo::Utils.sha_path(b, b)]
+  end
+  
+  def test_update_raises_an_error_when_updating_to_self
+    a = repo.store
+    err = assert_raises(RuntimeError) { repo.update(a, a) }
+    assert_equal "cannot update with self: #{a} -> #{a}", err.message
+  end
+  
+  def test_update_raises_an_error_when_updating_with_a_child
+    a, b = create_nodes('a', 'b')
+    repo.link(a, b)
+    
+    err = assert_raises(RuntimeError) { repo.update(a, b) }
+    assert_equal "cannot update with a child: #{a} -> #{b}", err.message
+  end
+  
+  def test_update_raises_an_error_when_updating_with_an_existing_update
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.update(a, b)
+    
+    err = assert_raises(RuntimeError) { repo.update(c, b) }
+    assert_equal "cannot update with an update: #{c} -> #{b}", err.message
   end
   
   #
-  # destroy test
+  # linkage test
   #
   
-  def test_destroy_removes_the_document
-    date = Time.local(2009, 9, 9)
-    id = repo.create("content", 'date' => date)
-    repo.commit("added a new doc")
+  def test_linkage_returns_the_sha_for_the_linkage
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.link(a, b)
+    repo.update(b, c)
     
-    repo.destroy(id)
-    repo.commit("removed the new doc")
-    
-    assert_equal [], repo["2009/0909"]
+    empty_sha = git.set(:blob, '')
+    assert_equal empty_sha, repo.linkage(a, b)
+    assert_equal b, repo.linkage(b, c)
+    assert_equal b, repo.linkage(c, c)
   end
   
-  def test_destroy_removes_the_doc_from_the_index
-    john = Grit::Actor.new("John Doe", "john.doe@email.com")
-    jane = Grit::Actor.new("Jane Doe", "jane.doe@email.com")
+  def test_linkage_returns_nil_if_no_such_link_exists
+    a, b = create_nodes('a', 'b')
     
-    a = repo.create("new content", "author" => john, "state" => "one")
-    b = repo.create("new content", "author" => jane, "state" => "two")
-    c = repo.create("new content", "author" => jane, "state" => "one")
-    
-    assert_equal [a,c].sort, repo.index.read('state', 'one').sort
-    assert_equal [b],        repo.index.read('state', 'two')
-    
-    assert_equal [a],        repo.index.read('author', john.email)
-    assert_equal [b,c].sort, repo.index.read('author', jane.email).sort
-    
-    repo.destroy(b)
-    
-    assert_equal [a,c].sort, repo.index.read('state', 'one').sort
-    assert_equal [],         repo.index.read('state', 'two')
-    
-    assert_equal [a],        repo.index.read('author', john.email)
-    assert_equal [c],        repo.index.read('author', jane.email)
-  end
-  
-  def test_destroy_removes_doc_from_index
-    a = repo.create("content")
-    assert_equal [a], repo.index.all
-    repo.destroy(a)
-    assert_equal [], repo.index.all
+    assert_equal nil, repo.linkage(a, a)
+    assert_equal nil, repo.linkage(a, b)
   end
   
   #
-  # cache test
+  # linked? test
   #
   
-  def test_cache_documentation
-    repo = Repo.init method_root.path(:tmp)
-    id = repo.create("new doc")
-  
-    docs = repo.cache
-    assert_equal "new doc", docs[id].content
-    assert_equal true, docs[id].equal?(docs[id])
-  
-    alts = repo.cache
-    assert_equal "new doc", alts[id].content
-    assert_equal false, alts[id].equal?(docs[id])
+  def test_linked_check_returns_true_if_the_shas_are_linked_as_parent_child
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.link(a, b)
+    repo.update(b, c)
+    
+    assert_equal false, repo.linked?(a, a)
+    assert_equal true, repo.linked?(a, b)
+    assert_equal false, repo.linked?(b, c)
   end
   
+  #
+  # original? test
+  #
+  
+  def test_original_check_returns_true_if_sha_is_the_head_of_an_update_chain
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.update(a, b)
+    repo.update(b, c)
+    
+    assert_equal true, repo.original?(a)
+    assert_equal false, repo.original?(b)
+    assert_equal false, repo.original?(c)
+  end
+  
+  #
+  # update? test
+  #
+  
+  def test_update_check_returns_true_if_sha_is_an_update
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.update(a, b)
+    repo.update(b, c)
+    
+    assert_equal false, repo.update?(a)
+    assert_equal true, repo.update?(b)
+    assert_equal true, repo.update?(c)
+  end
+  
+  #
+  # updated? test
+  #
+  
+  def test_updated_check_returns_true_if_sha_has_been_udpated
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.update(a, b)
+    repo.update(b, c)
+    
+    assert_equal true, repo.updated?(a)
+    assert_equal true, repo.updated?(b)
+    assert_equal false, repo.updated?(c)
+  end
+  
+  #
+  # current? test
+  #
+  
+  def test_current_check_returns_true_if_sha_is_a_tail_of_an_update_chain
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.update(a, b)
+    repo.update(b, c)
+    
+    assert_equal false, repo.current?(a)
+    assert_equal false, repo.current?(b)
+    assert_equal true, repo.current?(c)
+  end
+  
+  #
+  # tail? test
+  #
+  
+  def test_tail_check_returns_true_if_sha_has_no_links
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.link(a, b)
+    repo.link(b, c)
+    
+    assert_equal false, repo.tail?(a)
+    assert_equal false, repo.tail?(b)
+    assert_equal true, repo.tail?(c)
+  end
+  
+  #
+  # original test
+  #
+  
+  def test_original_returns_sha_if_sha_has_not_been_updated
+    a = repo.store
+    assert_equal a, repo.original(a)
+  end
+  
+  def test_original_returns_sha_for_the_head_of_an_update_chain
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.update(a, b)
+    repo.update(b, c)
+    
+    assert_equal a, repo.original(b)
+    assert_equal a, repo.original(c)
+  end
+  
+  #
+  # previous test
+  #
+  
+  def test_previous_returns_backreference_to_updated_sha
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.update(a, b)
+    repo.update(a, c)
+    repo.update(c, d)
+    
+    assert_equal nil, repo.previous(a)
+    assert_equal a, repo.previous(b)
+    assert_equal a, repo.previous(c)
+    assert_equal c, repo.previous(d)
+  end
+  
+  #
+  # updates test
+  #
+
+  def test_updates_returns_array_of_updates_to_sha
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.update(a, b)
+    repo.update(a, c)
+    repo.update(c, d)
+    
+    assert_equal [b, c].sort, repo.updates(a).sort
+    assert_equal [], repo.updates(b)
+    assert_equal [d], repo.updates(c)
+    assert_equal [], repo.updates(d)
+  end
+  
+  #
+  # current test
+  #
+
+  def test_current_returns_array_of_current_revisions
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.update(a, b)
+    repo.update(a, c)
+    repo.update(c, d)
+    
+    assert_equal [b, d].sort, repo.current(a).sort
+    assert_equal [b], repo.current(b)
+    assert_equal [d], repo.current(c)
+    assert_equal [d], repo.current(d)
+  end
+
+  #
+  # links test
+  #
+
+  def test_links_returns_array_of_linked_shas
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.link(a, b)
+    repo.link(a, c)
+
+    assert_equal [b, c].sort, repo.links(a).sort
+    assert_equal [], repo.links(b)
+  end
+  
+  def test_links_does_not_return_updates
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.link(a, b)
+    repo.update(a, c)
+    
+    assert_equal [b], repo.links(a)
+  end
+  
+  def test_links_concats_links_of_previous_for_update
+    a, b, c, x, y, z = create_nodes('a', 'b', 'c', 'x', 'y', 'z')
+    repo.update(a, b)
+    repo.update(b, c)
+    repo.link(a, x)
+    repo.link(b, y)
+    repo.link(c, z)
+    
+    assert_equal [x], repo.links(a)
+    assert_equal [x, y].sort, repo.links(b).sort
+    assert_equal [x, y, z].sort, repo.links(c).sort
+  end
+  
+  #
+  # each_link test
+  #
+  
+  def test_each_link_yields_each_forward_linkage_with_flag_for_update
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.link(a, b)
+    repo.link(a, c)
+    repo.update(a, d)
+    
+    updates = []
+    links = []
+    repo.each_link(a) do |sha, update|
+      (update ? updates : links) << sha
+    end
+    
+    assert_equal [b, c].sort, links.sort
+    assert_equal [d], updates.sort
+  end
+
   #
   # each test
   #
   
   def test_each_yields_each_doc_to_the_block_reverse_ordered_by_date
-    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
-    b = repo.create("d", 'date' => Time.utc(2009, 9, 10))
-    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
-    
-    repo.commit("added docs")
+    a = repo.store({'content' => 'a'}, Time.utc(2009, 9, 11))
+    b = repo.store({'content' => 'b'}, Time.utc(2009, 9, 10))
+    c = repo.store({'content' => 'c'}, Time.utc(2009, 9, 9))
     
     results = []
-    repo.each {|doc| results << doc }
+    repo.each {|sha| results << sha }
     assert_equal [a, b, c], results
   end
   
-  def test_each_does_not_yield_doc_like_entries_in_repo
-    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
-    b = repo.create("d", 'date' => Time.utc(2009, 9, 10))
-    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
+  def test_each_does_not_yield_non_doc_entries_in_repo
+    a = repo.store({'content' => 'a'}, Time.utc(2009, 9, 11))
+    b = repo.store({'content' => 'b'}, Time.utc(2009, 9, 10))
+    c = repo.store({'content' => 'c'}, Time.utc(2009, 9, 9))
     
-    repo.add(
+    git.add(
       "year/mmdd" => "skipped",
       "00/0000" => "skipped",
       "0000/00" => "skipped"
     )
-    repo.commit("added docs and other files")
     
     results = []
-    repo.each {|doc| results << doc }
+    repo.each {|sha| results << sha }
     assert_equal [a, b, c], results
   end
   
@@ -883,370 +510,93 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_timeline_returns_the_most_recently_added_docs
-    a = repo.create("a", 'date' => Time.utc(2009, 9, 11))
-    d = repo.create("d", 'date' => Time.utc(2009, 9, 10))
-    c = repo.create("c", 'date' => Time.utc(2009, 9, 9))
+    a = repo.store({'content' => 'a'}, Time.utc(2009, 9, 11))
+    d = repo.store({'content' => 'd'}, Time.utc(2009, 9, 10))
+    c = repo.store({'content' => 'c'}, Time.utc(2009, 9, 9))
     
-    b = repo.create("b", 'date' => Time.utc(2008, 9, 10))
-    e = repo.create("e", 'date' => Time.utc(2008, 9, 9))
-    
-    repo.commit("added docs")
+    b = repo.store({'content' => 'b'}, Time.utc(2008, 9, 10))
+    e = repo.store({'content' => 'e'}, Time.utc(2008, 9, 9))
     
     assert_equal [a, d, c, b, e], repo.timeline
     assert_equal [ d, c, b], repo.timeline(:n => 3, :offset => 1)
   end
 
   #
-  # link test
+  # diff test
   #
-
-  def test_link_links_the_parent_sha_to_the_empty_sha_by_child
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-
-    repo.link(a, b).commit("linked a file")
-    assert_equal "", repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
+  
+  def test_diff_returns_shas_added_from_a_to_b
+    one = repo.store('content' => 'one')
+    a = git.commit!('added one')
+    
+    two = repo.store('content' => 'two')
+    b = git.commit!('added two')
+    
+    three = repo.store('content' => 'three')
+    c = git.commit!('added three')
+    
+    assert_equal [two, three].sort, repo.diff(a, c).sort
+    assert_equal [], repo.diff(c, a)
+    
+    assert_equal [three].sort, repo.diff(b, c)
+    assert_equal [], repo.diff(c, b)
+    
+    assert_equal [], repo.diff(a, a)
+    assert_equal [], repo.diff(c, c)
   end
-
-  def test_link_links_to_ref_if_specified
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-    c = repo.set("blob", "c")
-
-    repo.link(a, b, :ref => c).commit("linked a file")
-    assert_equal c, repo["#{a[0,2]}/#{a[2,38]}/#{b}"]
-  end
-
-  def test_link_nests_link_under_dir_if_specified
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-
-    repo.link(a, b, :dir => "path/to/dir").commit("linked a file")
-    assert_equal "", repo["path/to/dir/#{a[0,2]}/#{a[2,38]}/#{b}"]
+  
+  def test_diff_treats_nil_as_prior_to_initial_commit
+    one = repo.store('content' => 'one')
+    a = git.commit!('added one')
+    
+    assert_equal [one], repo.diff(nil, a)
+    assert_equal [], repo.diff(a, nil)
   end
   
   #
-  # reference test
+  # status test
   #
-
-  def test_reference_returns_the_ref_attribute_in_a_link
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-    c = repo.set("blob", "c")
-
-    repo.link(a, b, :ref => c).commit("linked a file")
-    assert_equal c, repo.reference(a, b)
-
-    repo.link(a, c).commit("linked a file")
-    assert_equal "", repo.reference(a, c)
-  end
-
-  def test_reference_works_with_link_options
-    a = repo.set("blob", "a")
-    b = repo.set("blob", "b")
-    c = repo.set("blob", "c")
-
-    repo.link(a, b, :ref => c, :dir => "path/to/dir").commit("linked a file")
-    assert_equal c, repo.reference(a, b, :dir => "path/to/dir")
-
-    repo.link(a, c, :dir => "path/to/dir").commit("linked a file")
-    assert_equal "", repo.reference(a, c, :dir => "path/to/dir")
-  end
-
-  #
-  # parents test
-  #
-
-  def test_parents_returns_array_of_parents_linking_to_child
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, c).link(b, c).commit("created links")
-
-    assert_equal [a, b].sort, repo.parents(c).sort
-    assert_equal [], repo.parents(b)
-  end
-
-  def test_parents_only_searches_trees_in_the_ab_xyz_format
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, c)
-    repo.add("abc/#{b[2,38]}/#{c}" => "not ab")
-    repo.add("#{b[0,2]}/xy/#{c}" => "not xyx")
-    repo.commit("created links and skipped 'links'")
-
-    assert_equal [a], repo.parents(c)
-    assert_equal [a[0,2], "abc", b[0,2]].sort, repo["/"].sort
-  end
-
-  def test_parents_returns_array_of_parents_linking_to_child_under_dir_if_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, c, :dir => "one").link(b, c, :dir => "two").commit("created links")
-
-    assert_equal [a], repo.parents(c, :dir => "one")
-    assert_equal [b], repo.parents(c, :dir => "two")
-  end
-
-  #
-  # children test
-  #
-
-  def test_children_returns_array_of_linked_children
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b).link(a, c).commit("created links")
-
-    assert_equal [b, c].sort, repo.children(a).sort
-    assert_equal [], repo.children(b)
-  end
-
-  def test_children_returns_array_of_linked_children_under_dir_if_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b, :dir => "one").link(a, c, :dir => "two").commit("created links")
-
-    assert_equal [b], repo.children(a, :dir => "one")
-    assert_equal [c], repo.children(a, :dir => "two")
-  end
-
-  def test_children_returns_a_hash_of_children_if_recursive_is_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b).link(b, c).commit("created recursive links")
-
-    assert_equal [b], repo.children(a)
-    assert_equal({a => [b], b => [c], c => []}, repo.children(a, :recursive => true))
-  end
-
-  def test_recursive_children_detects_circular_linkage
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
-
-    err = assert_raises(RuntimeError) { repo.children(a, :recursive => true) }
-    assert_equal %Q{circular link detected:
-  #{a}
-  #{b}
-  #{c}
-  #{a}
-}, err.message
-  end
-
-  def test_recursive_children_allows_two_threads_to_link_the_same_commit
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    d = repo.set("blob", "D")
-
+  
+  def test_status_returns_formatted_lines_of_status
+    assert_equal '', repo.status
+    
+    a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
-    repo.link(b, d)
-
-    repo.link(a, c)
-    repo.link(c, d)
-
-    repo.commit("linked to the same commit on two threads")
-
-    result = repo.children(a, :recursive => true)
-    result.each_value {|value| value.sort! }
-    assert_equal({
-      a => [b, c].sort,
-      b => [d],
-      c => [d],
-      d => []
-    }, result)
+    repo.update(b, c)
+    
+    assert_equal [
+      "+ doc    #{a}",
+      "+ doc    #{b}",
+      "+ doc    #{c}",
+      "+ link   #{a} to  #{b}",
+      "+ update #{c} was #{b}"
+    ].sort, repo.status.split("\n")
   end
-
-  #
-  # unlink test
-  #
-
-  def test_unlink_removes_the_parent_child_linkage
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b).link(b, c).commit("created recursive links")
-
-    assert_equal [b], repo.children(a)
-    assert_equal [c], repo.children(b)
-
-    repo.unlink(a, b).commit("unlinked a, b")
-
-    assert_equal [], repo.children(a)
-    assert_equal [c], repo.children(b)
-  end
-
-  def test_unlink_reursively_removes_children_if_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b).link(b, c).commit("created recursive links")
-
-    assert_equal [b], repo.children(a)
-    assert_equal [c], repo.children(b)
-
-    repo.unlink(a, b, :recursive => true).commit("recursively unlinked a, b")
-
-    assert_equal [], repo.children(a)
-    assert_equal [], repo.children(b)
-  end
-
-  def test_unlink_removes_children_under_dir_if_specified
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-    d = repo.set("blob", "C")
-    e = repo.set("blob", "C")
-
-    repo.link(a, b, :dir => "one").link(b, c, :dir => "one")
-    repo.link(a, d, :dir => "two").link(d, e, :dir => "two")
-
-    repo.commit("created recursive links under dir")
-
-    assert_equal [b], repo.children(a, :dir => "one")
-    assert_equal [c], repo.children(b, :dir => "one")
-    assert_equal [d], repo.children(a, :dir => "two")
-    assert_equal [e], repo.children(d, :dir => "two")
-
-    repo.unlink(a, d, :dir => "two", :recursive => true).commit("recursively unlinked a under dir")
-
-    assert_equal [b], repo.children(a, :dir => "one")
-    assert_equal [c], repo.children(b, :dir => "one")
-    assert_equal [], repo.children(a, :dir => "two")
-    assert_equal [], repo.children(d, :dir => "two")
-  end
-
-  def test_unlink_quietly_does_nothing_for_unlinked_or_missing_parent_or_child
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b).link(a, c).commit("created recursive links")
-
-    assert_equal [b, c].sort, repo.children(a).sort
-    assert_equal [], repo.children(b)
-    assert_equal [a], repo.parents(c)
-
-    repo.unlink(b, c)
-    repo.unlink(nil, c)
-    repo.unlink(b, nil)
-
-    assert_equal [b, c].sort, repo.children(a).sort
-    assert_equal [], repo.children(b)
-    assert_equal [a], repo.parents(c)
-  end
-
-  def test_recursive_unlink_removes_circular_linkages
-    a = repo.set("blob", "A")
-    b = repo.set("blob", "B")
-    c = repo.set("blob", "C")
-
-    repo.link(a, b).link(b, c).link(c, a).commit("created a circular linkage")
-
-    err = assert_raises(RuntimeError) { repo.children(a, :recursive => true) }
-    repo.unlink(a, b, :recursive => true).commit("unlinked links")
-
-    assert_equal [], repo.children(a)
-    assert_equal [], repo.children(b)
-    assert_equal [], repo.children(c)
+  
+  def test_status_converts_shas_as_determined_by_block
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.link(a, b)
+    repo.update(b, c)
+    
+    actual = repo.status {|sha| sha[0,8] }
+    assert_equal [
+      "+ doc    #{a[0,8]}",
+      "+ doc    #{b[0,8]}",
+      "+ doc    #{c[0,8]}",
+      "+ link   #{a[0,8]} to  #{b[0,8]}",
+      "+ update #{c[0,8]} was #{b[0,8]}"
+    ].sort, actual.split("\n")
   end
   
   #
-  # reindex? test
+  # commit test
   #
   
-  def test_reindex_returns_false_when_head_is_nil
-    assert_equal nil, repo.head
-    assert_equal nil, repo.index.head
-    assert_equal false, repo.reindex?
-  end
-  
-  def test_reindex_returns_true_when_index_head_is_nil
-    repo['a'] = "A"
-    repo.commit("added a blob")
-    repo.index.clear
+  def test_commit_commits_with_status_by_default
+    a, b = create_nodes('a', 'b')
+    status = repo.status
+    sha = repo.commit
     
-    assert_equal nil, repo.index.head
-    assert_equal true, repo.reindex?
-  end
-  
-  def test_reindex_returns_true_when_head_is_not_in_rev_list_for_index_head
-    repo['a'] = "A"
-    repo.commit("added a blob")
-    repo.index.write("someothersha")
-    
-    assert repo.index.head != repo.head
-    assert_equal true, repo.reindex?
-  end
-  
-  def test_reindex_returns_false_when_index_head_is_the_same_as_head
-    repo['a'] = "A"
-    repo.commit("added a blob")
-    
-    assert_equal repo.index.head, repo.head
-    assert_equal false, repo.reindex?
-  end
-  
-  def test_reindex_returns_false_when_head_is_in_rev_list_for_index_head
-    repo['a'] = "A"
-    a = repo.commit("added a blob")
-    repo['b'] = "B"
-    b = repo.commit("added a blob")
-    
-    repo.checkout(a)
-    assert repo.rev_list(repo.index.head).include?(repo.head)
-    assert_equal false, repo.reindex?
-  end
-  
-  #
-  # reindex test
-  #
-  
-  def test_reindex_updates_index_head_to_head
-    repo['a'] = "A"
-    repo.commit("added a blob")
-    repo.index.clear
-    
-    assert_equal nil, repo.index.head
-    repo.reindex
-    assert_equal repo.head, repo.index.head
-  end
-  
-  def test_reindex_does_not_update_index_head_if_head_is_nil
-    assert_equal nil, repo.index.head
-    repo.reindex
-    assert_equal nil, repo.index.head
-  end
-  
-  #
-  # integrity tests
-  #
-  
-  def test_repo_is_ok_after_create_link_and_commit
-    @repo = Repo.init(method_root[:tmp])
-    
-    a = repo.create("new content a")
-    b = repo.create("new content b")
-    c = repo.create("new content c")
-    
-    repo.link(a,b).link(b,c)
-    repo.commit("new commit")
-    
-    assert_equal "notice: HEAD points to an unborn branch (master)\n", repo.fsck
+    assert_equal status, git.get(:commit, sha).message
   end
 end
