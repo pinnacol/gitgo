@@ -22,3 +22,8 @@ dl[active=false], a[active='false'], li[active=false] a {
 dl[active=''], a[active=''], li[active=''] a {
   color: gray;
 }
+
+.doc, .doc>ul, .doc>canvas {
+  float: left;
+}
+

@@ -1,17 +1,22 @@
 var Gitgo = {};
 
 Gitgo.Graph = {
-  draw: function(canvas, list) {
-    var list = $(list);
-    var canvas = $(canvas);
+  draw: function(doc) {
+    var doc = $(doc).prepend('<canvas><p>Your browser doesn\'t support canvas.</p></canvas>');
+    this.refresh(doc);
+  },
+  
+  refresh: function(doc) {
+    var list = doc.find(">ul");
+    var canvas = doc.find(">canvas");
     var context = canvas.get(0).getContext('2d');
     
     var graph  = this;
     var attrs  = graph.attrs(canvas);
-    var offset = graph.offset(list, attrs);
+    var offset = graph.offset(doc, list, attrs);
     
     var nodes = []
-    $(list).find('li').each(function(item) {
+    list.find('>li').each(function(item) {
       var node = graph.node($(this));
       
       node.top    -= offset.top;
@@ -22,8 +27,8 @@ Gitgo.Graph = {
       offset.each(node.current);
       offset.each(node.transitions);
       
-      if (offset.width < node.x) {
-        offset.width = node.x;
+      if (offset.width <= node.x) {
+        offset.width = node.x + offset.x;
       };
       
       nodes.push(node);
@@ -37,7 +42,7 @@ Gitgo.Graph = {
     context.strokeStyle = attrs.color;
     $.each(nodes, function(i, node) {
       // draw node
-      context.fillRect(node.x, node.top, attrs.radius, attrs.radius);
+      context.fillRect(node.x - offset.x, node.top - offset.y, attrs.radius * 2, attrs.radius * 2);
       
       // draw verticals for current slots
       $.each(node.current, function(j, x) {
@@ -60,14 +65,15 @@ Gitgo.Graph = {
       // indent the item
       node.item.css('margin-left', node.x);
     });
+    
+    return canvas;
   },
   
   attrs: function(canvas) {
     var attrs = {
-      radius: 5,
       width: 10,
-      color: 'black',
-      padding_top: 20
+      radius: 3,
+      color: 'black'
     };
     return attrs;
   },
@@ -75,14 +81,14 @@ Gitgo.Graph = {
   // Returns a function to calculate and memoize the x offset for slots by slot
   // number. Additionally carries a 'top' attribute indicating the vertical
   // offset for all items in the list.
-  offset: function(list, attrs) {
+  offset: function(doc, list, attrs) {
     var width = parseInt(list.attr('width') || attrs.width);
     var memo = [];
     
     var offset = function(x) {
       var pos = memo[x];
       if (typeof pos !== 'number') {
-        pos = x * width;
+        pos = x * width + attrs.radius;
         memo[x] = pos;
       }
       return pos;
@@ -94,9 +100,11 @@ Gitgo.Graph = {
       };
     };
     
-    offset.top    = list.offset().top - attrs.padding_top;
-    offset.height = list.height();
-    offset.width  = offset(0);
+    offset.top    = list.position().top + attrs.radius;
+    offset.height = list.height() + 2 * attrs.radius;
+    offset.width  = 0;
+    offset.x = attrs.radius;
+    offset.y = attrs.radius;
     
     return offset;
   },
@@ -105,7 +113,7 @@ Gitgo.Graph = {
   // specified list item.
   node: function(item) {
     var top    = item.offset().top;
-    var height = item.outerHeight();
+    var height = item.outerHeight(true);
     var data   = item.attr('graph').split(':', 4);
     
     var parseIntArray = function (string) {
