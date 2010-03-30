@@ -140,7 +140,7 @@ class CodeControllerTest < Test::Unit::TestCase
   end
 
   def test_get_commit_greps_commits
-    if repo.git.version_ok?
+    if Gitgo::Git.version_ok?
       get('/commit', :grep => 'added')
       assert last_response.body.include?('added files x, y, and z')
       assert !last_response.body.include?('removed files a, b, and c')

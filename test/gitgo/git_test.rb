@@ -3,12 +3,6 @@ require 'gitgo/git'
 
 class GitTest < Test::Unit::TestCase
   include RepoTestHelper
-  acts_as_subset_test
-  condition(:git_version_ok) do
-    version = `git --version`.split(/\s/).last.split(".").collect {|i| i.to_i}
-    ((Gitgo::Git::GIT_VERSION <=> version) <= 0)
-  end
-  
   Git = Gitgo::Git
   
   attr_writer :git
@@ -80,6 +74,38 @@ class GitTest < Test::Unit::TestCase
       "lib/project/utils.rb" => :add
     }
     assert_equal expected, git.status
+  end
+  
+  #
+  # version test
+  #
+  
+  def version_ok?(required, actual)
+    (required <=> actual) <= 0
+  end
+  
+  def test_version_ok
+    # equal
+    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2])
+    
+    # last slot
+    assert_equal true, version_ok?([1,6,4,2], [1,6,4,3])
+    assert_equal false, version_ok?([1,6,4,2], [1,6,4,1])
+    
+    # middle slot
+    assert_equal true, version_ok?([1,6,4,2], [1,7,4,2])
+    assert_equal false, version_ok?([1,6,4,2], [1,5,4,2])
+    
+    # unequal slots
+    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2,1])
+    assert_equal false, version_ok?([1,6,4,2], [1,6])
+    assert_equal true, version_ok?([1,6,4,2], [1,7])
+  end
+  
+  def test_version_returns_an_array_of_integers
+    version = Git.version
+    assert_equal Array, version.class
+    assert_equal true, version.all? {|item| item.kind_of?(Integer) }
   end
   
   #
@@ -185,44 +211,6 @@ class GitTest < Test::Unit::TestCase
     
     git.grit.config['branch.master.remote'] = 'alt'
     assert_equal 'alt', git.remote
-  end
-  
-  #
-  # version test
-  #
-  
-  def version_ok?(required, actual)
-    (required <=> actual) <= 0
-  end
-  
-  def test_version_documentation
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2])
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,3])
-    assert_equal false, version_ok?([1,6,4,2], [1,6,4,1])
-  end
-  
-  def test_version_ok
-    # equal
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2])
-    
-    # last slot
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,3])
-    assert_equal false, version_ok?([1,6,4,2], [1,6,4,1])
-    
-    # middle slot
-    assert_equal true, version_ok?([1,6,4,2], [1,7,4,2])
-    assert_equal false, version_ok?([1,6,4,2], [1,5,4,2])
-    
-    # unequal slots
-    assert_equal true, version_ok?([1,6,4,2], [1,6,4,2,1])
-    assert_equal false, version_ok?([1,6,4,2], [1,6])
-    assert_equal true, version_ok?([1,6,4,2], [1,7])
-  end
-  
-  def test_version_returns_an_array_of_integers
-    version = git.version
-    assert_equal Array, version.class
-    assert_equal true, version.all? {|item| item.kind_of?(Integer) }
   end
   
   #
@@ -820,7 +808,7 @@ class GitTest < Test::Unit::TestCase
   #
   
   def test_commit_grep_yields_commit_for_commits_matching_pattern
-    condition_test(:git_version_ok) do
+    if Gitgo::Git.version_ok?
       git['a'] = 'A'
       a = git.commit!("created one")
     

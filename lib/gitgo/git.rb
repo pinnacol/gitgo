@@ -170,6 +170,18 @@ module Gitgo
           Grit.debug = current_debug
         end
       end
+      
+      # Returns the git version as an array of integers like [1,6,4,2]. The
+      # version query performed once and then cached.
+      def version
+        @version ||= `git --version`.split(/\s/).last.split(".").collect {|i| i.to_i}
+      end
+
+      # Checks if the git version is compatible with GIT_VERSION.  This check is
+      # performed once and then cached.
+      def version_ok?
+        @version_ok ||= ((GIT_VERSION <=> version) <= 0)
+      end
     end
     include Enumerable
     include Utils
@@ -391,28 +403,6 @@ module Gitgo
     
     def remote
       grit.config["branch.#{branch}.remote"] || 'origin'
-    end
-    
-    # Returns the git version as an array of integers like [1,6,4,2]. The
-    # version array is intended to be compared with other versions in this
-    # way:
-    #
-    #   def version_ok?(required, actual)
-    #     (required <=> actual) <= 0
-    #   end
-    #
-    #   version_ok?([1,6,4,2], [1,6,4,2])     # => true
-    #   version_ok?([1,6,4,2], [1,6,4,3])     # => true
-    #   version_ok?([1,6,4,2], [1,6,4,1])    # => false
-    #
-    def version
-      grit.git.version.split(/\s/).last.split(".").collect {|i| i.to_i}
-    end
-    
-    # Checks if the git version is compatible with GIT_VERSION.  This check is
-    # performed once and then cached.
-    def version_ok?
-      @version_ok ||= ((GIT_VERSION <=> version) <= 0)
     end
     
     #########################################################################
