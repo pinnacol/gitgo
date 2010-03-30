@@ -150,7 +150,7 @@ desc 'Default: Run tests.'
 task :default => :test
 
 desc 'Run the tests'
-task :test => ['test:gitgo', 'test:data_model']
+task :test => ['test:gitgo', 'test:model']
 
 desc 'Run the cc tests'
 task :cc => :test
