@@ -626,13 +626,35 @@ class GitTest < Test::Unit::TestCase
   
   def test_pull_fast_fowards_when_possible
     a = Git.init(method_root.path("a"))
-    a.add("a" => "a content").commit("added a file")
+    a.add("one" => "One").commit("added one")
     
     b = a.clone(method_root.path("b"))
-    a.add("a" => "A content").commit("updated file")
+    a.add("two" => "Two").commit("added two")
     
     b.pull
     assert_equal a.head, b.head
+  end
+  
+  def test_pull_merges_changes
+    a = Git.init(method_root.path("a"))
+    a.add("one" => "One").commit("added one")
+    
+    b = a.clone(method_root.path("b"))
+    a_head = a.add("two" => "Two").commit("added two")
+    b_head = b.add("three" => "Three").commit("added three")
+    
+    b.pull
+    commit = b.get(:commit, b.head)
+    assert_equal "gitgo merge of origin/gitgo into gitgo", commit.message
+    assert_equal [a_head, b_head].sort, commit.parents.collect {|c| c.id }.sort
+    
+    assert_equal "One", a["one"]
+    assert_equal "Two", a["two"]
+    assert_equal nil, a["three"]
+    
+    assert_equal "One", b["one"]
+    assert_equal "Two", b["two"]
+    assert_equal "Three", b["three"]
   end
   
   def test_pull_does_nothing_unless_necessary
