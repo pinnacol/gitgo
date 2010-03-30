@@ -25,7 +25,7 @@ module Gitgo
   #
   #   git.rm("remove_this_file")
   #   git.commit("removed extra file")
-  #                                    
+  #                                       
   # Now access the content:
   #
   #   git["/"]                          # => ["README", "lib"]
@@ -114,22 +114,31 @@ module Gitgo
   # current branch can be directly manipulated by the git program.
   #
   # Unlike git (the program), Git (the class) requires the upstream branch
-  # setup by 'git branch --track' to be an existing tracking branch.  If this
-  # assumption is met, then:
+  # setup by 'git branch --track' to be an existing tracking branch.  As an
+  # example, if you were to setup this:
+  #
+  #   % git branch --track remote/branch
+  #
+  # Or equivalently this:
+  #
+  #   git = Git.init
+  #   git.track "remote/branch"
+  #
+  # Then Git would assume: 
   #
   # * the upstream branch is 'remote/branch'
   # * the tracking branch is 'remotes/remote/branch'
   # * the 'branch.name.remote' config is 'remote'
   # * the 'branch.name.merge' config is 'refs/heads/branch'
-  #                     
+  #                        
   # If ever these assumptions are broken, for instance if the gitgo branch is
-  # manually set up to track another local branch, methods like pull/push
-  # could cause odd failures.  To help check:
-  #      
+  # manually set up to track a local branch, methods like pull/push could
+  # cause odd failures.  To help check:
+  #         
   # * track will raise an error if the upstream branch is not a tracking
   #   branch
   # * upstream_branch raises an error if the 'branch.name.merge' config
-  # doesn't follow the 'ref/heads/branch' pattern
+  #   doesn't follow the 'ref/heads/branch' pattern
   # * pull/push raise an error given a non-tracking branch
   #
   # Under normal circumstances, all these assumptions will be met.
@@ -183,6 +192,7 @@ module Gitgo
         @version_ok ||= ((GIT_VERSION <=> version) <= 0)
       end
     end
+    
     include Enumerable
     include Utils
     
@@ -204,7 +214,7 @@ module Gitgo
     # A regexp matching a valid sha sum
     SHA  = /\A[A-Fa-f\d]{40}\z/
     
-    # The minimum required version of git
+    # The minimum required version of git (see Git.version_ok?)
     GIT_VERSION = [1,6,4,2]
 
     # The internal Grit::Repo
@@ -369,7 +379,7 @@ module Gitgo
     # requriement is not met (see the Tracking, Push/Pull notes above).
     def track(upstream_branch)
       if upstream_branch.nil?
-        # current grit.config does not support unsetting
+        # currently grit.config does not support unsetting (grit-2.0.0)
         grit.git.config({:unset => true}, "branch.#{branch}.remote")
         grit.git.config({:unset => true}, "branch.#{branch}.merge")
       else
@@ -383,8 +393,9 @@ module Gitgo
       end
     end
     
-    # Raises an error if the 'branch.name.merge' config doesn't follow the
-    # pattern 'ref/heads/branch' (see the Tracking, Push/Pull notes above).
+    # Returns the upstream_branch as setup by track.  Raises an error if the
+    # 'branch.name.merge' config doesn't follow the pattern 'ref/heads/branch'
+    # (see the Tracking, Push/Pull notes above).
     def upstream_branch
       remote = grit.config["branch.#{branch}.remote"]
       merge  = grit.config["branch.#{branch}.merge"]
@@ -401,6 +412,8 @@ module Gitgo
       "#{remote}/#{$1}"
     end
     
+    # Returns the remote as setup by track, or origin if tracking has not been
+    # setup.
     def remote
       grit.config["branch.#{branch}.remote"] || 'origin'
     end
@@ -446,8 +459,8 @@ module Gitgo
     end
     
     # Same as commit but does not check if there are changes to commit, useful
-    # when you know there are changes to commit and don't want unnecessary
-    # overhead.
+    # when you know there are changes to commit and don't want the overhead of
+    # checking for changes.
     def commit!(message, options={})
       now = Time.now
       
@@ -526,12 +539,13 @@ module Gitgo
       diff
     end
 
-    # Sets the current branch and updates tree.  Checkout does not actually
-    # checkout any files unless a block is given.  In that case, the current
-    # branch will be checked out for the duration of the block into work_tree;
-    # a gitgo-specific directory distinct from the user's working directory. 
-    # Checkout with a block permits the execution of git commands that must be
-    # performed in a working directory.
+    # Sets the current branch and updates tree.
+    #  
+    # Checkout does not actually checkout any files unless a block is given. 
+    # In that case, the current branch will be checked out for the duration of
+    # the block into work_tree; a gitgo-specific directory distinct from the
+    # user's working directory. Checkout with a block permits the execution of
+    # git commands that must be performed in a working directory.
     #
     # Returns self.
     def checkout(branch=self.branch) # :yields: working_dir
@@ -689,6 +703,8 @@ module Gitgo
       sandbox {|git,w,i| git.run('', :rev_list, '', {}, treeishs).split("\n") }
     end
     
+    # Retuns an array of added, deleted, and modified files keyed by 'A', 'D',
+    # and 'M' respectively.
     def diff_tree(a, b="^#{a}")
       sandbox do |git,w,i|
         output = git.run('', :diff_tree, '', {:r => true, :name_status => true}, [a, b])
@@ -704,20 +720,25 @@ module Gitgo
       end
     end
     
+    # Returns an array of paths at the specified treeish.
     def ls_tree(treeish)
       sandbox do |git,w,i|
         git.run('', :ls_tree, '', {:r => true, :name_only => true}, [treeish]).split("\n")
       end
     end
     
-    # Options:
+    # Greps for paths matching the pattern, at the specified treeish.  Each
+    # matching path and blob are yielded to the block.
+    #
+    # Instead of a pattern, a hash of grep options may be provided.  The
+    # following options are allowed:
     #
     #   :ignore_case
     #   :invert_match
     #   :fixed_strings
     #   :e
     #
-    def grep(pattern, treeish=grit.head.commit)
+    def grep(pattern, treeish=head) # :yields: path, blob
       options = pattern.respond_to?(:merge) ? pattern.dup : {:e => pattern}
       options.delete_if {|key, value| nil_or_empty?(value) }
       options = options.merge!(
@@ -739,7 +760,18 @@ module Gitgo
       self
     end
     
-    def tree_grep(pattern, treeish=grit.head.commit)
+    # Greps for trees matching the pattern, at the specified treeish.  Each
+    # matching path and tree are yielded to the block.
+    #
+    # Instead of a pattern, a hash of grep options may be provided.  The
+    # following options are allowed:
+    #
+    #   :ignore_case
+    #   :invert_match
+    #   :fixed_strings
+    #   :e
+    #
+    def tree_grep(pattern, treeish=head) # :yields: path, tree
       options = pattern.respond_to?(:merge) ? pattern.dup : {:e => pattern}
       options.delete_if {|key, value| nil_or_empty?(value) }
       
@@ -761,7 +793,11 @@ module Gitgo
       self
     end
     
-    def commit_grep(pattern, treeish=grit.head.commit)
+    # Greps for commits with messages matching the pattern, starting at the
+    # specified treeish.  Each matching commit yielded to the block.
+    #
+    # Instead of a pattern, a hash of git-log options may be provided.
+    def commit_grep(pattern, treeish=head) # :yields: commit
       options = pattern.respond_to?(:merge) ? pattern.dup : {:grep => pattern}
       options.delete_if {|key, value| nil_or_empty?(value) }
       options[:format] = "%H"
@@ -810,7 +846,22 @@ module Gitgo
       end
     end
     
-    def sandbox
+    # Creates and sets a work tree and index file so that git will have an
+    # environment it can work in.  Specifically sandbox creates an empty
+    # work_tree and index_file, the sets these ENV variables:
+    #
+    #  GIT_DIR:: set to the repo path
+    #  GIT_WORK_TREE:: work_tree,
+    #  GIT_INDEX_FILE:: index_file
+    #
+    # Once these are set, sandbox yields grit.git, the work_tree, and
+    # index_file to the block. After the block returns, the work_tree and
+    # index_file are removed.  Nested calls to sandbox will reuse the previous
+    # sandbox and yield immediately to the block.
+    #
+    # Note that no content is checked out into work_tree or index_file by this
+    # method; that must be done as needed within the block.
+    def sandbox # :yields: git, work_tree, index_file
       if @sandbox
         return yield(grit.git, work_tree, index_file)
       end
