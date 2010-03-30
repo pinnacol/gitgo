@@ -158,7 +158,7 @@ class CodeControllerTest < Test::Unit::TestCase
   # obj test
   #
 
-  def test_get_obj_shows_object_and_comments
+  def test_get_obj_shows_object
     # blob
     get('/obj/c9036dc2e34776218519a95470bd1dce1b47ac9a')
     assert last_response.body.include?('c9036dc2e34776218519a95470bd1dce1b47ac9a')
@@ -176,9 +176,9 @@ class CodeControllerTest < Test::Unit::TestCase
     assert last_response.body.include?('added files x, y, and z')
 
     # tag
-    get('/obj/d0ad2534e98f0a2b9573af0355d7371468eb77f1')
-    assert last_response.body.include?('449b5502e8dc49264d862b4fc0c01ba115fc9f82') # commit id
-    assert last_response.body.include?('tag of project with one, two, three only')
+    # get('/obj/d0ad2534e98f0a2b9573af0355d7371468eb77f1')
+    # assert last_response.body.include?('449b5502e8dc49264d862b4fc0c01ba115fc9f82') # commit id
+    # assert last_response.body.include?('tag of project with one, two, three only')
   end
   
   def test_get_rev_parses_id
