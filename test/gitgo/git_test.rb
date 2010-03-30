@@ -3,6 +3,12 @@ require 'gitgo/git'
 
 class GitTest < Test::Unit::TestCase
   include RepoTestHelper
+  acts_as_subset_test
+  condition(:git_version_ok) do
+    version = `git --version`.split(/\s/).last.split(".").collect {|i| i.to_i}
+    ((Gitgo::Git::GIT_VERSION <=> version) <= 0)
+  end
+  
   Git = Gitgo::Git
   
   attr_writer :git
@@ -446,7 +452,7 @@ class GitTest < Test::Unit::TestCase
     assert_equal true, File.exists?(a.path("FETCH_HEAD"))
     
     remotes = a.grit.remotes.collect {|remote| remote.name }
-    assert_equal ['simple/caps', 'simple/diff', 'simple/master', 'simple/xyz'], remotes
+    assert_equal ['simple/caps', 'simple/diff', 'simple/master', 'simple/xyz'].sort, remotes.sort
   end
   
   #
@@ -814,22 +820,24 @@ class GitTest < Test::Unit::TestCase
   #
   
   def test_commit_grep_yields_commit_for_commits_matching_pattern
-    git['a'] = 'A'
-    a = git.commit!("created one")
+    condition_test(:git_version_ok) do
+      git['a'] = 'A'
+      a = git.commit!("created one")
     
-    git['b'] = 'B'
-    b = git.commit!("created two")
+      git['b'] = 'B'
+      b = git.commit!("created two")
     
-    git['c'] = 'C'
-    c = git.commit!("created three")
+      git['c'] = 'C'
+      c = git.commit!("created three")
     
-    results = []
-    git.commit_grep("o", c) {|commit| results << commit.id }
-    assert_equal [a, b].sort, results.sort
+      results = []
+      git.commit_grep("o", c) {|commit| results << commit.id }
+      assert_equal [a, b].sort, results.sort
     
-    results = []
-    git.commit_grep("t[wh]", c) {|commit| results << commit.id }
-    assert_equal [b, c].sort, results.sort
+      results = []
+      git.commit_grep("t[wh]", c) {|commit| results << commit.id }
+      assert_equal [b, c].sort, results.sort
+    end
   end
   
   #
