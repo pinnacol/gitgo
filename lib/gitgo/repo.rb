@@ -358,16 +358,12 @@ module Gitgo
       self
     end
     
-    # Returns the sha for the linkage file between the parent and child, ie
-    # 'link_sha' in:
-    #
-    #   ab/xyz/sha (link_sha)
-    #
-    def linkage(parent, child)
-      links = git.tree.subtree(sha_path(parent))
+    # Returns the sha for the linkage file between the source and target.
+    def linkage(source, target)
+      links = git.tree.subtree(sha_path(source))
       return nil unless links
       
-      mode, sha = links[child]
+      mode, sha = links[target]
       sha
     end
     
@@ -389,7 +385,7 @@ module Gitgo
     
     ## Returns true if sha has an update link.
     def updated?(sha)
-      each_link(sha) do |link, update|
+      each_linkage(sha) do |link, update|
         return true if update
       end
       false
@@ -397,7 +393,7 @@ module Gitgo
     
     # Returns true if sha is current, ie it has no updates.
     def current?(sha)
-      each_link(sha) do |link, update|
+      each_linkage(sha) do |link, update|
         return false if update
       end
       true
@@ -405,24 +401,24 @@ module Gitgo
     
     # Returns true if sha has no links.
     def tail?(sha)
-      each_link(sha) do |link, update|
+      each_linkage(sha) do |link, update|
         return false unless update.nil?
       end
       true
     end
     
     # Returns an array of children linked to the parent.  The links will be
-    # appended to target, if specified.
-    def links(parent, target=[])
+    # appended to result, if specified.
+    def links(parent, result=[])
       if update?(parent)
-        links(previous(parent), target)
+        links(previous(parent), result)
       end
       
-      each_link(parent) do |link, update|
-        target << link unless update
+      each_linkage(parent) do |link, update|
+        result << link unless update
       end
       
-      target
+      result
     end
     
     # Returns the original old_sha that sha links to through updates.
@@ -436,31 +432,31 @@ module Gitgo
       linkage(sha, sha)
     end
     
-    # Returns an array of updates to sha.  The updates will be appended to
-    # target, if specified.
-    def updates(sha, target=[])
-      each_link(sha) do |link, update|
-        target << link if update
+    # Returns an array of updates to previous.  The updates will be appended
+    # to result, if specified.
+    def updates(previous, result=[])
+      each_linkage(previous) do |link, update|
+        result << link if update
       end
-      target
+      result
     end
     
     # Returns an array of current new_shas that are linked to sha via updates.
     # The shas will be appended to target, if specified.
-    def current(sha, target=[])
+    def current(sha, result=[])
       updated = false
-      each_link(sha) do |link, update|
+      each_linkage(sha) do |link, update|
         if update
-          current(link, target)
+          current(link, result)
           updated = true
         end
       end
       
       unless updated
-        target << sha
+        result << sha
       end
       
-      target
+      result
     end
     
     # Yield each linkage off of sha to the block, with a flag indicating
@@ -469,7 +465,7 @@ module Gitgo
     # Normally back references are excuded but they may be included if
     # specified. These will yield the back reference, ie the updated sha, and
     # nil as the second argument.
-    def each_link(sha, include_back_reference=false) # :yields: sha, update?
+    def each_linkage(sha, include_back_reference=false) # :yields: sha, update?
       return self if sha.nil?
       
       links = git.tree.subtree(sha_path(sha))

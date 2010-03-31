@@ -456,10 +456,10 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # each_link test
+  # each_linkage test
   #
   
-  def test_each_link_yields_each_forward_linkage_with_flag_for_update
+  def test_each_linkage_yields_each_forward_linkage_with_flag_for_update
     a, b, c, d = create_nodes('a', 'b', 'c', 'd')
     repo.link(a, b)
     repo.link(a, c)
@@ -467,7 +467,7 @@ class RepoTest < Test::Unit::TestCase
     
     updates = []
     links = []
-    repo.each_link(a) do |sha, update|
+    repo.each_linkage(a) do |sha, update|
       (update ? updates : links) << sha
     end
     

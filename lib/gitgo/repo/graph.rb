@@ -167,7 +167,7 @@ module Gitgo
         updates = []
         original = sha
         
-        repo.each_link(sha, true) do |link, update|
+        repo.each_linkage(sha, true) do |link, update|
           case update
           when false then links << link
           when true  then updates << link
