@@ -3,8 +3,22 @@ require 'shellwords'
 
 module Gitgo
   class Repo
+    
+    # A set of utility functions split out for ease of testing.
     module Utils
       module_function
+      
+      # Creates a nested sha path like: ab/xyz/paths
+      def sha_path(sha, *paths)
+        paths.unshift sha[2,38]
+        paths.unshift sha[0,2]
+        paths
+      end
+      
+      # Creates a date/sha path like: YYYY/MMDD/sha
+      def date_path(date, sha)
+        date.utc.strftime("%Y/%m%d/#{sha}")
+      end
       
       def state_str(state)
         case state
@@ -38,38 +52,6 @@ module Gitgo
         lines.collect! {|ary| format % ary }
         lines.sort!
         lines
-      end
-      
-      # Creates a nested sha path like:
-      #
-      #   ab/
-      #     xyz...
-      #
-      def sha_path(sha, *paths)
-        paths.unshift sha[2,38]
-        paths.unshift sha[0,2]
-        paths
-      end
-      
-      def date_path(date, sha)
-        date.utc.strftime("%Y/%m%d/#{sha}")
-      end
-    end
-    
-    # A module to replace the Hash#to_yaml function to serialize with sorted keys.
-    #
-    # From: http://snippets.dzone.com/posts/show/5811
-    # The original function is in: /usr/lib/ruby/1.8/yaml/rubytypes.rb
-    #
-    module SortedToYaml # :nodoc:
-      def to_yaml( opts = {} )
-        YAML::quick_emit( object_id, opts ) do |out|
-          out.map( taguri, to_yaml_style ) do |map|
-            sort.each do |k, v|
-              map.add( k, v )
-            end
-          end
-        end
       end
     end
   end

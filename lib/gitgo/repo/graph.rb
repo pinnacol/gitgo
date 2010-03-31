@@ -1,9 +1,16 @@
 module Gitgo
   class Repo
+    
+    # Graph performs the important and complicated task of creating and
+    # providing access to document graphs.  Graph uses signifant amounts of
+    # caching to make sure traversal of the document graph is quick.
     class Graph
       include Enumerable
       
+      # A back-reference to the repo where the documents are stored
       attr_reader :repo
+      
+      # The document graph origin.
       attr_reader :head
     
       def initialize(repo, head)
@@ -12,6 +19,7 @@ module Gitgo
         reset
       end
     
+      # Returns the sha found by following updates back to their origin.
       def original(sha)
         @original[sha] || collect_links(sha, :original)
       end

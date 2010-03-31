@@ -5,25 +5,137 @@ require 'gitgo/repo/graph'
 require 'gitgo/repo/utils'
 
 module Gitgo
-  # No merge conflict (a != b != c)
-  #          
-  #   A (link a -> b) {a => b()}
-  #   B (link a -> c) {a => c()}
-  #             
-  #   A (link a -> b)   {a => b()}
-  #   B (update a -> c) {a => c(a), c => c(a)}
-  #        
-  #   A (update a -> b) {a => b(a), b => b(a)}
-  #   B (update a -> c) {a => c(a), c => c(a)}
+  # Repo provides the low-level methods for storing and retrieving Gitgo
+  # documents from a git repository.  Repos consist primarily of a Git
+  # instance for adding documents to the repository, and an Index instance for
+  # storing document indexes.
   #
-  # Merge conflict if (a != b != c):
-  #          
-  #   A (link a -> b)   {a => b()}
-  #   B (update a -> b) {a => b(a), b => b(a)}
+  # Repos are designed to allow conflict-free merges across multiple users and
+  # to support the basic CRUD for document models, in as compact a format as
+  # possible. As a result, the internals require some explanation.
+  #
+  # == Terminology
+  #
+  # Gitgo documents are hashes of attributes that can be serialized as JSON.
+  # The Gitgo::Document model adds more structure to these hashes and enforces
+  # data validity, but insofar as Repo is concerned, a document is a
+  # serializable hash.
+  #
+  # Documents are linked into a document graph -- a directed acyclic graph
+  # (DAG) of documents that represent, for example, a chain of comments that
+  # make a conversation.  Graphs are a little weird because they have to
+  # represent updates and deletions in an immutable, add-only way in order to
+  # preserve the integrity of Gitgo data during merges.
+  #
+  # Graphs are constructed like so:
+  #
+  #   origin (head)
+  #   |
+  #   parent
+  #   |
+  #   original -> previous -> update -> current
+  #   |
+  #   child
+  #   |
+  #   tail
+  #
+  # Any document in the graph can have one or more children and one or more
+  # updates.  Children make the DAG; mapping out the DAG is a matter of
+  # following all trails from the origin (ie head) to each of the tails.
+  # Updates represent revisions to a specific document.  In the final graph,
+  # documents are represented by one or more current versions, each of which
+  # can be mapped back to a single original document.
+  #
+  # Parent-child relationships are referred to as links, while previous-update
+  # relationships are referred to as updates.  Links and updates are
+  # collectively referred to as linkages.  The first member in a linkage
+  # (parent/previous) is a source and the second (child-update) is a target.
+  #
+  # === Notes
+  #
+  # The possibility of multiple current versions is perhaps non-intuitive, but
+  # entirely possible if user A modifies a document while separately user B
+  # modifies the same document in a different way.  When these changes are
+  # merged, you end up with multiple current versions.
+  #
+  # When discussing a document graph, 'origin' is used in preference of 'head'
+  # in order to make a distinction between numerous other heads referred to by
+  # Gitgo, for instance, the head of the git repository.
+  #                      
+  # == Documents and Linkages
+  #
+  # Documents and linkages are stored on a dedicated branch that may be
+  # checked out and handled like any other git branch.  The documents are
+  # stored in such a way as to prevent merge conflicts, and the linkages are
+  # constructed so that merges automatically construct the document graph.
+  #
+  # Individual documents are stored by a date/sha path like this, where sha is
+  # the sha of the serialized document (ie it identifies the blob storing the
+  # document):
+  #
+  #   path              mode    blob
+  #   YYYY/MMDD/sha     100644  sha
+  #
+  # The path is meanigful to determine a timeline of activity, without
+  # examining the contents of any individual document.
+  #
+  # Linkages similarly incorporate document shas into their path, but split up
+  # the source sha into substrings of length 2 and 38 (note that empty sha
+  # refers to the sha of an empty file):
+  #
+  #   path              mode    blob
+  #   pa/rent/child     100644  empty_sha
+  #   pr/evious/update  100644  previous
+  #   up/date/update    100644  previous
+  #
+  # The relationship between the source, target, and blob shas is used to
+  # determine the type of linkage involved and the 'meaning' of each sha.  The
+  # logic breaks down like so:
+  #
+  #   source == target  linkage type     source    target   blob
+  #   no                link             parent    child    -
+  #   no                update           previous  update   -
+  #   yes               back-reference   -         update   previous
+  #
+  # Using this logic, a traveral of the linkages is enough to determine how
+  # documents are related; again no documents need to be loaded into memory
+  # beforehand.
+  #
+  # == Limitations
+  #
+  # The storage model is designed to prevent merge conflicts under normal circumstances,
+  # and to fail when someone maliciously tries to bugger the system.  
+  #
+  # Documents should never conflict because they are stored under their own sha-path.
+  #
+  #   A [store a]        date/a (a)
+  #   B [store b]        date/b (b)
+  #
+  # Likewise linkages will not conflict so long as different targets are involved.
   #             
-  #   A (update a -> b) {a => b(), b => b(a)}
-  #   B (update c -> b) {c => b(), b => b(c)}
-  #    
+  #   A [link a -> b]    a/b (empty)
+  #   B [link a -> c]    a/c (empty)
+  #                
+  #   A [link a -> b]    a/b (empty)
+  #   B [update a -> c]  a/c (a), c/c (a)
+  #           
+  #   A [update a -> b]  a/b (a), b/b (a)
+  #   B [update a -> c]  a/c (a), c/c (a)
+  
+  # If a malicious user modifies the document content under a given path then a
+  # merge against a correct repo will fail.
+  #
+  #   A [store a]       date/a (a)
+  #   B [store b as a]  date/a (b) # merge conflict and fail
+  #
+  # Likewise an attempt to link and update with the same target will fail:
+  #
+  #   A [link a -> b]   a/b (empty)
+  #   B [update a -> b] a/b (a), b/b (a) # merge conflict and fail
+  #                
+  #   A [update a -> b] a/b (a), b/b (a)
+  #   B [update c -> b] c/b (a), b/b (c) # merge conflict and fail
+  #       
   # These conflicts are prevented within a given repo (ie A == B), and will
   # normally not happen remotely because it would require independent
   # generation of the same 'b' document.  Given that documents have a
@@ -38,6 +150,9 @@ module Gitgo
   #   A (link a -> a)   {a => a()}
   #   B (update a -> a) {a => a(a)}
   #
+  #
+  #
+
   class Repo
     class << self
       
@@ -310,7 +425,7 @@ module Gitgo
       target
     end
     
-    # Returns the sha found by following updates back to their origin.
+    # Returns the original old_sha that sha links to through updates.
     def original(sha)
       previous = self.previous(sha)
       previous ? original(previous) : sha
