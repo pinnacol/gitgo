@@ -315,10 +315,9 @@ module Gitgo
       end
     end
     
-    # Creates a link file between the parent and child shas; a link file
-    # follows the format:
+    # Creates a link file for parent and child:
     #
-    #  pa/rent/child (empty_sha)
+    #   pa/rent/child (empty_sha)
     #
     def link(parent, child)
       if parent == child
@@ -334,27 +333,30 @@ module Gitgo
       self
     end
     
-    # Creates a pair of update files between the parent and child shas; the
-    # update files follow the format:
+    # Creates an update file for old and new shas:
     #
-    #  ol/d_sha/new_sha (old_sha)
-    #  ne/w_sha/new_sha (old_sha)
+    #   ol/d_sha/new_sha (old_sha)
     #
     def update(old_sha, new_sha)
       if old_sha == new_sha
         raise "cannot update with self: #{old_sha} -> #{new_sha}"
       end
       
-      if linked?(old_sha, new_sha)
-        raise "cannot update with a child: #{old_sha} -> #{new_sha}"
-      end
-      
-      if update?(new_sha)
-        raise "cannot update with an update: #{old_sha} -> #{new_sha}"
+      current = linkage(old_sha, new_sha)
+      if current && current == empty_sha
+        raise "cannot update with a link: #{old_sha} -> #{new_sha}"
       end
       
       git[sha_path(old_sha, new_sha)] = old_sha.to_sym
-      git[sha_path(new_sha, new_sha)] = old_sha.to_sym
+      self
+    end
+    
+    # Creates a delete file for the sha:
+    #
+    #   sh/a/sha (sha)
+    #
+    def delete(sha)
+      git[sha_path(sha, sha)] = sha.to_sym
       self
     end
     
@@ -367,117 +369,24 @@ module Gitgo
       sha
     end
     
-    # Returns true if the two shas are linked as parent and child, ie
-    # linkage(parent, child) == empty_sha.
-    def linked?(parent, child)
-      linkage(parent, child) == empty_sha
-    end
-    
-    # Returns true if sha is not an update.
-    def original?(sha)
-      !update?(sha)
-    end
-    
-    # Returns true if sha is an update ie it has a back link like sh/a/sha.
-    def update?(sha)
-      previous(sha) ? true : false
-    end
-    
-    ## Returns true if sha has an update link.
-    def updated?(sha)
-      each_linkage(sha) do |link, update|
-        return true if update
+    # Returns the linkage type, given the source, target and sha.
+    def linkage_type(source, target, sha=linkage(source, target))
+      case sha
+      when empty_sha then :link
+      when target    then :delete
+      when source    then :update
+      else :invalid
       end
-      false
     end
     
-    # Returns true if sha is current, ie it has no updates.
-    def current?(sha)
-      each_linkage(sha) do |link, update|
-        return false if update
-      end
-      true
-    end
-    
-    # Returns true if sha has no links.
-    def tail?(sha)
-      each_linkage(sha) do |link, update|
-        return false unless update.nil?
-      end
-      true
-    end
-    
-    # Returns an array of children linked to the parent.  The links will be
-    # appended to result, if specified.
-    def links(parent, result=[])
-      if update?(parent)
-        links(previous(parent), result)
-      end
+    # Yield each linkage off of source to the block, with the linkage type.
+    def each_linkage(source) # :yields: target, type
+      return self if source.nil?
       
-      each_linkage(parent) do |link, update|
-        result << link unless update
-      end
-      
-      result
-    end
-    
-    # Returns the original old_sha that sha links to through updates.
-    def original(sha)
-      previous = self.previous(sha)
-      previous ? original(previous) : sha
-    end
-    
-    # Returns the old_sha updated by sha.
-    def previous(sha)
-      linkage(sha, sha)
-    end
-    
-    # Returns an array of updates to previous.  The updates will be appended
-    # to result, if specified.
-    def updates(previous, result=[])
-      each_linkage(previous) do |link, update|
-        result << link if update
-      end
-      result
-    end
-    
-    # Returns an array of current new_shas that are linked to sha via updates.
-    # The shas will be appended to target, if specified.
-    def current(sha, result=[])
-      updated = false
-      each_linkage(sha) do |link, update|
-        if update
-          current(link, result)
-          updated = true
-        end
-      end
-      
-      unless updated
-        result << sha
-      end
-      
-      result
-    end
-    
-    # Yield each linkage off of sha to the block, with a flag indicating
-    # whether the linkage is an update (true) or a link (false).  
-    #
-    # Normally back references are excuded but they may be included if
-    # specified. These will yield the back reference, ie the updated sha, and
-    # nil as the second argument.
-    def each_linkage(sha, include_back_reference=false) # :yields: sha, update?
-      return self if sha.nil?
-      
-      links = git.tree.subtree(sha_path(sha))
-      links.each_pair do |link, (mode, ref)|
-        if sha == link
-          # sha == link (parent == child): indicates back reference to origin
-          yield(ref, nil) if include_back_reference
-        else
-          # sha == ref (parent == ref): indicates update
-          yield(link, sha == ref)
-        end
-      end if links
+      linkages = git.tree.subtree(sha_path(source))
+      linkages.each_pair do |target, (mode, sha)|
+        yield(target, linkage_type(source, target, sha))
+      end if linkages
       
       self
     end

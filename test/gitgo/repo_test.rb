@@ -201,7 +201,7 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "cannot link to self: #{a} -> #{a}", err.message
   end
   
-  def test_update_raises_an_error_when_linking_to_update
+  def test_link_raises_an_error_when_linking_to_an_update
     a, b = create_nodes('a', 'b')
     repo.update(a, b)
     
@@ -213,18 +213,11 @@ class RepoTest < Test::Unit::TestCase
   # update test
   #
   
-  def test_update_links_original_to_update_using_original_sha
+  def test_update_links_old_sha_to_new_sha_using_the_old_sha
     a, b = create_nodes('a', 'b')
     repo.update(a, b)
     
     assert_equal git.get(:blob, a).data, git[Repo::Utils.sha_path(a, b)]
-  end
-  
-  def test_update_creates_a_back_reference_to_original_sha
-    a, b = create_nodes('a', 'b')
-    repo.update(a, b)
-    
-    assert_equal git.get(:blob, a).data, git[Repo::Utils.sha_path(b, b)]
   end
   
   def test_update_raises_an_error_when_updating_to_self
@@ -233,20 +226,23 @@ class RepoTest < Test::Unit::TestCase
     assert_equal "cannot update with self: #{a} -> #{a}", err.message
   end
   
-  def test_update_raises_an_error_when_updating_with_a_child
+  def test_update_raises_an_error_when_updating_with_a_link
     a, b = create_nodes('a', 'b')
     repo.link(a, b)
     
     err = assert_raises(RuntimeError) { repo.update(a, b) }
-    assert_equal "cannot update with a child: #{a} -> #{b}", err.message
+    assert_equal "cannot update with a link: #{a} -> #{b}", err.message
   end
   
-  def test_update_raises_an_error_when_updating_with_an_existing_update
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.update(a, b)
+  #
+  # delete test
+  #
+  
+  def test_delete_links_to_sha_with_sha
+    a = create_nodes('a').first
+    repo.delete(a)
     
-    err = assert_raises(RuntimeError) { repo.update(c, b) }
-    assert_equal "cannot update with an update: #{c} -> #{b}", err.message
+    assert_equal git.get(:blob, a).data, git[Repo::Utils.sha_path(a, a)]
   end
   
   #
@@ -261,7 +257,6 @@ class RepoTest < Test::Unit::TestCase
     empty_sha = git.set(:blob, '')
     assert_equal empty_sha, repo.linkage(a, b)
     assert_equal b, repo.linkage(b, c)
-    assert_equal b, repo.linkage(c, c)
   end
   
   def test_linkage_returns_nil_if_no_such_link_exists
@@ -272,207 +267,47 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # linked? test
+  # linkage_type test
   #
   
-  def test_linked_check_returns_true_if_the_shas_are_linked_as_parent_child
+  def test_linkage_type_returns_the_linkage_type_given_the_source_target_and_sha
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.update(b, c)
+    repo.delete(c)
     
-    assert_equal false, repo.linked?(a, a)
-    assert_equal true, repo.linked?(a, b)
-    assert_equal false, repo.linked?(b, c)
-  end
-  
-  #
-  # original? test
-  #
-  
-  def test_original_check_returns_true_if_sha_is_the_head_of_an_update_chain
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.update(a, b)
-    repo.update(b, c)
-    
-    assert_equal true, repo.original?(a)
-    assert_equal false, repo.original?(b)
-    assert_equal false, repo.original?(c)
-  end
-  
-  #
-  # update? test
-  #
-  
-  def test_update_check_returns_true_if_sha_is_an_update
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.update(a, b)
-    repo.update(b, c)
-    
-    assert_equal false, repo.update?(a)
-    assert_equal true, repo.update?(b)
-    assert_equal true, repo.update?(c)
-  end
-  
-  #
-  # updated? test
-  #
-  
-  def test_updated_check_returns_true_if_sha_has_been_udpated
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.update(a, b)
-    repo.update(b, c)
-    
-    assert_equal true, repo.updated?(a)
-    assert_equal true, repo.updated?(b)
-    assert_equal false, repo.updated?(c)
-  end
-  
-  #
-  # current? test
-  #
-  
-  def test_current_check_returns_true_if_sha_is_a_tail_of_an_update_chain
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.update(a, b)
-    repo.update(b, c)
-    
-    assert_equal false, repo.current?(a)
-    assert_equal false, repo.current?(b)
-    assert_equal true, repo.current?(c)
-  end
-  
-  #
-  # tail? test
-  #
-  
-  def test_tail_check_returns_true_if_sha_has_no_links
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.link(a, b)
-    repo.link(b, c)
-    
-    assert_equal false, repo.tail?(a)
-    assert_equal false, repo.tail?(b)
-    assert_equal true, repo.tail?(c)
-  end
-  
-  #
-  # original test
-  #
-  
-  def test_original_returns_sha_if_sha_has_not_been_updated
-    a = repo.store
-    assert_equal a, repo.original(a)
-  end
-  
-  def test_original_returns_sha_for_the_head_of_an_update_chain
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.update(a, b)
-    repo.update(b, c)
-    
-    assert_equal a, repo.original(b)
-    assert_equal a, repo.original(c)
-  end
-  
-  #
-  # previous test
-  #
-  
-  def test_previous_returns_backreference_to_updated_sha
-    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
-    repo.update(a, b)
-    repo.update(a, c)
-    repo.update(c, d)
-    
-    assert_equal nil, repo.previous(a)
-    assert_equal a, repo.previous(b)
-    assert_equal a, repo.previous(c)
-    assert_equal c, repo.previous(d)
-  end
-  
-  #
-  # updates test
-  #
-
-  def test_updates_returns_array_of_updates_to_sha
-    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
-    repo.update(a, b)
-    repo.update(a, c)
-    repo.update(c, d)
-    
-    assert_equal [b, c].sort, repo.updates(a).sort
-    assert_equal [], repo.updates(b)
-    assert_equal [d], repo.updates(c)
-    assert_equal [], repo.updates(d)
-  end
-  
-  #
-  # current test
-  #
-
-  def test_current_returns_array_of_current_revisions
-    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
-    repo.update(a, b)
-    repo.update(a, c)
-    repo.update(c, d)
-    
-    assert_equal [b, d].sort, repo.current(a).sort
-    assert_equal [b], repo.current(b)
-    assert_equal [d], repo.current(c)
-    assert_equal [d], repo.current(d)
-  end
-
-  #
-  # links test
-  #
-
-  def test_links_returns_array_of_linked_shas
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.link(a, b)
-    repo.link(a, c)
-
-    assert_equal [b, c].sort, repo.links(a).sort
-    assert_equal [], repo.links(b)
-  end
-  
-  def test_links_does_not_return_updates
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.link(a, b)
-    repo.update(a, c)
-    
-    assert_equal [b], repo.links(a)
-  end
-  
-  def test_links_concats_links_of_previous_for_update
-    a, b, c, x, y, z = create_nodes('a', 'b', 'c', 'x', 'y', 'z')
-    repo.update(a, b)
-    repo.update(b, c)
-    repo.link(a, x)
-    repo.link(b, y)
-    repo.link(c, z)
-    
-    assert_equal [x], repo.links(a)
-    assert_equal [x, y].sort, repo.links(b).sort
-    assert_equal [x, y, z].sort, repo.links(c).sort
+    assert_equal :link, repo.linkage_type(a, b)
+    assert_equal :update, repo.linkage_type(b, c)
+    assert_equal :delete, repo.linkage_type(c, c)
+    assert_equal :invalid, repo.linkage_type(a, a)
   end
   
   #
   # each_linkage test
   #
   
-  def test_each_linkage_yields_each_forward_linkage_with_flag_for_update
+  def test_each_linkage_yields_the_target_of_each_linkage_with_linkage_type
     a, b, c, d = create_nodes('a', 'b', 'c', 'd')
     repo.link(a, b)
     repo.link(a, c)
     repo.update(a, d)
+    repo.delete(a)
     
-    updates = []
     links = []
-    repo.each_linkage(a) do |sha, update|
-      (update ? updates : links) << sha
+    updates = []
+    deletes = []
+    
+    repo.each_linkage(a) do |linkage, type|
+      case type
+      when :link   then links
+      when :update then updates
+      when :delete then deletes
+      end << linkage
     end
     
     assert_equal [b, c].sort, links.sort
     assert_equal [d], updates.sort
+    assert_equal [a], deletes.sort
   end
 
   #
