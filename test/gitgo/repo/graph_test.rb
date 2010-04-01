@@ -22,7 +22,6 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def assert_nodes_equal(expected, actual)
-    actual.collect! {|node| node.sha }
     assert_equal expected.sort, actual.sort
   end
 
@@ -55,9 +54,9 @@ class GraphTest < Test::Unit::TestCase
     repo.update(c, d)
     
     graph = repo.graph(a)
-    assert_equal a, graph[a].original.sha
-    assert_equal a, graph[b].original.sha
-    assert_equal a, graph[c].original.sha
+    assert_equal a, graph[a].original
+    assert_equal a, graph[b].original
+    assert_equal a, graph[c].original
   end
   
   #

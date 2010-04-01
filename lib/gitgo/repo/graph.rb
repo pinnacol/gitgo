@@ -30,8 +30,10 @@ module Gitgo
         @tree ||= begin
           tree= {}
           unless head.nil?
-            versions = nodes[head].original.versions
-            tree[nil] = versions.collect {|node| collect_tree(node, tree) }
+            versions = nodes[nodes[head].original].versions
+            versions.each {|sha| collect_tree(sha, tree) }
+            
+            tree[nil] = versions
           end
           tree
         end
@@ -141,7 +143,7 @@ module Gitgo
         links = []
         updates = []
         
-        node = Node.new(sha, links, updates, nodes)
+        node = Node.new(sha, nodes, links, updates)
         nodes[sha] = node
         
         repo.each_linkage(sha) do |linkage, type|
@@ -163,9 +165,7 @@ module Gitgo
         node
       end
       
-      def collect_tree(node, tree, trail=[]) # :nodoc:
-        sha = node.sha
-        
+      def collect_tree(sha, tree, trail=[]) # :nodoc:
         circular = trail.include?(sha)
         trail.push sha
 
@@ -174,7 +174,7 @@ module Gitgo
         end
 
         tree[sha] ||= begin
-          node.children.collect do |child|
+          nodes[sha].children.each do |child|
             collect_tree(child, tree, trail)
           end
         end

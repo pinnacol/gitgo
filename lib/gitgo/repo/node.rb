@@ -2,33 +2,31 @@ module Gitgo
   class Repo
     class Node
       attr_reader :sha
-      attr_reader :links
-      attr_reader :updates
-      attr_accessor :deleted
-      attr_accessor :original
       attr_reader :nodes
       
-      def initialize(sha, links, updates, nodes)
+      attr_accessor :deleted
+      attr_accessor :original
+      
+      def initialize(sha, nodes, links, updates)
         @sha = sha
         @links = links
         @updates = updates
         @nodes = nodes
         
         @deleted = false
-        @original = self
-        @versions = nil
+        @original = sha
       end
       
       def original?
-        original == self
+        original == sha
       end
       
       def current?
-        !deleted && updates.empty?
+        !deleted && @updates.empty?
       end
       
       def tail?
-        current? && links.empty?
+        current? && @links.empty?
       end
       
       def parents
@@ -36,8 +34,8 @@ module Gitgo
           parents = []
           
           nodes.each_value do |node|
-            if node.children.include?(self)
-              parents << node
+            if node.children.include?(sha)
+              parents << node.sha
             end
           end if current?
           
@@ -49,8 +47,8 @@ module Gitgo
         @children ||= begin
           children = []
           
-          links.each do |link|
-            children.concat link.original.versions
+          @links.each do |link|
+            children.concat nodes[link.original].versions
           end if current?
           
           children
@@ -61,22 +59,24 @@ module Gitgo
         @versions ||= deconvolute(nil)
       end
       
-      def deconvolute(original=self, versions=[])
+      def deconvolute(original=sha, links=nil, versions=[])
+        if original
+          @original = original
+          @links.concat(links) if links
+          @versions = versions if original == sha
+        end
+        
         case
         when deleted
           # do nothing
-        when updates.empty?
-          # current
-          versions << self
+        when @updates.empty?
+          versions << sha
         else
-          updates.each do |update|
-            update.links.concat(links) if original
-            update.deconvolute(original, versions)
+          @updates.each do |update|
+            update.deconvolute(original, @links, versions)
           end
         end
         
-        @original = original if original
-        @versions = versions if original == self
         versions
       end
       
