@@ -4,7 +4,6 @@ module Gitgo
       attr_reader :sha
       attr_reader :links
       attr_reader :updates
-      attr_reader :versions
       attr_accessor :deleted
       attr_accessor :original
       attr_reader :nodes
@@ -51,7 +50,7 @@ module Gitgo
           children = []
           
           links.each do |link|
-            children.concat link.versions
+            children.concat link.original.versions
           end if current?
           
           children
@@ -67,6 +66,7 @@ module Gitgo
         when deleted
           # do nothing
         when updates.empty?
+          # current
           versions << self
         else
           updates.each do |update|

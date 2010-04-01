@@ -30,7 +30,8 @@ module Gitgo
         @tree ||= begin
           tree= {}
           unless head.nil?
-            tree[nil] = collect_versions(nodes[head], tree)
+            versions = nodes[head].original.versions
+            tree[nil] = versions.collect {|node| collect_tree(node, tree) }
           end
           tree
         end
@@ -133,7 +134,7 @@ module Gitgo
       
       protected
       
-      def collect_nodes(sha)
+      def collect_nodes(sha) 
         node = nodes[sha]
         return node if node
         
@@ -162,30 +163,9 @@ module Gitgo
         node
       end
       
-      # Helper to recursively collect the nodes for a tree. Returns and array of
-      # the versions nodes representing sha.
-      #
-      #   update(a, b)
-      #   update(a, c)
-      #   update(c, d)
-      #   collect_nodes(a)  # => [b, d]
-      #
-      # The _nodes and _children caches were shown by benchmarking to
-      # significantly speed up collection of complex graphs, while minimally
-      # impacting simple graphs.
-      #
-      # This method is designed to detect and blow up when circular linkages are
-      # detected.  The tracking trails follow only the 'versions' shas, they will
-      # not show the path through the updated shas.
-      def collect_versions(node, tree, children=[], trail=[]) # :nodoc:
-        node.original.versions.each do |version|
-          children << collect_tree(version, tree, trail)
-        end
-        children
-      end
-      
-      def collect_tree(node, tree, trail)
+      def collect_tree(node, tree, trail=[]) # :nodoc:
         sha = node.sha
+        
         circular = trail.include?(sha)
         trail.push sha
 
@@ -194,11 +174,9 @@ module Gitgo
         end
 
         tree[sha] ||= begin
-          children = []
-          node.links.each do |link|
-            collect_versions(link, tree, children, trail)
+          node.children.collect do |child|
+            collect_tree(child, tree, trail)
           end
-          children
         end
 
         trail.pop
