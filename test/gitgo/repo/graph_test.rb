@@ -21,10 +21,15 @@ class GraphTest < Test::Unit::TestCase
     end
   end
   
+  def assert_nodes_equal(expected, actual)
+    actual.collect! {|node| node.sha }
+    assert_equal expected.sort, actual.sort
+  end
+
   def assert_graph_equal(expected, actual)
     assert_equal normalize(expected), normalize(actual)
   end
-
+  
   def normalize(graph)
     hash = {}
     graph.each_pair do |key, values|
@@ -50,9 +55,9 @@ class GraphTest < Test::Unit::TestCase
     repo.update(c, d)
     
     graph = repo.graph(a)
-    assert_equal a, graph.original(a)
-    assert_equal a, graph.original(b)
-    assert_equal a, graph.original(d)
+    assert_equal a, graph[a].original.sha
+    assert_equal a, graph[b].original.sha
+    assert_equal a, graph[c].original.sha
   end
   
   #
@@ -66,9 +71,9 @@ class GraphTest < Test::Unit::TestCase
     repo.update(c, d)
     
     graph = repo.graph(a)
-    assert_equal [b, d].sort, graph.versions(a).sort
-    assert_equal [d], graph.versions(c)
-    assert_equal [d], graph.versions(d)
+    assert_nodes_equal [b, d], graph[a].versions
+    assert_nodes_equal [d], graph[c].versions
+    assert_nodes_equal [d], graph[d].versions
   end
   
   #
@@ -84,21 +89,11 @@ class GraphTest < Test::Unit::TestCase
     repo.update(d, e)
     
     graph = repo.graph(a)
-    assert_equal [], graph.parents(a)
-    assert_equal [a], graph.parents(b)
-    assert_equal [a], graph.parents(c)
-    assert_equal [], graph.parents(d)
-    assert_equal [b, c].sort, graph.parents(e).sort
-  end
-  
-  def test_parents_cannot_return_parents_from_a_detached_graph
-    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
-    repo.link(a, b)
-    repo.link(c, d)
-    
-    graph = repo.graph(a)
-    assert_equal [a], graph.parents(b)
-    assert_equal [], graph.parents(d)
+    assert_nodes_equal [],  graph[a].parents
+    assert_nodes_equal [a], graph[b].parents
+    assert_nodes_equal [a], graph[c].parents
+    assert_nodes_equal [],  graph[d].parents
+    assert_nodes_equal [b, c], graph[e].parents
   end
   
   #
@@ -112,19 +107,9 @@ class GraphTest < Test::Unit::TestCase
     repo.link(b, d)
     
     graph = repo.graph(a)
-    assert_equal [], graph.children(a)
-    assert_equal [c, d].sort, graph.children(b).sort
-    assert_equal [], graph.children(c)
-  end
-  
-  def test_children_cannot_return_children_from_a_detached_graph
-    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
-    repo.link(a, b)
-    repo.link(c, d)
-    
-    graph = repo.graph(a)
-    assert_equal [b], graph.children(a)
-    assert_equal [], graph.children(c)
+    assert_nodes_equal [],     graph[a].children
+    assert_nodes_equal [c, d], graph[b].children
+    assert_nodes_equal [],     graph[c].children
   end
   
   #
@@ -152,9 +137,9 @@ class GraphTest < Test::Unit::TestCase
     repo.link(a, c)
     
     graph = repo.graph(a)
-    assert_equal false, graph.current?(a)
-    assert_equal true, graph.current?(b)
-    assert_equal true, graph.current?(c)
+    assert_equal false, graph[a].current?
+    assert_equal true,  graph[b].current?
+    assert_equal true,  graph[c].current?
   end
   
   #
@@ -167,9 +152,9 @@ class GraphTest < Test::Unit::TestCase
     repo.link(a, c)
     
     graph = repo.graph(a)
-    assert_equal false, graph.tail?(a)
-    assert_equal false, graph.tail?(b)
-    assert_equal true, graph.tail?(c)
+    assert_equal false, graph[a].tail?
+    assert_equal false, graph[b].tail?
+    assert_equal true,  graph[c].tail?
   end
   
   #

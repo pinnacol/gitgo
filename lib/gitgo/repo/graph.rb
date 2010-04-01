@@ -26,52 +26,14 @@ module Gitgo
         nodes[sha]
       end
       
-      def original?(sha)
-        ifnode(sha) {|node| node.original? }
-      end
-      
-      def current?(sha)
-        ifnode(sha) {|node| node.current? }
-      end
-      
-      def tail?(sha)
-        ifnode(sha) {|node| node.tail? }
-      end
-      
-      def original(sha)
-        ifnode(sha) {|node| node.original.sha }
-      end
-      
-      def versions(sha)
-        ifnode_collect(sha) {|node| node.versions }
-      end
-      
-      def links(sha)
-        ifnode_collect(sha) {|node| node.link }
-      end
-      
-      def updates(sha)
-        ifnode_collect(sha) {|node| node.updates }
-      end
-      
-      # Returns parents of the indicated node. Parents are deconvoluted so
-      # that only the current version of a node will have parents. Detached
-      # nodes will return no parents.
-      def parents(sha)
-        parents = []
-        nodes.each_value do |node|
-          if node.current? && tree[node.sha].include?(sha)
-            parents << node.sha
+      def tree
+        @tree ||= begin
+          tree= {}
+          unless head.nil?
+            tree[nil] = collect_versions(nodes[head], tree)
           end
+          tree
         end
-        parents
-      end
-      
-      # Returns children of the indicated node. Children are deconvoluted so
-      # that only the current version of a node will have children. Detached
-      # nodes will return no children.
-      def children(sha)
-        tree[sha] || []
       end
       
       def tails
@@ -81,16 +43,6 @@ module Gitgo
             tails << key if value.empty?
           end
           tails
-        end
-      end
-      
-      def tree
-        @tree ||= begin
-          tree= {}
-          unless head.nil?
-            tree[nil] = collect_current_versions(nodes[head], tree)
-          end
-          tree
         end
       end
       
@@ -181,15 +133,6 @@ module Gitgo
       
       protected
       
-      def ifnode(sha)
-        node = nodes[sha]
-        node ? yield(node) : nil
-      end
-      
-      def ifnode_collect(sha)
-        ifnode(sha) {|node| yield(node).collect {|n| n.sha} }
-      end
-      
       def collect_nodes(sha)
         node = nodes[sha]
         return node if node
@@ -234,8 +177,8 @@ module Gitgo
       # This method is designed to detect and blow up when circular linkages are
       # detected.  The tracking trails follow only the 'versions' shas, they will
       # not show the path through the updated shas.
-      def collect_current_versions(node, tree, children=[], trail=[]) # :nodoc:
-        node.versions.each do |version|
+      def collect_versions(node, tree, children=[], trail=[]) # :nodoc:
+        node.original.versions.each do |version|
           children << collect_tree(version, tree, trail)
         end
         children
@@ -253,7 +196,7 @@ module Gitgo
         tree[sha] ||= begin
           children = []
           node.links.each do |link|
-            collect_current_versions(link, tree, children, trail)
+            collect_versions(link, tree, children, trail)
           end
           children
         end

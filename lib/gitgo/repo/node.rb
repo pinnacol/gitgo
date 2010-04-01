@@ -32,6 +32,36 @@ module Gitgo
         current? && links.empty?
       end
       
+      def parents
+        @parents ||= begin
+          parents = []
+          
+          nodes.each_value do |node|
+            if node.children.include?(self)
+              parents << node
+            end
+          end if current?
+          
+          parents
+        end
+      end
+      
+      def children
+        @children ||= begin
+          children = []
+          
+          links.each do |link|
+            children.concat link.versions
+          end if current?
+          
+          children
+        end
+      end
+      
+      def versions
+        @versions ||= deconvolute(nil)
+      end
+      
       def deconvolute(original=self, versions=[])
         case
         when deleted
@@ -40,13 +70,14 @@ module Gitgo
           versions << self
         else
           updates.each do |update|
-            update.links.concat(links)
+            update.links.concat(links) if original
             update.deconvolute(original, versions)
           end
         end
         
-        @original = original
-        @versions = versions#.dup
+        @original = original if original
+        @versions = versions if original == self
+        versions
       end
       
       def inspect
