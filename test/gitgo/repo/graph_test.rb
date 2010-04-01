@@ -40,6 +40,139 @@ class GraphTest < Test::Unit::TestCase
   end
   
   #
+  # original test
+  #
+  
+  def test_original_returns_original_version_of_the_node
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.update(a, b)
+    repo.update(a, c)
+    repo.update(c, d)
+    
+    graph = repo.graph(a)
+    assert_equal a, graph.original(a)
+    assert_equal a, graph.original(b)
+    assert_equal a, graph.original(d)
+  end
+  
+  #
+  # versions test
+  #
+  
+  def test_versions_returns_current_versions_of_the_node
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.update(a, b)
+    repo.update(a, c)
+    repo.update(c, d)
+    
+    graph = repo.graph(a)
+    assert_equal [b, d].sort, graph.versions(a).sort
+    assert_equal [d], graph.versions(c)
+    assert_equal [d], graph.versions(d)
+  end
+  
+  #
+  # parents test
+  #
+  
+  def test_parents_returns_deconvoluted_parents_of_the_node
+    a, b, c, d, e = create_nodes('a', 'b', 'c', 'd', 'e')
+    repo.link(a, b)
+    repo.link(b, d)
+    repo.link(a, c)
+    repo.link(c, e)
+    repo.update(d, e)
+    
+    graph = repo.graph(a)
+    assert_equal [], graph.parents(a)
+    assert_equal [a], graph.parents(b)
+    assert_equal [a], graph.parents(c)
+    assert_equal [], graph.parents(d)
+    assert_equal [b, c].sort, graph.parents(e).sort
+  end
+  
+  def test_parents_cannot_return_parents_from_a_detached_graph
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.link(a, b)
+    repo.link(c, d)
+    
+    graph = repo.graph(a)
+    assert_equal [a], graph.parents(b)
+    assert_equal [], graph.parents(d)
+  end
+  
+  #
+  # children test
+  #
+  
+  def test_children_returns_deconvoluted_children_of_the_node
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.update(a, b)
+    repo.link(a, c)
+    repo.link(b, d)
+    
+    graph = repo.graph(a)
+    assert_equal [], graph.children(a)
+    assert_equal [c, d].sort, graph.children(b).sort
+    assert_equal [], graph.children(c)
+  end
+  
+  def test_children_cannot_return_children_from_a_detached_graph
+    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+    repo.link(a, b)
+    repo.link(c, d)
+    
+    graph = repo.graph(a)
+    assert_equal [b], graph.children(a)
+    assert_equal [], graph.children(c)
+  end
+  
+  #
+  # tails test
+  #
+  
+  def tails_returns_all_tails_in_the_graph
+    a, b, c, d, e = create_nodes('a', 'b', 'c', 'd', 'e')
+    repo.update(a, b)
+    repo.link(a, c)
+    repo.link(c, d)
+    repo.link(a, e)
+    
+    graph = repo.graph(a)
+    assert_equal [d, e].sort, graph.tails.sort
+  end
+  
+  #
+  # current? test
+  #
+  
+  def test_current_check_returns_true_if_node_has_no_updates
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.update(a, b)
+    repo.link(a, c)
+    
+    graph = repo.graph(a)
+    assert_equal false, graph.current?(a)
+    assert_equal true, graph.current?(b)
+    assert_equal true, graph.current?(c)
+  end
+  
+  #
+  # tail? test
+  #
+  
+  def test_tail_check_returns_true_if_node_has_no_children
+    a, b, c = create_nodes('a', 'b', 'c')
+    repo.update(a, b)
+    repo.link(a, c)
+    
+    graph = repo.graph(a)
+    assert_equal false, graph.tail?(a)
+    assert_equal false, graph.tail?(b)
+    assert_equal true, graph.tail?(c)
+  end
+  
+  #
   # tree test
   #
   

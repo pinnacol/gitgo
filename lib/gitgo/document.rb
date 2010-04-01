@@ -204,7 +204,7 @@ module Gitgo
     end
     
     def origin
-      self['origin'] || (sha ? repo.original(sha) : nil)
+      self['origin'] || (sha ? repo.graph(sha).original(sha) : nil)
     end
     
     def origin=(sha)
@@ -217,15 +217,15 @@ module Gitgo
     end
     
     def original?
-      repo.original?(sha)
+      graph.original?(sha)
     end
     
     def current?
-      repo.current?(sha)
+      graph.current?(sha)
     end
     
     def tail?
-      repo.tail?(sha)
+      graph.tail?(sha)
     end
     
     def active?(commit=nil)
@@ -394,7 +394,7 @@ module Gitgo
       idx = self.idx
       each_index {|key, value| idx.add(key, value, sha) }
       idx.map[sha] = origin
-      idx.filter << sha unless repo.tail?(sha)
+      idx.filter << sha unless graph.tail?(sha)
       
       self
     end

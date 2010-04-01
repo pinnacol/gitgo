@@ -1,6 +1,7 @@
+require 'gitgo/repo/node'
+
 module Gitgo
   class Repo
-    
     # Graph performs the important and complicated task of creating and
     # providing access to document graphs.  Graph uses signifant amounts of
     # caching to make sure traversal of the document graph is quick.
@@ -12,15 +13,85 @@ module Gitgo
       
       # The document graph origin.
       attr_reader :head
-    
+      
+      attr_reader :nodes
+      
       def initialize(repo, head)
         @repo = repo
         @head = head
         reset
       end
       
+      def [](sha)
+        nodes[sha]
+      end
+      
+      def original?(sha)
+        ifnode(sha) {|node| node.original? }
+      end
+      
+      def current?(sha)
+        ifnode(sha) {|node| node.current? }
+      end
+      
+      def tail?(sha)
+        ifnode(sha) {|node| node.tail? }
+      end
+      
+      def original(sha)
+        ifnode(sha) {|node| node.original.sha }
+      end
+      
+      def versions(sha)
+        ifnode_collect(sha) {|node| node.versions }
+      end
+      
+      def links(sha)
+        ifnode_collect(sha) {|node| node.link }
+      end
+      
+      def updates(sha)
+        ifnode_collect(sha) {|node| node.updates }
+      end
+      
+      # Returns parents of the indicated node. Parents are deconvoluted so
+      # that only the current version of a node will have parents. Detached
+      # nodes will return no parents.
+      def parents(sha)
+        parents = []
+        nodes.each_value do |node|
+          if node.current? && tree[node.sha].include?(sha)
+            parents << node.sha
+          end
+        end
+        parents
+      end
+      
+      # Returns children of the indicated node. Children are deconvoluted so
+      # that only the current version of a node will have children. Detached
+      # nodes will return no children.
+      def children(sha)
+        tree[sha] || []
+      end
+      
+      def tails
+        @tails ||= begin
+          tails = []
+          tree.each_pair do |key, value|
+            tails << key if value.empty?
+          end
+          tails
+        end
+      end
+      
       def tree
-        @tree
+        @tree ||= begin
+          tree= {}
+          unless head.nil?
+            tree[nil] = collect_current_versions(nodes[head], tree)
+          end
+          tree
+        end
       end
       
       # Sorts each of the children in tree, using the block if given.
@@ -95,50 +166,49 @@ module Gitgo
       end
       
       def reset
-        nodes = {}
-        tree = {}
+        @nodes = {}
+        collect_nodes(head)
         
-        unless head.nil?
-          head_node = collect_nodes(head, nodes)
-          
-          nodes.each_value do |node|
-            if node.original
-              deconvolute(node)
-            end
+        nodes.each_value do |node|
+          if node.original?
+            node.deconvolute
           end
-          
-          tree[nil] = collect_current_versions(head_node, tree)
         end
         
-        @nodes = nodes
-        @tree = tree
-        
+        @tree = nil
         self
       end
       
-      protected 
+      protected
       
-      Node = Struct.new(:sha, :links, :updates, :deleted, :original, :versions)
+      def ifnode(sha)
+        node = nodes[sha]
+        node ? yield(node) : nil
+      end
       
-      def collect_nodes(sha, nodes)
+      def ifnode_collect(sha)
+        ifnode(sha) {|node| yield(node).collect {|n| n.sha} }
+      end
+      
+      def collect_nodes(sha)
         node = nodes[sha]
         return node if node
         
         links = []
         updates = []
         
-        node = Node.new(sha, links, updates, false, true, nil)
+        node = Node.new(sha, links, updates, nodes)
         nodes[sha] = node
-  
+        
         repo.each_linkage(sha) do |linkage, type|
-          target = collect_nodes(linkage, nodes)
+          target = collect_nodes(linkage)
           
           case type
           when :link
             links   << target
           when :update
             updates << target
-            target.original = false
+            target.original = nil
           when :delete
             target.deleted = true
           else
@@ -149,23 +219,6 @@ module Gitgo
         node
       end
       
-      def deconvolute(node, versions=[])
-        case
-        when node.deleted
-          # do nothing
-        when node.updates.empty?
-          versions << node
-        else
-          links = node.links
-          node.updates.each do |update|
-            update.links.concat(links)
-            deconvolute(update, versions)
-          end
-        end
-        
-        node.versions = versions
-      end
-    
       # Helper to recursively collect the nodes for a tree. Returns and array of
       # the versions nodes representing sha.
       #
@@ -183,14 +236,13 @@ module Gitgo
       # not show the path through the updated shas.
       def collect_current_versions(node, tree, children=[], trail=[]) # :nodoc:
         node.versions.each do |version|
-          children << collect_sha(version, tree, trail)
+          children << collect_tree(version, tree, trail)
         end
         children
       end
       
-      def collect_sha(current, tree, trail)
-        sha = current.sha
-
+      def collect_tree(node, tree, trail)
+        sha = node.sha
         circular = trail.include?(sha)
         trail.push sha
 
@@ -200,7 +252,7 @@ module Gitgo
 
         tree[sha] ||= begin
           children = []
-          current.links.each do |link|
+          node.links.each do |link|
             collect_current_versions(link, tree, children, trail)
           end
           children
