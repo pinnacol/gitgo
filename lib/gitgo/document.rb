@@ -3,29 +3,50 @@ require 'gitgo/document/utils'
 require 'gitgo/document/invalid_document_error'
 
 module Gitgo
+  
+  # Document represents the data model of Gitgo, and provides high-level
+  # access to documents stored in a Repo.  Content and data consistentcy
+  # constraints are enforced on Document.
+  #
   class Document
     class << self
+      
+      # Returns a hash registry mapping a type string to a Document class.
+      # Document itself is registered as the nil type.  Types also includes
+      # reverse mappings for a Document class to it's type string.
       attr_reader :types
+      
+      # A hash of (key, validator) pairs mapping attribute keys to a
+      # validation method.  Not all attributes will have a validator whereas
+      # some attributes share the same validation method.
       attr_reader :validators
       
-      def inherited(base)
+      def inherited(base) # :nodoc:
         base.instance_variable_set(:@validators, validators.dup)
         base.instance_variable_set(:@types, types)
         base.register_as base.to_s.split('::').last.downcase
       end
       
+      # Returns the Repo currently in scope (see Repo.current)
       def repo
         Repo.current
       end
       
+      # Returns the idx on repo.
       def idx
         repo.idx
       end
       
+      # Returns the type string for self.
       def type
         types[self]
       end
       
+      # Creates, links, and indexes a new document.  The new document is
+      # returned. The 'parent' and 'children' attributes specify the document
+      # links and, if present, will not be stored in the document itself.
+      #
+      # Returns the new document.
       def create(attrs={})
         parents = attrs.delete('parents')
         children = attrs.delete('children')
@@ -37,6 +58,12 @@ module Gitgo
         doc
       end
       
+      # Reads the specified document and casts it into an instance as per
+      # cast.  Returns nil if the document doesn't exist.
+      #
+      # Read will re-read the document directly from the git repository every
+      # time it is called.  For better performance, use the AGET method which
+      # performs the same read but uses the Repo cache if possible.
       def read(sha)
         sha = repo.resolve(sha)
         attrs = repo.read(sha)
@@ -44,12 +71,25 @@ module Gitgo
         attrs ? cast(attrs, sha) : nil
       end
       
+      # Reads the specified document from the repo cache and casts it into an
+      # instance as per cast.  Returns nil if the document doesn't exist.
+      def [](sha)
+        sha = repo.resolve(sha)
+        cast(repo[sha], sha)
+      end
+      
+      # Casts the attributes hash into a document instance.  The document
+      # class is determined by resolving the 'type' attribute against the
+      # types registry.
       def cast(attrs, sha)
         type = attrs['type']
         klass = types[type] or raise "unknown type: #{type}"
         klass.new(attrs, repo, sha)
       end
       
+      # Updates and indexes the specified document with new attributes.  The
+      # new attributes are merged with the existing attributes.  New linkages
+      # cannot be specified with this method.
       def update(sha, attrs={})
         sha = sha.sha if sha.respond_to?(:sha)
         doc = read(sha).merge!(attrs)
@@ -58,25 +98,51 @@ module Gitgo
         doc
       end
       
+      # Finds all documents matching the any and all criteria.  The any and
+      # all inputs are hashes of index values used to filter all possible
+      # documents. They consist of (key, value) or (key, [values]) pairs, at
+      # least one of which must match in the any case, all of which must match
+      # in the all case.  Specify nil for either array to prevent filtering
+      # using that criteria.
+      #
+      # See basis for more detail regarding the scope of 'all documents' that
+      # can be found via find.
+      #
+      # If update_idx is specified, then the document index will be updated
+      # before the find is performed.  Typically update_idx should be
+      # specified to true to capture any new documents added, for instance by
+      # a merge; it adds little overhead in the most common case where the
+      # index is already up-to-date.
       def find(all={}, any=nil, update_idx=true)
         self.update_idx if update_idx
         
-        # use type to determine basis -- note that idx.all('email') should
-        # return all documents because all documents should have an email
         shas = (all ? all.delete('shas') : nil) || basis
         shas = [shas] unless shas.kind_of?(Array)
         
         idx.select(shas, all, any).collect! {|sha| self[sha] }
       end
       
+      # Returns the basis for finds, ie the set of documents that get filtered
+      # by the find method.  
+      #
+      # If type is specified for self, then only documents of type will be
+      # available (ie Issue.find will only find documents of type 'issue'). 
+      # Document itself will filter all documents with an email; which should
+      # typically represent all possible documents.
       def basis
         type ? idx.get('type', type) : idx.all('email')
       end
       
+      # Performs a partial update of the document index.  All documents added
+      # between the index-head and the repo-head are updated using this
+      # method.
+      #
+      # Specify reindex to clobber and completely rebuild the index.
       def update_idx(reindex=false)
         idx.clear if reindex
         repo_head, idx_head = repo.head, idx.head
         
+        # if the index is up-to-date save the work of doing diff
         if repo_head.nil? || repo_head == idx_head
           return []
         end
@@ -88,17 +154,23 @@ module Gitgo
         shas
       end
       
-      def [](sha)
-        cast(repo[sha], sha)
-      end
-      
       protected
       
+      # Registers self as the specified type.  The previous registered type is
+      # overridden.
       def register_as(type)
+        types.delete_if {|key, value| key == self || value == self }
         types[type] = self
         types[self] = type
       end
       
+      # Turns on attribute definition for the duration of the block.  If
+      # attribute definition is on, then the standard attribute declarations
+      # (attr_reader, attr_writer, attr_accessor) will create accessors for
+      # the attrs hash rather than instance variables.
+      #
+      # Moreover, blocks given to attr_writer/attr_accessor will be used to
+      # define a validator for the accessor.
       def define_attributes(&block)
         begin
           @define_attributes = true
@@ -108,7 +180,7 @@ module Gitgo
         end
       end
       
-      def attr_reader(*keys)
+      def attr_reader(*keys) # :nodoc:
         return super unless @define_attributes
         keys.each do |key|
           key = key.to_s
@@ -116,7 +188,7 @@ module Gitgo
         end
       end
       
-      def attr_writer(*keys, &block)
+      def attr_writer(*keys, &block) # :nodoc:
         return super unless @define_attributes
         keys.each do |key|
           key = key.to_s
@@ -125,15 +197,23 @@ module Gitgo
         end
       end
       
-      def attr_accessor(*keys, &block)
+      def attr_accessor(*keys, &block) # :nodoc:
         return super unless @define_attributes
         attr_reader(*keys)
         attr_writer(*keys, &block)
       end
       
+      # Registers the validator method to validate the specified attribute. If
+      # a block is given, it will be used to define the validator as a
+      # protected instance method (otherwise you need to define the validator
+      # method manually).
       def validate(key, validator="validate_#{key}", &block)
         validators[key.to_s] = validator.to_sym
-        define_method(validator, &block) if block_given?
+        
+        if block_given?
+          define_method(validator, &block)
+          protected validator
+        end
       end
     end
     include Utils
@@ -143,16 +223,22 @@ module Gitgo
     @types = {}
     register_as(nil)
     
+    # The repo this document belongs to.
     attr_reader :repo
+    
+    # A hash of the document attributes, corresponding to what is stored in
+    # the repo.
     attr_reader :attrs
+    
+    # The document sha, unset until the document is saved.
     attr_reader :sha
     
     validate(:author) {|author| validate_format(author, AUTHOR) }
-    validate(:date)   {|date| validate_format(date, DATE) }
+    validate(:date)   {|date|   validate_format(date, DATE) }
     validate(:origin) {|origin| validate_format_or_nil(origin, SHA) }
     
     define_attributes do
-      attr_accessor(:at)   {|at| validate_format_or_nil(at, SHA) }
+      attr_accessor(:at)   {|at|   validate_format_or_nil(at, SHA) }
       attr_writer(:tags)   {|tags| validate_array_or_nil(tags) }
       attr_accessor(:type)
     end
@@ -163,14 +249,17 @@ module Gitgo
       reset(sha)
     end
     
+    # Returns the repo idx.
     def idx
       repo.idx
     end
     
+    # Gets the specified attribute.
     def [](key)
       attrs[key]
     end
     
+    # Sets the specified attribute.
     def []=(key, value)
       attrs[key] = value
     end
@@ -206,7 +295,7 @@ module Gitgo
     end
     
     def origin
-      self['origin'] || sha || nil
+      self['origin'] || sha
     end
     
     def origin=(sha)
@@ -221,6 +310,10 @@ module Gitgo
     def active?(commit=nil)
       return true if at.nil? || commit.nil?
       repo.rev_list(commit).include?(at)
+    end
+    
+    def detached?
+      node.nil?
     end
     
     def node
@@ -378,7 +471,10 @@ module Gitgo
       idx = self.idx
       each_index {|key, value| idx.add(key, value, sha) }
       idx.map[sha] = origin
-      idx.filter << sha unless node && node.tail?
+      
+      if node && !node.tail?
+        idx.filter << sha
+      end
       
       self
     end

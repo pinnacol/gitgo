@@ -170,7 +170,7 @@ class DocumentTest < Test::Unit::TestCase
   def test_create_links_new_doc_to_parents_and_children
     a = Document.create('content' => 'a')
     b = Document.create('content' => 'b', 'origin' => a, 'parents' => [a])
-    c = Document.create('content' => 'c', 'origin' => a)
+    c = Document.create('content' => 'c', 'origin' => a, 'parents' => [a])
     d = Document.create('content' => 'd', 'origin' => a, 'parents' => [b], 'children' => [c])
 
     assert_equal [b.sha], d.node.parents
