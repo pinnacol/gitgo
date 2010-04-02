@@ -124,10 +124,10 @@ module Gitgo
       
       # Returns a string like:
       #
-      #   #<Gitgo::Repo::Node:object_id sha=sha>
+      #   #<Gitgo::Repo::Node:object_id sha="sha">
       #
       def inspect
-        "#<#{self.class}:#{object_id} sha=#{sha}>"
+        "#<#{self.class}:#{object_id} sha=#{sha.inspect}>"
       end
     end
   end

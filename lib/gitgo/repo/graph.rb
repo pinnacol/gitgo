@@ -24,9 +24,14 @@ module Gitgo
         reset
       end
       
+      # Same as node.
+      def [](sha)
+        nodes[sha]
+      end
+      
       # Retrieves the node for the sha, or nil if the node is inaccessible
       # from this document graph.
-      def [](sha)
+      def node(sha)
         nodes[sha]
       end
       
@@ -142,6 +147,14 @@ module Gitgo
         
         @tree = nil
         self
+      end
+      
+      # Returns a string like:
+      #
+      #   #<Gitgo::Repo::Graph:object_id origin="sha">
+      #
+      def inspect
+        "#<#{self.class}:#{object_id} origin=#{origin.inspect}>"
       end
       
       protected

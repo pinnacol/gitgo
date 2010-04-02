@@ -173,8 +173,8 @@ class DocumentTest < Test::Unit::TestCase
     c = Document.create('content' => 'c', 'origin' => a)
     d = Document.create('content' => 'd', 'origin' => a, 'parents' => [b], 'children' => [c])
 
-    assert_equal [b.sha], d.parents
-    assert_equal [c.sha], d.children
+    assert_equal [b.sha], d.node.parents
+    assert_equal [c.sha], d.node.children
   end
   
   def test_create_caches_document_attrs
@@ -485,24 +485,19 @@ class DocumentTest < Test::Unit::TestCase
   # tail? test
   #
   
-  def test_tail_check_returns_true_unless_saved
-    assert_equal false, doc.saved?
-    assert_equal true, doc.tail?
-  end
-  
   def test_tail_check_returns_false_unless_doc_is_tail
     doc.merge!('content' => 'a').save
-    assert_equal true, doc.tail?
+    assert_equal true, doc.node.tail?
     
     # update
     update = doc.merge('content' => 'b').update(doc)
-    assert_equal true, update.tail?
-    assert_equal false, doc.tail?
+    assert_equal true, update.node.tail?
+    assert_equal false, doc.node.tail?
     
     # child
     child = Document.new('content' => 'c', 'origin' => doc).save
     child.link(update)
-    assert_equal false, update.tail?
+    assert_equal false, update.node.tail?
   end
   
   #
@@ -559,7 +554,7 @@ class DocumentTest < Test::Unit::TestCase
     doc.origin = a
     doc.reset(b)
     
-    assert_equal [a], doc.parents
+    assert_equal [a], doc.node.parents
   end
   
   #
@@ -573,7 +568,7 @@ class DocumentTest < Test::Unit::TestCase
     
     doc.reset(a)
     
-    assert_equal [b], doc.children
+    assert_equal [b], doc.node.children
   end
   
   #
@@ -794,13 +789,6 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 'value', attrs['key']
   end
   
-  def test_save_sets_each_index_in_idx
-    doc.tags << 'one'
-    doc.save
-    
-    assert_equal [doc.sha], idx['tags']['one']
-  end
-  
   def test_save_stores_according_to_date
     date = Time.at(100)
     doc['date'] = date.iso8601
@@ -866,31 +854,33 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_update_saves_and_updates_old_sha_with_self
-    a = Document.new('content' => 'a').save.sha
-    b = Document.new('content' => 'b').update(a).sha
+    a = Document.new('content' => 'a').save
+    b = Document.new('content' => 'b').update(a)
     
-    attrs = deserialize(git.get(:blob, b).data)
+    attrs = deserialize(git.get(:blob, b.sha).data)
     assert_equal 'b', attrs['content']
-    assert_equal [b], repo.updates(a)
-    assert_equal true, repo.updated?(a)
+    assert_equal [b.sha], a.node.versions
+    assert_equal false, a.node.current?
   end
   
   def test_update_is_equivalent_to_save_if_old_sha_is_nil
-    a = Document.new('content' => 'a').update(nil).sha
-    assert_equal false, repo.updated?(a)
+    a = Document.new('content' => 'a').update(nil)
+    assert_equal true, a.node.current?
   end
   
   def test_update_updates_self_sha_by_default
     doc['content'] = 'a'
-    a = doc.save.sha
+    a = doc.save
     
     doc['content'] = 'b'
-    b = doc.update.sha
+    b = doc.update
     
-    attrs = deserialize(git.get(:blob, b).data)
+    attrs = deserialize(git.get(:blob, b.sha).data)
     assert_equal 'b', attrs['content']
-    assert_equal [b], repo.updates(a)
-    assert_equal true, repo.updated?(a)
+    
+    graph = repo.graph(a)
+    assert_equal [b.sha], graph[a].versions
+    assert_equal false, graph[a].current?
   end
   
   def test_multiple_sequential_updates_do_not_change_sha
@@ -898,20 +888,6 @@ class DocumentTest < Test::Unit::TestCase
     b = doc.update.sha
     
     assert_equal a, b
-  end
-  
-  def test_update_sets_sha_to_map_to_origin_in_idx
-    doc['content'] = 'a'
-    a = doc.save.sha
-    
-    assert_equal a, doc.origin
-    assert_equal a, idx.map[a]
-    
-    doc['content'] = 'b'
-    b = doc.update.sha
-    
-    assert_equal a, doc.origin
-    assert_equal a, idx.map[b]
   end
   
   #
@@ -924,24 +900,27 @@ class DocumentTest < Test::Unit::TestCase
     doc.origin = a
     doc.save.link(a)
 
-    assert_equal [doc.sha], repo.links(a)
+    assert_equal [doc.sha], repo.graph(a).node(a).children
   end
 
   def test_link_resolves_parents
     a = repo.store('content' => 'a')
     b = repo.store('content' => 'b', 'origin' => a)
-
+    repo.link(a, b)
+    
     doc.origin = a
     doc.save.link([a[0,8], b])
-
-    assert_equal [doc.sha], repo.links(a)
-    assert_equal [doc.sha], repo.links(b)
+    
+    graph = repo.graph(a)
+    assert_equal [doc.sha, b].sort, graph[a].children.sort
+    assert_equal [doc.sha], graph[b].children
   end
 
   def test_link_detects_parents_with_different_origins
     a = repo.store('content' => 'a')
     b = repo.store('content' => 'b', 'origin' => a)
     c = repo.store('content' => 'c')
+    repo.link(a, b)
     
     err = assert_raises(RuntimeError) { doc.save.link(b) }
     assert_equal 'parent and child have different origins', err.message
@@ -954,28 +933,29 @@ class DocumentTest < Test::Unit::TestCase
   def test_link_links_doc_to_children
     a = repo.store('content' => 'a')
     b = repo.store('content' => 'b', 'origin' => a)
-
+    
     doc.origin = a
-    doc.save.link(nil, b)
-
-    assert_equal [b], repo.links(doc.sha)
+    doc.save.link(a, b)
+    
+    assert_equal [b], doc.node.children
   end
 
   def test_link_resolves_children
     a = repo.store('content' => 'a')
     b = repo.store('content' => 'b', 'origin' => a)
     c = repo.store('content' => 'c', 'origin' => a)
-
+    
     doc.origin = a
-    doc.save.link(nil, [b[0,8], c])
-    assert_equal [b, c].sort, repo.links(doc.sha).sort
+    doc.save.link(a, [b[0,8], c])
+    assert_equal [b, c].sort, doc.node.children.sort
   end
 
   def test_link_detects_children_with_different_origins
     a = repo.store('content' => 'a')
     b = repo.store('content' => 'b', 'origin' => a)
     c = repo.store('content' => 'c')
-  
+    repo.link(a, b)
+    
     err = assert_raises(RuntimeError) { doc.save.link(nil, b) }
     assert_equal 'parent and child have different origins', err.message
     

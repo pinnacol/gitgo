@@ -30,7 +30,7 @@ module Gitgo
       end
       
       def heads
-        graph.versions(origin).collect {|sha| Issue[sha] }
+        graph[origin].versions.collect {|sha| Issue[sha] }
       end
       
       def tails

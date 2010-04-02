@@ -33,6 +33,7 @@ module Gitgo
         doc = new(attrs, repo)
         doc.save
         doc.link(parents, children)
+        doc.reindex
         doc
       end
       
@@ -53,6 +54,7 @@ module Gitgo
         sha = sha.sha if sha.respond_to?(:sha)
         doc = read(sha).merge!(attrs)
         doc.update
+        doc.reindex
         doc
       end
       
@@ -204,7 +206,7 @@ module Gitgo
     end
     
     def origin
-      self['origin'] || (sha ? repo.graph(sha).original(sha) : nil)
+      self['origin'] || sha || nil
     end
     
     def origin=(sha)
@@ -216,33 +218,17 @@ module Gitgo
       self['origin'].nil?
     end
     
-    def original?
-      graph.original?(sha)
-    end
-    
-    def current?
-      graph.current?(sha)
-    end
-    
-    def tail?
-      graph.tail?(sha)
-    end
-    
     def active?(commit=nil)
       return true if at.nil? || commit.nil?
       repo.rev_list(commit).include?(at)
     end
     
+    def node
+      graph[sha]
+    end
+    
     def graph
       @graph ||= repo.graph(resolve origin)
-    end
-    
-    def parents
-      graph.parents(sha)
-    end
-    
-    def children
-      graph.children(sha)
     end
     
     def tags
@@ -348,7 +334,6 @@ module Gitgo
     def save
       validate
       reset repo.store(attrs, date)
-      reindex
       self
     end
     
@@ -368,7 +353,6 @@ module Gitgo
         idx.filter << old_sha
       end
       
-      reindex
       self
     end
     
@@ -394,7 +378,7 @@ module Gitgo
       idx = self.idx
       each_index {|key, value| idx.add(key, value, sha) }
       idx.map[sha] = origin
-      idx.filter << sha unless graph.tail?(sha)
+      idx.filter << sha unless node && node.tail?
       
       self
     end
