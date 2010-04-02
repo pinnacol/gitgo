@@ -33,7 +33,7 @@ module Gitgo
   #   |
   #   parent
   #   |
-  #   original -> previous -> update -> current
+  #   original -> previous -> update -> current version
   #   |
   #   child
   #   |
@@ -51,6 +51,10 @@ module Gitgo
   # collectively referred to as linkages.  The first member in a linkage
   # (parent/previous) is a source and the second (child-update) is a target.
   #
+  # Deletes are supported as a special type of update where the document is
+  # updated to itself; these document act as a break in the DAG where all
+  # connected links and updates no longer show up.
+  #
   # === Notes
   #
   # The possibility of multiple current versions is perhaps non-intuitive, but
@@ -61,7 +65,7 @@ module Gitgo
   # When discussing a document graph, 'origin' is used in preference of 'head'
   # in order to make a distinction between numerous other heads referred to by
   # Gitgo, for instance, the head of the git repository.
-  #                      
+  #                        
   # == Documents and Linkages
   #
   # Documents and linkages are stored on a dedicated branch that may be
@@ -86,73 +90,20 @@ module Gitgo
   #   path              mode    blob
   #   pa/rent/child     100644  empty_sha
   #   pr/evious/update  100644  previous
-  #   up/date/update    100644  previous
+  #   de/lete/delete    100644  delete
   #
   # The relationship between the source, target, and blob shas is used to
-  # determine the type of linkage involved and the 'meaning' of each sha.  The
-  # logic breaks down like so:
+  # determine the type of linkage involved.  The logic breaks down like so:
   #
-  #   source == target  linkage type     source    target   blob
-  #   no                link             parent    child    -
-  #   no                update           previous  update   -
-  #   yes               back-reference   -         update   previous
+  #   source == target   blob         linkage type
+  #   no                 empty_sha    link
+  #   no                 source       update
+  #   yes                target       delete
   #
   # Using this logic, a traveral of the linkages is enough to determine how
   # documents are related; again no documents need to be loaded into memory
   # beforehand.
   #
-  # == Limitations
-  #
-  # The storage model is designed to prevent merge conflicts under normal circumstances,
-  # and to fail when someone maliciously tries to bugger the system.  
-  #
-  # Documents should never conflict because they are stored under their own sha-path.
-  #
-  #   A [store a]        date/a (a)
-  #   B [store b]        date/b (b)
-  #
-  # Likewise linkages will not conflict so long as different targets are involved.
-  #             
-  #   A [link a -> b]    a/b (empty)
-  #   B [link a -> c]    a/c (empty)
-  #                
-  #   A [link a -> b]    a/b (empty)
-  #   B [update a -> c]  a/c (a), c/c (a)
-  #           
-  #   A [update a -> b]  a/b (a), b/b (a)
-  #   B [update a -> c]  a/c (a), c/c (a)
-  
-  # If a malicious user modifies the document content under a given path then a
-  # merge against a correct repo will fail.
-  #
-  #   A [store a]       date/a (a)
-  #   B [store b as a]  date/a (b) # merge conflict and fail
-  #
-  # Likewise an attempt to link and update with the same target will fail:
-  #
-  #   A [link a -> b]   a/b (empty)
-  #   B [update a -> b] a/b (a), b/b (a) # merge conflict and fail
-  #                
-  #   A [update a -> b] a/b (a), b/b (a)
-  #   B [update c -> b] c/b (a), b/b (c) # merge conflict and fail
-  #       
-  # These conflicts are prevented within a given repo (ie A == B), and will
-  # normally not happen remotely because it would require independent
-  # generation of the same 'b' document.  Given that documents have a
-  # timestamp and an author, this is unlikely, but care should be taken to
-  # make sure the same document will not be generated twice and moreover that
-  # existing documents cannot be re-linked or re-assigned as an update after
-  # creation.
-  #
-  # Note too that conflicts can arise if (a == b); no linking or updating with
-  # self is allowed.
-  #
-  #   A (link a -> a)   {a => a()}
-  #   B (update a -> a) {a => a(a)}
-  #
-  #
-  #
-
   class Repo
     class << self
       

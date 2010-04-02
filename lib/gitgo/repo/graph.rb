@@ -2,9 +2,9 @@ require 'gitgo/repo/node'
 
 module Gitgo
   class Repo
-    # Graph performs the important and complicated task of creating and
-    # providing access to document graphs.  Graph uses signifant amounts of
-    # caching to make sure traversal of the document graph is quick.
+    # Graph performs the important and somewhat complicated task of creating
+    # document graphs.  Graph and Node use signifant amounts of caching to
+    # make sure traversal of the document graph is as quick as possible.
     class Graph
       include Enumerable
       
@@ -12,25 +12,32 @@ module Gitgo
       attr_reader :repo
       
       # The document graph origin.
-      attr_reader :head
+      attr_reader :origin
       
+      # A hash of (sha, node) pairs identifying all accessible nodes.
       attr_reader :nodes
       
-      def initialize(repo, head)
+      # Creates a new Graph
+      def initialize(repo, origin)
         @repo = repo
-        @head = head
+        @origin = origin
         reset
       end
       
+      # Retrieves the node for the sha, or nil if the node is inaccessible
+      # from this document graph.
       def [](sha)
         nodes[sha]
       end
       
+      # Returns a hash of (parent, children) pairs identifying the current,
+      # deconvoluted document graph.  Tree does not contain updated or deleted
+      # nodes and typically serves as the basis for drawing graphs.
       def tree
         @tree ||= begin
           tree= {}
-          unless head.nil?
-            versions = nodes[nodes[head].original].versions
+          unless origin.nil?
+            versions = nodes[nodes[origin].original].versions
             versions.each {|sha| collect_tree(sha, tree) }
             
             tree[nil] = versions
@@ -59,7 +66,7 @@ module Gitgo
       
       # Yields each node in the tree to the block with coordinates for
       # rendering a graph of relationships between the nodes.  The nodes are
-      # ordered from head to tails and respect the order of children.
+      # ordered from origin to tails and respect the order of children.
       #
       # Each node is assigned a slot (x), and at each iteration (y), there is
       # information regarding which slots are currently open, and which slots
@@ -83,14 +90,14 @@ module Gitgo
       #   current_slots:: slots currently open (|)
       #   transitions:: the slots that this node should connect to (|,--+)
       #
-      def each(head=nil) # :yields: sha, slot, index, current_slots, transitions
+      def each(origin=nil) # :yields: sha, slot, index, current_slots, transitions
         slots = []
-        slot = {head => 0}
+        slot = {origin => 0}
         
         # visit walks each branch in the tree and collects the visited nodes
         # in reverse; that way uniq + reverse_each will iterate the nodes in
         # order, with merges pushed down as far as necessary
-        order = visit(tree, head)
+        order = visit(tree, origin)
         order.uniq!
         
         index = 0
@@ -120,9 +127,12 @@ module Gitgo
         self
       end
       
+      # Resets the graph, recollecting all nodes and the tree.  Reset is
+      # useful to refresh a graph after new nodes are inserted, or nodes are
+      # deleted.
       def reset
         @nodes = {}
-        collect_nodes(head)
+        collect_nodes(origin)
         
         nodes.each_value do |node|
           if node.original?
@@ -136,7 +146,10 @@ module Gitgo
       
       protected
       
-      def collect_nodes(sha) 
+      # helper method to recursively collect all nodes in the graph, with the
+      # raw linkage information.  after nodes are collected they must be
+      # deconvoluted.
+      def collect_nodes(sha) # :nodoc:
         node = nodes[sha]
         return node if node
         
@@ -165,6 +178,9 @@ module Gitgo
         node
       end
       
+      # helper method to recursively collect parents and children into tree. 
+      # collect_tree walks each current trail in the nodes and is designed to
+      # fail if circular linkages are detected.
       def collect_tree(sha, tree, trail=[]) # :nodoc:
         circular = trail.include?(sha)
         trail.push sha
@@ -182,6 +198,9 @@ module Gitgo
         trail.pop
       end
       
+      # helper method to walk the tree and collect each visited node in
+      # reverse -- afterwards the unique, reversed array represents the
+      # graphing order for the nodes.
       def visit(tree, parent, visited=[]) # :nodoc:
         visited.unshift(parent)
         tree[parent].each do |child|
