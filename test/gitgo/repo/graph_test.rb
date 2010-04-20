@@ -157,10 +157,10 @@ class GraphTest < Test::Unit::TestCase
   end
   
   #
-  # tree test
+  # links test
   #
   
-  def test_tree_returns_an_mapping_of_shas
+  def test_links_returns_an_mapping_of_node_child_linkages
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.link(b, c)
@@ -172,10 +172,10 @@ class GraphTest < Test::Unit::TestCase
       c => []
     }
 
-    assert_graph_equal expected, repo.graph(a).tree
+    assert_graph_equal expected, repo.graph(a).links
   end
   
-  def test_tree_allows_fork_linkages
+  def test_links_allows_forks
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.link(a, c)
@@ -187,10 +187,10 @@ class GraphTest < Test::Unit::TestCase
       c => []
     }
 
-    assert_graph_equal expected, repo.graph(a).tree
+    assert_graph_equal expected, repo.graph(a).links
   end
 
-  def test_tree_allows_merge_linkages
+  def test_links_allows_merges
     a, b, c, d = create_nodes('a', 'b', 'c', 'd')
     repo.link(a, b).link(b, d)
     repo.link(a, c).link(c, d)
@@ -203,10 +203,10 @@ class GraphTest < Test::Unit::TestCase
       d => []
     }
 
-    assert_graph_equal expected, repo.graph(a).tree
+    assert_graph_equal expected, repo.graph(a).links
   end
   
-  def test_tree_deconvolutes_updates
+  def test_links_deconvolutes_updates
     a, b, c, d, m, n, x, y = create_nodes('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
     repo.link(a, b)
     repo.link(b, c)
@@ -224,10 +224,10 @@ class GraphTest < Test::Unit::TestCase
       n => []
     }
 
-    assert_graph_equal expected, repo.graph(a).tree
+    assert_graph_equal expected, repo.graph(a).links
   end
   
-  def test_tree_removes_deletes
+  def test_links_removes_deletes
     a, b, c, d = create_nodes('a', 'b', 'c', 'd')
     repo.link(a, b)
     repo.link(b, c)
@@ -240,10 +240,10 @@ class GraphTest < Test::Unit::TestCase
       b => []
     }
 
-    assert_graph_equal expected, repo.graph(a).tree
+    assert_graph_equal expected, repo.graph(a).links
   end
   
-  def test_tree_removes_deletes_from_update
+  def test_links_removes_deletes_from_update
     a, b, c, x, y, z = create_nodes('a', 'b', 'c', 'x', 'y', 'z')
     repo.link(a, b)
     repo.link(b, c)
@@ -259,10 +259,10 @@ class GraphTest < Test::Unit::TestCase
       c => []
     }
 
-    assert_graph_equal expected, repo.graph(a).tree
+    assert_graph_equal expected, repo.graph(a).links
   end
 
-  def test_tree_with_multiple_heads
+  def test_links_with_multiple_heads
     a, b, m, n, x, y = create_nodes('a', 'b', 'm', 'n', 'x', 'y')
     repo.link(a, b).update(a, m).update(a, x)
     repo.link(m, n)
@@ -277,10 +277,10 @@ class GraphTest < Test::Unit::TestCase
       n => []
     }
 
-    assert_graph_equal expected, repo.graph(a).tree
+    assert_graph_equal expected, repo.graph(a).links
   end
 
-  def test_tree_with_merged_lineages
+  def test_links_with_merged_lineages
     a, b, c, d, m, n, x, y = create_nodes('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
     repo.link(a, b).link(a, x)
     repo.link(b, c)
@@ -300,10 +300,10 @@ class GraphTest < Test::Unit::TestCase
       y => []
     }
 
-    assert_graph_equal expected, repo.graph(a).tree
+    assert_graph_equal expected, repo.graph(a).links
   end
 
-  def test_tree_with_merged_lineages_and_multiple_updates
+  def test_links_with_merged_lineages_and_multiple_updates
     a, b, c, d, m, n, x, y, p, q = create_nodes('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y', 'p', 'q')
     repo.link(a, b).link(a, x)
     repo.link(b, c)
@@ -326,16 +326,16 @@ class GraphTest < Test::Unit::TestCase
       q => []
     }
 
-    assert_graph_equal expected, repo.graph(a).tree
+    assert_graph_equal expected, repo.graph(a).links
   end
   
-  def test_tree_detects_circular_linkage
+  def test_links_detects_circular_linkage
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.link(b, c)
     repo.link(c, a)
 
-    err = assert_raises(RuntimeError) { repo.graph(a).tree }
+    err = assert_raises(RuntimeError) { repo.graph(a).links }
     assert_equal %Q{circular link detected:
   #{a}
   #{b}
@@ -344,13 +344,13 @@ class GraphTest < Test::Unit::TestCase
 }, err.message
   end
 
-  def test_tree_detects_circular_linkage_with_replacement
+  def test_links_detects_circular_linkage_with_replacement
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.update(b, c)
     repo.link(b, a)
 
-    err = assert_raises(RuntimeError) { repo.graph(a).tree }
+    err = assert_raises(RuntimeError) { repo.graph(a).links }
     assert_equal %Q{circular link detected:
   #{a}
   #{c}
@@ -358,13 +358,13 @@ class GraphTest < Test::Unit::TestCase
 }, err.message
   end
 
-  def test_tree_detects_circular_linkage_through_replacement
+  def test_links_detects_circular_linkage_through_replacement
     a, b, c = create_nodes('a', 'b', 'c')
     repo.link(a, b)
     repo.update(b, c)
     repo.link(c, a)
 
-    err = assert_raises(RuntimeError) { repo.graph(a).tree }
+    err = assert_raises(RuntimeError) { repo.graph(a).links }
     assert_equal %Q{circular link detected:
   #{a}
   #{c}
@@ -372,7 +372,7 @@ class GraphTest < Test::Unit::TestCase
 }, err.message
   end
   
-  def test_tree_detects_circular_linkage_causes_by_replacement
+  def test_links_detects_circular_linkage_causes_by_replacement
     a, b, c, d = create_nodes('a', 'b', 'c', 'd')
     repo.link(a, b)
     repo.link(b, c)
@@ -382,7 +382,7 @@ class GraphTest < Test::Unit::TestCase
     
     repo.update(b, d)
     
-    err = assert_raises(RuntimeError) { repo.graph(a).tree }
+    err = assert_raises(RuntimeError) { repo.graph(a).links }
     expected = [
 %Q{circular link detected:
   #{a}
@@ -399,9 +399,9 @@ class GraphTest < Test::Unit::TestCase
     assert_equal true, expected.include?(err.message)
   end
   
-  def test_tree_returns_empty_hash_when_head_is_nil
+  def test_links_returns_empty_hash_when_head_is_nil
     graph = repo.graph(nil)
-    assert_equal({}, graph.tree)
+    assert_equal({}, graph.links)
   end
   
   #

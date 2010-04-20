@@ -2,25 +2,73 @@ require 'gitgo/repo/node'
 
 module Gitgo
   class Repo
-    # Graph performs the important and somewhat complicated task of creating
-    # document graphs.  Graph and Node use signifant amounts of caching to
-    # make sure traversal of the document graph is as quick as possible.
+    # Graph performs the important and somewhat complicated task of
+    # deconvoluting document graphs.  Graph and Node use signifant amounts of
+    # caching to make sure traversal of the document graph is as quick as
+    # possible.  Graphs must be reset to detect any linkages added after
+    # initialization.
+    #
+    # See Gitgo::Repo for terminology used in this documentation.
+    #
+    # == Deconvolution
+    #
+    # Deconvolution involves replacing each node in a DAG with the current
+    # versions of that node, and specifically reassigning parent and children
+    # linkages from updated nodes to their current versions.
+    #
+    #          a                              a
+    #          |                              |
+    #          b -> b1                        b1--+
+    #          |    |                         |   |
+    #          c    |             becomes     c   |
+    #               |                             |
+    #               d                             d
+    #
+    # When multiple current versions exist for a node, a new fork in the graph
+    # is introduced:
+    #
+    #          a                              a
+    #          |                              |--+
+    #          b -> [b1, b2]                  b1 |
+    #          |                              |  |
+    #          c                 becomes      |  b2
+    #                                         |  |
+    #                                         c--+
+    #
+    # These forks can happen anywhere (including the graph head), as can
+    # updates that merge multiple revisions:
+    #
+    #          a                              a
+    #          |                              |
+    #          b -> [b1, b2] -> b3            b3
+    #          |                              |
+    #          c                 becomes      c
+    #
+    # Information for the convoluted graph is not available from Graph.
+    #
+    # == Notes
+    #
+    # The possibility of multiple current versions is perhaps non-intuitive,
+    # but entirely possible if user A modifies a document while separately
+    # user B modifies the same document in a different way.  When these
+    # changes are merged, you end up with multiple current versions.
+    #
     class Graph
       include Enumerable
       
       # A back-reference to the repo where the documents are stored
       attr_reader :repo
       
-      # The document graph origin.
-      attr_reader :origin
+      # The graph head
+      attr_reader :head
       
-      # A hash of (sha, node) pairs identifying all accessible nodes.
+      # A hash of (sha, node) pairs identifying all accessible nodes
       attr_reader :nodes
       
       # Creates a new Graph
-      def initialize(repo, origin)
+      def initialize(repo, head)
         @repo = repo
-        @origin = origin
+        @head = head
         reset
       end
       
@@ -35,43 +83,44 @@ module Gitgo
         nodes[sha]
       end
       
-      # Returns a hash of (parent, children) pairs identifying the current,
-      # deconvoluted document graph.  Tree does not contain updated or deleted
-      # nodes and typically serves as the basis for drawing graphs.
-      def tree
-        @tree ||= begin
-          tree= {}
-          unless origin.nil?
-            versions = nodes[nodes[origin].original].versions
-            versions.each {|sha| collect_tree(sha, tree) }
+      # Returns a hash of (node, children) pairs mapping linkages in the
+      # deconvoluted graph.  Links does not contain updated or deleted nodes
+      # and typically serves as the basis for drawing graphs.
+      def links
+        @links ||= begin
+          links = {}
+          unless head.nil?
+            versions = nodes[nodes[head].original].versions
+            versions.each {|sha| collect_links(sha, links) }
             
-            tree[nil] = versions
+            links[nil] = versions
           end
-          tree
+          links
         end
       end
       
+      # Returns an array the tail nodes in the deconvoluted graph.
       def tails
         @tails ||= begin
           tails = []
-          tree.each_pair do |key, value|
-            tails << key if value.empty?
+          links.each_pair do |node, children|
+            tails << node if children.empty?
           end
           tails
         end
       end
       
-      # Sorts each of the children in tree, using the block if given.
+      # Sorts each of the children in links, using the block if given.
       def sort(&block)
-        tree.each_value do |children|
+        links.each_value do |children|
           children.sort!(&block)
         end
         self
       end
       
-      # Yields each node in the tree to the block with coordinates for
-      # rendering a graph of relationships between the nodes.  The nodes are
-      # ordered from origin to tails and respect the order of children.
+      # Yields each node in the deconvoluted graph to the block with
+      # coordinates for rendering linkages between the nodes. The nodes are
+      # ordered from head to tails and respect the order of children.
       #
       # Each node is assigned a slot (x), and at each iteration (y), there is
       # information regarding which slots are currently open, and which slots
@@ -99,15 +148,15 @@ module Gitgo
         slots = []
         slot = {origin => 0}
         
-        # visit walks each branch in the tree and collects the visited nodes
+        # visit walks each branch in the DAG and collects the visited nodes
         # in reverse; that way uniq + reverse_each will iterate the nodes in
         # order, with merges pushed down as far as necessary
-        order = visit(tree, origin)
+        order = visit(links, origin)
         order.uniq!
         
         index = 0
         order.reverse_each do |sha|
-          children = tree[sha]
+          children = links[sha]
           parent_slot  = slot[sha]
           
           # free the parent slot if possible - if no children exist then the
@@ -132,12 +181,11 @@ module Gitgo
         self
       end
       
-      # Resets the graph, recollecting all nodes and the tree.  Reset is
-      # useful to refresh a graph after new nodes are inserted, or nodes are
-      # deleted.
+      # Resets the graph, recollecting all nodes and links.  Reset is required
+      # detect new nodes inserted after initialization.
       def reset
         @nodes = {}
-        collect_nodes(origin)
+        collect_nodes(head)
         
         nodes.each_value do |node|
           if node.original?
@@ -145,7 +193,7 @@ module Gitgo
           end
         end
         
-        @tree = nil
+        @links = nil
         self
       end
       
@@ -191,10 +239,10 @@ module Gitgo
         node
       end
       
-      # helper method to recursively collect parents and children into tree. 
-      # collect_tree walks each current trail in the nodes and is designed to
-      # fail if circular linkages are detected.
-      def collect_tree(sha, tree, trail=[]) # :nodoc:
+      # helper method to recursively collect node linkages. collect_links
+      # walks each current trail in the nodes and is designed to fail if
+      # circular linkages are detected.
+      def collect_links(sha, links, trail=[]) # :nodoc:
         circular = trail.include?(sha)
         trail.push sha
 
@@ -202,22 +250,22 @@ module Gitgo
           raise "circular link detected:\n  #{trail.join("\n  ")}\n"
         end
 
-        tree[sha] ||= begin
+        links[sha] ||= begin
           nodes[sha].children.each do |child|
-            collect_tree(child, tree, trail)
+            collect_links(child, links, trail)
           end
         end
 
         trail.pop
       end
       
-      # helper method to walk the tree and collect each visited node in
+      # helper method to walk the DAG and collect each visited node in
       # reverse -- afterwards the unique, reversed array represents the
       # graphing order for the nodes.
-      def visit(tree, parent, visited=[]) # :nodoc:
+      def visit(links, parent, visited=[]) # :nodoc:
         visited.unshift(parent)
-        tree[parent].each do |child|
-          visit(tree, child, visited)
+        links[parent].each do |child|
+          visit(links, child, visited)
         end
         visited
       end
