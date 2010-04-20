@@ -5,73 +5,81 @@ require 'gitgo/repo/graph'
 require 'gitgo/repo/utils'
 
 module Gitgo
-  # Repo provides the low-level methods for storing and retrieving Gitgo
-  # documents from a git repository.  Repos consist primarily of a Git
-  # instance for adding documents to the repository, and an Index instance for
-  # storing document indexes.
-  #
-  # Repos are designed to allow conflict-free merges across multiple users and
-  # to support the basic CRUD for document models, in as compact a format as
-  # possible. As a result, the internals require some explanation.
+  # Repo represents the internal data store used by Gitgo. Repos consist of a
+  # Git instance for storing documents in the repository, and an Index
+  # instance for queries on the documents. The internal workings of Repo are a
+  # bit complex; this document provides terminology and details on how
+  # documents and linkages are stored.  See Index and Graph for how the stored
+  # information is accessed.
   #
   # == Terminology
   #
   # Gitgo documents are hashes of attributes that can be serialized as JSON.
-  # The Gitgo::Document model adds more structure to these hashes and enforces
-  # data validity, but insofar as Repo is concerned, a document is a
-  # serializable hash.
+  # The Gitgo::Document model adds structure to these hashes and enforces data
+  # validity, but insofar as Repo is concerned, a document is a serializable
+  # hash. Documents are linked into a document graph -- a directed acyclic
+  # graph (DAG) of document nodes that represent, for example, a chain of
+  # comments making a conversation.  A given repo can be thought of as storing
+  # multiple DAGs, each made up of multiple documents.
   #
-  # Documents are linked into a document graph -- a directed acyclic graph
-  # (DAG) of documents that represent, for example, a chain of comments that
-  # make a conversation.  Graphs are a little weird because they have to
-  # represent updates and deletions in an immutable, add-only way in order to
-  # preserve the integrity of Gitgo data during merges.
+  # The DAGs used by Gitgo are a little weird because they use some nodes to
+  # represent revisions, and other nodes to represent the 'current' nodes in a
+  # graph (this setup allows documents to be immutable, and thereby to prevent
+  # merge conflicts).  
   #
-  # Graphs are constructed like so:
+  # Normally a DAG has this conceptual structure:
   #
-  #   origin (head)
+  #   head
   #   |
   #   parent
   #   |
-  #   original -> previous -> update -> current version
+  #   node
   #   |
   #   child
   #   |
   #   tail
   #
-  # Any document in the graph can have one or more children and one or more
-  # updates.  Children make the DAG; mapping out the DAG is a matter of
-  # following all trails from the origin (ie head) to each of the tails.
-  # Updates represent revisions to a specific document.  In the final graph,
-  # documents are represented by one or more current versions, each of which
-  # can be mapped back to a single original document.
+  # By contrast, the DAGs used by Gitgo are structured like this:
+  #
+  #                           head
+  #                           |
+  #                           parent
+  #                           |
+  #   original -> previous -> node -> update -> current version
+  #                           |
+  #                           child
+  #                           |
+  #                           tail
+  #
+  # The extra dimension of updates may be unwound to replace all previous
+  # versions of a node with the current version(s), so for example:
+  #
+  #               a                       a
+  #               |                       |
+  #               b -> b'    becomes      b'
+  #               |                       |
+  #               c                       c
+  #
+  # The full DAG is refered to as the 'convoluted graph' and the current DAG
+  # is the 'deconvoluted graph'.  The logic performing the deconvolution is
+  # encapsulated in Gitgo::Graph.
   #
   # Parent-child relationships are referred to as links, while previous-update
   # relationships are referred to as updates.  Links and updates are
   # collectively referred to as linkages.  The first member in a linkage
-  # (parent/previous) is a source and the second (child-update) is a target.
+  # (parent/previous) is a source and the second (child/update) is a target.
   #
   # Deletes are supported as a special type of update where the document is
-  # updated to itself; these document act as a break in the DAG where all
-  # connected links and updates no longer show up.
-  #
-  # === Notes
-  #
-  # The possibility of multiple current versions is perhaps non-intuitive, but
-  # entirely possible if user A modifies a document while separately user B
-  # modifies the same document in a different way.  When these changes are
-  # merged, you end up with multiple current versions.
-  #
-  # When discussing a document graph, 'origin' is used in preference of 'head'
-  # in order to make a distinction between numerous other heads referred to by
-  # Gitgo, for instance, the head of the git repository.
-  #                        
+  # updated to itself; these act as a break in the DAG where all subsequent
+  # links and updates are omitted.
+  #             
   # == Documents and Linkages
   #
-  # Documents and linkages are stored on a dedicated branch that may be
-  # checked out and handled like any other git branch.  The documents are
-  # stored in such a way as to prevent merge conflicts, and the linkages are
-  # constructed so that merges automatically construct the document graph.
+  # Documents and linkages are stored on a dedicated git branch in a way that
+  # prevents merge conflicts, and allows merges to directly add nodes anywhere
+  # in a document graph.  The branch may be checked out and handled like any
+  # other git branch, although typically users manage the gitgo branch through
+  # Gitgo itself.
   #
   # Individual documents are stored by a date/sha path like this, where sha is
   # the sha of the serialized document (ie it identifies the blob storing the
@@ -80,7 +88,7 @@ module Gitgo
   #   path              mode    blob
   #   YYYY/MMDD/sha     100644  sha
   #
-  # The path is meaningful to determine a timeline of activity, without
+  # The path is meaningful to determine a timeline of activity without
   # examining the contents of any individual document.
   #
   # Linkages similarly incorporate document shas into their path, but split up
@@ -101,13 +109,24 @@ module Gitgo
   #   yes                target       delete
   #
   # Using this logic, a traveral of the linkages is enough to determine how
-  # documents are related; again no documents need to be loaded into memory
-  # beforehand.
+  # documents are related, again without loading individual documents into
+  # memory.
+  #
+  # == Implementation Note
+  #
+  # Repo is organized around an env hash that represents the rack env for a
+  # particular request.  Objects used by Repo are cached into env for re-use
+  # across multiple requests, when possible.  The 'gitgo.*' constants are used
+  # to identify cached objects.
+  #
+  # Repo knows how to initialize all the objects it uses.  An empty env or a
+  # partially filled env may be used to initialize a Repo.
   #
   class Repo
     class << self
       
-      # Initializes a new Repo for the duration of the block.
+      # Initializes a new Repo to the git repository at the specified path.
+      # Options are the same as for Git.init.
       def init(path, options={})
         git = Git.init(path, options)
         new(GIT => git)
@@ -131,15 +150,16 @@ module Gitgo
       end
       
       # The thread-specific env currently in scope (see set_env).  The env
-      # stores all the objects used by a Repo and commonly is the rack-env for
-      # a specific server request.
+      # stores all the objects used by a Repo and typically represents the
+      # rack-env for a specific server request.
       #
       # Raises an error if no env is in scope.
       def env
         Thread.current[ENVIRONMENT] or raise("no env in scope")
       end
       
-      # Returns or initializes env[REPO] as new(env);
+      # Returns the current Repo, ie env[REPO].  Initializes and caches a new
+      # Repo in env if env[REPO] is not set.
       def current
         env[REPO] ||= new(env)
       end
