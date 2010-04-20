@@ -321,7 +321,7 @@ module Gitgo
     end
     
     def graph
-      @graph ||= repo.graph(resolve origin)
+      @graph ||= repo.graph(repo.resolve(origin))
     end
     
     def tags
@@ -350,7 +350,7 @@ module Gitgo
       attrs['date'] ||= Time.now.iso8601
       
       if origin = attrs['origin']
-        attrs['origin'] = resolve(origin)
+        attrs['origin'] = repo.resolve(origin)
       end
       
       if at = attrs['at']
@@ -435,7 +435,7 @@ module Gitgo
     end
     
     def update(old_sha=sha)
-      old_sha = resolve(old_sha)
+      old_sha = repo.resolve(old_sha)
       reset old_sha
       
       validate
@@ -506,11 +506,6 @@ module Gitgo
     end
     
     protected
-    
-    def resolve(ref) # :nodoc:
-      ref = ref.sha if ref.respond_to?(:sha)
-      repo.resolve(ref)
-    end
     
     def validate_links(links) # :nodoc:
       arrayify(links).collect do |doc|

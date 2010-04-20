@@ -169,9 +169,9 @@ class DocumentTest < Test::Unit::TestCase
   
   def test_create_links_new_doc_to_parents_and_children
     a = Document.create('content' => 'a')
-    b = Document.create('content' => 'b', 'origin' => a, 'parents' => [a])
-    c = Document.create('content' => 'c', 'origin' => a, 'parents' => [a])
-    d = Document.create('content' => 'd', 'origin' => a, 'parents' => [b], 'children' => [c])
+    b = Document.create('content' => 'b', 'origin' => a.sha, 'parents' => [a.sha])
+    c = Document.create('content' => 'c', 'origin' => a.sha, 'parents' => [a.sha])
+    d = Document.create('content' => 'd', 'origin' => a.sha, 'parents' => [b.sha], 'children' => [c.sha])
 
     assert_equal [b.sha], d.node.parents
     assert_equal [c.sha], d.node.children
@@ -454,7 +454,7 @@ class DocumentTest < Test::Unit::TestCase
   
   def test_origin_resolves_sha_to_original
     update = doc.save.merge('content' => 'dup')
-    update.update(doc)
+    update.update(doc.sha)
     
     assert doc.sha != update.sha
     assert_equal doc.sha, update.origin
@@ -490,13 +490,17 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal true, doc.node.tail?
     
     # update
-    update = doc.merge('content' => 'b').update(doc)
+    update = doc.merge('content' => 'b', 'origin' => doc.sha).update(doc.sha)
     assert_equal true, update.node.tail?
+    
+    doc.reset
     assert_equal false, doc.node.tail?
     
     # child
-    child = Document.new('content' => 'c', 'origin' => doc).save
-    child.link(update)
+    child = Document.new('content' => 'c', 'origin' => doc.sha).save
+    child.link(update.sha)
+    
+    update.reset
     assert_equal false, update.node.tail?
   end
   
@@ -538,8 +542,8 @@ class DocumentTest < Test::Unit::TestCase
   def test_graph_resolves_doc_origins
     origin = Document.new.save
     
-    doc['origin'] = origin
-    assert_equal origin.sha, doc.graph.head 
+    doc['origin'] = origin.sha[0,8]
+    assert_equal origin.sha, doc.graph.origin 
   end
   
   #
@@ -679,13 +683,6 @@ class DocumentTest < Test::Unit::TestCase
     doc.origin = a[0, 8]
     doc.normalize!
     assert_equal a, doc.origin
-  end
-  
-  def test_normalize_bang_resolves_origin_if_doc
-    parent = Document.new.save
-    doc.origin = parent
-    doc.normalize!
-    assert_equal parent.sha, doc.origin
   end
   
   def test_normalize_bang_resolves_at_if_set
@@ -855,7 +852,7 @@ class DocumentTest < Test::Unit::TestCase
   
   def test_update_saves_and_updates_old_sha_with_self
     a = Document.new('content' => 'a').save
-    b = Document.new('content' => 'b').update(a)
+    b = Document.new('content' => 'b').update(a.sha)
     
     attrs = deserialize(git.get(:blob, b.sha).data)
     assert_equal 'b', attrs['content']
@@ -870,17 +867,19 @@ class DocumentTest < Test::Unit::TestCase
   
   def test_update_updates_self_sha_by_default
     doc['content'] = 'a'
-    a = doc.save
+    a = doc.save.sha
     
     doc['content'] = 'b'
-    b = doc.update
+    b = doc.update.sha
     
-    attrs = deserialize(git.get(:blob, b.sha).data)
+    attrs = deserialize(git.get(:blob, b).data)
     assert_equal 'b', attrs['content']
     
     graph = repo.graph(a)
-    assert_equal [b.sha], graph[a].versions
-    assert_equal false, graph[a].current?
+    node_a = graph[a]
+    
+    assert_equal [b], node_a.versions
+    assert_equal false, node_a.current?
   end
   
   def test_multiple_sequential_updates_do_not_change_sha
