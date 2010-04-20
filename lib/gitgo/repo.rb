@@ -80,7 +80,7 @@ module Gitgo
   #   path              mode    blob
   #   YYYY/MMDD/sha     100644  sha
   #
-  # The path is meanigful to determine a timeline of activity, without
+  # The path is meaningful to determine a timeline of activity, without
   # examining the contents of any individual document.
   #
   # Linkages similarly incorporate document shas into their path, but split up

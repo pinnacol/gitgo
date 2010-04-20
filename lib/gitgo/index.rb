@@ -2,21 +2,28 @@ require 'enumerator'
 require 'gitgo/index/index_file'
 
 module Gitgo
+  
+  # Index provides access to a file-based index of document shas.  Index files
+  # are used to expedite searches.
   class Index
     
     # A file containing the ref at which the last index was performed; used to
     # determine when a reindex is required relative to some other ref.
     HEAD = 'head'
     
+    # A file mapping shas to their origins like: sha,origin,sha,origin
     MAP = 'map'
     
+    # The head file for self
     attr_reader :head_file
     
+    # The map file for self
     attr_reader :map_file
     
-    # Returns an in-memory cache of index files
+    # Returns an in-memory, self-filling cache of index files
     attr_reader :cache
     
+    # References a string table that acts like a symbol table, but for shas.
     attr_reader :string_table
     
     def initialize(path, string_table=nil)
@@ -41,6 +48,7 @@ module Gitgo
       File.exists?(head_file) ? File.open(head_file) {|io| io.read(40) } : nil
     end
     
+    # Returns the contents of map_file, as a hash.
     def map
       @map ||= begin
         map = {}
@@ -50,6 +58,7 @@ module Gitgo
       end
     end
     
+    # Returns the tail filter.
     def filter
       self['tail']['filter']
     end
