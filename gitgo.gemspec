@@ -16,6 +16,7 @@ Gem::Specification.new do |s|
   s.rdoc_options.concat %W{--main README -S -N --title Gitgo}
   
   # add dependencies
+  s.add_dependency("rack", ">= 1.1.0")
   s.add_dependency("sinatra", "= 0.9.4")
   s.add_dependency("RedCloth", "= 4.2.2")
   s.add_dependency("grit", "= 2.0.0")

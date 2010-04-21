@@ -1,14 +1,4 @@
 #!/usr/bin/env ruby
 
-begin
-  require 'gitgo'
-rescue(LoadError)
-  # assume development if gitgo cannot be found
-  require "rubygems"
-  require "bundler"
-  Bundler.setup(:default)
-  
-  require 'gitgo'
-end
-
+require 'gitgo'
 Gitgo::Server.start
