@@ -286,6 +286,46 @@ class IndexTest < Test::Unit::TestCase
   end
   
   #
+  # compact test
+  #
+  
+  def test_compact_removes_duplicates_from_list
+    a, b, c = shas('a', 'b', 'c')
+    index.list.concat [a, b, b, c, a]
+    
+    index.compact
+    assert_equal [a, b, c], index.list
+  end
+  
+  def test_compact_updates_and_deconvolutes_mapped_idxs_to_new_idx_values
+    a, b, c = shas('a', 'b', 'c')
+    index.list.concat [a, b, b, c, a]
+    
+    index.map[0] = nil
+    index.map[1] = 0   # b -> a
+    index.map[2] = 0   # b -> a
+    index.map[3] = 2   # c -> b
+    index.map[4] = nil
+    
+    index.compact
+    assert_equal({
+      0 => nil,
+      1 => 0,
+      2 => 0
+    }, index.map)
+  end
+  
+  def test_compact_updates_filter_idx_values
+    a, b, c = shas('a', 'b', 'c')
+    index.list.concat [a, b, b, c, a]
+    
+    index['key']['value'] = [0, 3, 4]
+    
+    index.compact
+    assert_equal [0, 2], index['key']['value']
+  end
+  
+  #
   # reset test
   #
   

@@ -238,19 +238,38 @@ module Gitgo
       basis
     end
     
-    def clean
+    def compact
+      # reindex shas in list, and create an idx map for updating idxs
+      old_list = {}
+      list.each {|sha| old_list[old_list.length] = sha }
+      
+      list.uniq!
+      
+      new_list = {}
+      list.each {|sha| new_list[sha] = new_list.length}
+      
+      idx_map = {}
+      old_list.each_pair {|idx, sha| idx_map[idx] = new_list[sha]}
+      
+      # update/deconvolute mapped idx values
+      new_map = {}
+      map.each_pair {|idx, head_idx| new_map[idx_map[idx]] = idx_map[head_idx] }
+      new_map.keys.each {|idx| new_map[idx] = deconvolute(idx, new_map) }
+      
+      @map = new_map
+      
+      # update filter values
       @cache.values.each do |value_hash|
-        value_hash.values.each do |idx|
-          idx.uniq!
+        value_hash.values.each do |idxs|
+          idxs.collect! {|idx| idx_map[idx] }.uniq!
         end
       end
+      
       self
     end
     
     # Writes cached changes.
     def write(sha=nil)
-      clean
-      
       @cache.each_pair do |key, value_hash|
         value_hash.each_pair do |value, idx|
           IdxFile.write(path(FILTER, key, value), idx)
@@ -285,6 +304,23 @@ module Gitgo
     
     def resolve(obj) # :nodoc:
       Fixnum === obj ? obj : idx(obj)
+    end
+    
+    def deconvolute(idx, map, visited=[])
+      head_idx = map[idx]
+      if head_idx.nil? && visited.empty?
+        return nil
+      end
+      
+      circular = visited.include?(idx)
+      visited << idx
+      
+      if circular
+        visited.collect! {|visited_idx| list[visited_idx] }
+        raise "circular head references found: #{visited.inspect}"
+      end
+      
+      head_idx.nil? ? idx : deconvolute(head_idx, map, visited)
     end
     
     def each_pair(pairs) # :nodoc:
