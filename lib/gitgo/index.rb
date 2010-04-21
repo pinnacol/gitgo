@@ -3,8 +3,62 @@ require 'gitgo/index/index_file'
 
 module Gitgo
   
-  # Index provides access to a file-based index of document shas.  Index files
-  # are used to expedite searches.
+  # Index provides an index of documents used to expedite searches.  Index
+  # structures it's data into a branch-specific directory structure:
+  #
+  #   .git/gitgo/refs/[branch]/index
+  #   |- doc
+  #   |  `- key
+  #   |     `- value
+  #   |
+  #   |- head
+  #   |- list
+  #   `- map
+  #
+  # The files contain the following data (in conceptual order):
+  #
+  #   head      The user commit sha at which the last reindex occured.
+  #   list      A list of H* packed shas representing all of the documents
+  #             accessible by the gitgo branch. The index of the sha in list
+  #             serves as an identifier for the sha in map and filters.
+  #   map       A list of L* packed identifier pairs mapping a document to
+  #             its graph head.
+  #   [value]   A list of L* packed identifiers that match the key-value
+  #             pair.  These lists act as filters in searches.
+  #
+  # The packing format for each of the index files was chosen for performance;
+  # both to minimize the footprint of the file and optimize the usage of the
+  # file data.
+  #
+  # Index also maintains a cache of temporary files that auto-expire after a
+  # certain period of time.  The temporary files contain H* packed shas and
+  # represent the results of various queries, such as rev-lists.
+  #
+  # == Usage
+  #
+  # Index files are used primarily to select documents based on various
+  # filters. For example, to select the shas for all comments tagged as
+  # 'important' you would do this:
+  #
+  #   index = Index.new('path')
+  #
+  #   comment   = index['type']['comment']
+  #   important = index['tag']['important']
+  #   selected  = comment & important
+  #
+  #   heads = selected.collect {|id| idx.map[id] }
+  #   shas  = heads.collect {|id| idx.list[id] }.uniq
+  #
+  # The array operations are very quick because the filters are composed of
+  # integers, as is the map.  The final step looks up the shas, but this too
+  # is simply an array lookup.
+  #
+  # Importantly the index files can all contain duplication without affecting
+  # the results of the select procedure; this allows new documents to be
+  # quickly added into a filter, or appended to list/map. As needed or
+  # convenient, the index can take the time to compact itself and remove
+  # duplication.
+  #
   class Index
     
     # A file containing the ref at which the last index was performed; used to

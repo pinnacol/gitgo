@@ -44,7 +44,8 @@ module Gitgo
     #          |                              |
     #          c                 becomes      c
     #
-    # Information for the convoluted graph is not available from Graph.
+    # Linkages for the convoluted graph is not directly available from Graph,
+    # although all nodes are (via nodes).
     #
     # == Notes
     #

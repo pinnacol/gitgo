@@ -2,7 +2,8 @@ module Gitgo
   class Repo
     
     # Nodes are used to cache and provide access to positional information
-    # (parents, children, etc) for each node in a graph.
+    # (parents, children, etc) for each node in a graph.  Nodes are meant to
+    # be read-only objects and should not be modified.
     class Node
       
       # The node sha
@@ -11,7 +12,7 @@ module Gitgo
       # A back reference to the graph nodes this node belongs to.
       attr_reader :nodes
       
-      # Set to true if self was deleted
+      # True if self is deleted
       attr_accessor :deleted
       
       # Set to the sha for the original node this node updates, or the sha for
