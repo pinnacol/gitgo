@@ -32,9 +32,9 @@ module Gitgo
         Repo.current
       end
       
-      # Returns the idx on repo.
-      def idx
-        repo.idx
+      # Returns the index on repo.
+      def index
+        repo.index
       end
       
       # Returns the type string for self.
@@ -108,19 +108,43 @@ module Gitgo
       # See basis for more detail regarding the scope of 'all documents' that
       # can be found via find.
       #
-      # If update_idx is specified, then the document index will be updated
-      # before the find is performed.  Typically update_idx should be
+      # If update_index is specified, then the document index will be updated
+      # before the find is performed.  Typically update_index should be
       # specified to true to capture any new documents added, for instance by
       # a merge; it adds little overhead in the most common case where the
       # index is already up-to-date.
-      def find(all={}, any=nil, update_idx=true)
-        self.update_idx if update_idx
-        
-        shas = (all ? all.delete('shas') : nil) || basis
-        shas = [shas] unless shas.kind_of?(Array)
-        
-        idx.select(shas, all, any).collect! {|sha| self[sha] }
+      def find(all={}, any=nil, update_index=true)
+        self.update_index if update_index
+        index.select(
+          :basis => basis, 
+          :all => all, 
+          :any => any, 
+          :shas => true
+        ).collect! {|sha| self[sha] }
       end
+      
+      # Performs a partial update of the document index.  All documents added
+      # between the index-head and the repo-head are updated using this
+      # method.
+      #
+      # Specify reindex to clobber and completely rebuild the index.
+      def update_index(reindex=false)
+        index.clear if reindex
+        repo_head, index_head = repo.head, index.head
+        
+        # if the index is up-to-date save the work of doing diff
+        if repo_head.nil? || repo_head == index_head
+          return []
+        end
+        
+        shas = repo.diff(index_head, repo_head)
+        shas.each {|sha| self[sha].reindex }
+        
+        index.write(repo.head)
+        shas
+      end
+      
+      protected
       
       # Returns the basis for finds, ie the set of documents that get filtered
       # by the find method.  
@@ -130,31 +154,8 @@ module Gitgo
       # Document itself will filter all documents with an email; which should
       # typically represent all possible documents.
       def basis
-        type ? idx.get('type', type) : idx.all('email')
+        type ? index['type'][type] : index.all('email')
       end
-      
-      # Performs a partial update of the document index.  All documents added
-      # between the index-head and the repo-head are updated using this
-      # method.
-      #
-      # Specify reindex to clobber and completely rebuild the index.
-      def update_idx(reindex=false)
-        idx.clear if reindex
-        repo_head, idx_head = repo.head, idx.head
-        
-        # if the index is up-to-date save the work of doing diff
-        if repo_head.nil? || repo_head == idx_head
-          return []
-        end
-        
-        shas = repo.diff(idx_head, repo_head)
-        shas.each {|sha| self[sha].reindex }
-        
-        idx.write(repo.head)
-        shas
-      end
-      
-      protected
       
       # Registers self as the specified type.  The previous registered type is
       # overridden.
@@ -249,9 +250,13 @@ module Gitgo
       reset(sha)
     end
     
-    # Returns the repo idx.
+    # Returns the repo index.
+    def index
+      repo.index
+    end
+    
     def idx
-      repo.idx
+      index.idx(sha)
     end
     
     # Gets the specified attribute.
@@ -443,7 +448,7 @@ module Gitgo
       
       unless old_sha.nil? || old_sha == sha
         repo.update(old_sha, sha)
-        idx.filter << old_sha
+        tail_filter(old_sha)
       end
       
       self
@@ -458,8 +463,8 @@ module Gitgo
       parents.each {|parent| repo.link(parent, sha) }
       children.each {|child| repo.link(sha, child) }
       
-      idx.filter.concat(parents)
-      idx.filter << sha unless children.empty?
+      tail_filter *parents
+      tail_filter sha unless children.empty?
       
       reset(sha)
       self
@@ -468,12 +473,12 @@ module Gitgo
     def reindex
       raise "cannot reindex unless saved" unless saved?
       
-      idx = self.idx
-      each_index {|key, value| idx.add(key, value, sha) }
-      idx.map[sha] = origin
+      idx = index.idx(sha)
+      each_index {|key, value| index[key][value] << idx }
+      index.map[idx] = index.idx(origin)
       
       if node && !node.tail?
-        idx.filter << sha
+        tail_filter(sha)
       end
       
       self
@@ -506,6 +511,11 @@ module Gitgo
     end
     
     protected
+    
+    def tail_filter(*shas) # :nodoc:
+      shas.collect! {|sha| index.idx(sha) }
+      index['filter']['tail'].concat(shas)
+    end
     
     def validate_links(links) # :nodoc:
       arrayify(links).collect do |doc|

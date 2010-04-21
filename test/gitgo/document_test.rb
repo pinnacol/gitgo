@@ -31,8 +31,8 @@ class DocumentTest < Test::Unit::TestCase
     repo.git
   end
   
-  def idx
-    repo.idx
+  def index
+    repo.index
   end
   
   def deserialize(str)
@@ -223,7 +223,7 @@ class DocumentTest < Test::Unit::TestCase
   def test_update_indexes_document
     a = Document.create
     b = Document.update(a.sha, 'tags' => 'tag')
-    assert_equal [b.sha], idx['tags']['tag']
+    assert_equal [b.idx], index['tags']['tag']
   end
   
   #
@@ -240,12 +240,6 @@ class DocumentTest < Test::Unit::TestCase
     
     results = Document.find('tags' => 'one')
     assert_equal [a, b], results
-    
-    results = Document.find('shas' => a.sha)
-    assert_equal [a], results
-    
-    results = Document.find('shas' => [a.sha, c.sha], 'tags' => 'one')
-    assert_equal [a], results
     
     results = Document.find('tags' => 'three')
     assert_equal [], results
@@ -280,10 +274,10 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
-  # update_idx test
+  # update_index test
   #
   
-  def test_update_idx_indexes_docs_between_index_head_to_repo_head
+  def test_update_index_indexes_docs_between_index_head_to_repo_head
     a = Document.create({'content' => 'a', 'tags' => ['one']}).sha
     one = repo.commit
     
@@ -293,43 +287,43 @@ class DocumentTest < Test::Unit::TestCase
     c = Document.create({'content' => 'b', 'tags' => ['one']}).sha
     three = repo.commit
     
-    idx.clear
-    Document.update_idx
-    assert_equal [a, b, c].sort, idx['tags']['one'].sort
+    index.clear
+    Document.update_index
+    assert_equal [a, b, c].sort, index.select(:all => {'tags' => 'one'}, :shas => true).sort
     
-    idx.clear
-    idx.write(one)
-    Document.update_idx
-    assert_equal [b, c].sort, idx['tags']['one'].sort
+    index.clear
+    index.write(one)
+    Document.update_index
+    assert_equal [b, c].sort, index.select(:all => {'tags' => 'one'}, :shas => true).sort
     
-    idx.clear
-    idx.write(one)
+    index.clear
+    index.write(one)
     git.checkout(two)
-    Document.update_idx
-    assert_equal [b].sort, idx['tags']['one'].sort
+    Document.update_index
+    assert_equal [b].sort, index.select(:all => {'tags' => 'one'}, :shas => true).sort
   end
   
-  def test_update_idx_updates_index_head_to_repo_head
+  def test_update_index_updates_index_head_to_repo_head
     Document.create
-    idx.clear
+    index.clear
     
-    assert_equal nil, idx.head
-    Document.update_idx
-    assert_equal repo.head, idx.head
+    assert_equal nil, index.head
+    Document.update_index
+    assert_equal repo.head, index.head
   end
   
-  def test_update_idx_does_not_update_index_head_if_repo_head_is_nil
-    assert_equal nil, idx.head
-    Document.update_idx
-    assert_equal nil, idx.head
+  def test_update_index_does_not_update_index_head_if_repo_head_is_nil
+    assert_equal nil, index.head
+    Document.update_index
+    assert_equal nil, index.head
   end
   
-  def test_update_idx_clears_existing_index_if_specified
-    idx.set('key', 'value', 'sha')
+  def test_update_index_clears_existing_index_if_specified
+    index['key']['value'] = [1]
     
-    assert_equal ['sha'], idx.get('key', 'value')
-    Document.update_idx(true)
-    assert_equal [], idx.get('key', 'value')
+    assert_equal [1], index['key']['value']
+    Document.update_index(true)
+    assert_equal [], index['key']['value']
   end
   
   def test_update_caches_doc_attrs

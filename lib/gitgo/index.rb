@@ -213,6 +213,7 @@ module Gitgo
         basis.collect! {|idx| list[idx] }
       end
       
+      basis.uniq!
       basis
     end
     
