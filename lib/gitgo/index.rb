@@ -187,15 +187,17 @@ module Gitgo
       results
     end
     
-    def select(basis, all=nil, any=nil)
-      if all
+    def select(options={})
+      basis = options[:basis] || (0..list.length).to_a
+      
+      if all = options[:all]
         each_pair(all) do |key, value|
           basis = basis & cache[key][value]
           break if basis.empty?
         end
       end
       
-      if any
+      if any = options[:any]
         matches = []
         each_pair(any) do |key, value|
           matches.concat cache[key][value]
@@ -203,11 +205,15 @@ module Gitgo
         basis = basis & matches
       end
       
+      if options[:heads]
+        basis.collect! {|idx| map[idx] }
+      end
+      
+      if options[:shas]
+        basis.collect! {|idx| list[idx] }
+      end
+      
       basis
-    end
-    
-    def select_shas(basis, all=nil, any=nil)
-      select(basis, all, any).collect {|idx| list[idx] }
     end
     
     def compact

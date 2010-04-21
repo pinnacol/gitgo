@@ -124,42 +124,41 @@ class IndexTest < Test::Unit::TestCase
   #
   
   def test_select_returns_shas_matching_any_and_all_criteria
+    index.list.concat shas('a', 'b', 'c')
     index['state']['open'] = [0, 2]
     index['state']['closed'] = [1]
     index['at']['one'] = [0, 1]
     index['at']['two'] = [2]
     
-    basis = [0, 1, 2]
+    assert_equal [0, 2], index.select(:all => {'state' => 'open'})
+    assert_equal [0], index.select(:all => {'state' => 'open', 'at' => 'one'})
     
-    assert_equal [0, 2], index.select(basis, 'state' => 'open')
-    assert_equal [0], index.select(basis, 'state' => 'open', 'at' => 'one')
+    assert_equal [0, 2], index.select(:any => {'state' => 'open'})
+    assert_equal [0, 1, 2], index.select(:any => {'state' => 'open', 'at' => 'one'})
     
-    assert_equal [0, 2], index.select(basis, nil, 'state' => 'open')
-    assert_equal [0, 1, 2], index.select(basis, nil, 'state' => 'open', 'at' => 'one')
-    
-    assert_equal [0], index.select(basis, {'state' => 'open', 'at' => 'one'}, {'at' => 'one'})
-    assert_equal [], index.select(basis, {'state' => 'open', 'at' => 'one'}, {'at' => 'two'})
-    assert_equal [2], index.select(basis, {'state' => 'open'}, {'at' => 'two'})
+    assert_equal [0], index.select(:all => {'state' => 'open', 'at' => 'one'}, :any => {'at' => 'one'})
+    assert_equal [], index.select(:all => {'state' => 'open', 'at' => 'one'}, :any => {'at' => 'two'})
+    assert_equal [2], index.select(:all => {'state' => 'open'}, :any => {'at' => 'two'})
   end
   
   def test_select_allows_array_values
+    index.list.concat shas('a', 'b')
     index['tags']['a'] = [0, 1]
     index['tags']['b'] = [0]
     index['tags']['c'] = [1]
     
-    basis = [0, 1]
-    
-    assert_equal [0], index.select(basis, 'tags' => ['a', 'b'])
-    assert_equal [], index.select(basis, 'tags' => ['a', 'd'])
-    assert_equal [0, 1], index.select(basis, nil, 'tags' => ['b', 'c'])
+    assert_equal [0], index.select(:all => {'tags' => ['a', 'b']})
+    assert_equal [], index.select(:all => {'tags' => ['a', 'd']})
+    assert_equal [0, 1], index.select(:any => {'tags' => ['b', 'c']})
   end
   
   def test_select_only_selects_among_specified_basis
+    index.list.concat shas('a', 'b')
     index['state']['open'] = [0, 1]
     index['state']['closed'] = [2]
     
-    assert_equal [0], index.select([0, 2], 'state' => 'open')
-    assert_equal [0, 1], index.select([0, 1, 2], 'state' => 'open')
+    assert_equal [0], index.select(:basis => [0, 2], :all => {'state' => 'open'})
+    assert_equal [0, 1], index.select(:basis => [0, 1, 2], :all => {'state' => 'open'})
   end
   
   #
