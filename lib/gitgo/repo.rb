@@ -243,7 +243,7 @@ module Gitgo
     #   .git/gitgo/index/branch
     #
     def idx
-      env[IDX] ||= Index.new(File.join(git.work_dir, 'index', git.branch), Git::Tree.string_table)
+      env[IDX] ||= Index.new(File.join(git.work_dir, 'refs', git.branch, 'index'))
     end
     
     # Returns or initializes a self-populating cache of attribute hashes in

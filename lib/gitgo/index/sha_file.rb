@@ -3,48 +3,48 @@ require 'fileutils'
 module Gitgo
   class Index
     
-    # IndexFile is a wrapper providing access to a file of packed shas. Such
-    # files are used as indexes of, for instance, all documents with some
-    # key-value attribute pair.
-    class IndexFile
+    # ShaFile is a wrapper providing access to a file of H packed shas.
+    class ShaFile
       class << self
         
-        # Opens and returns an index file in the specified mode.  If a block
-        # is given the file is yielded to it and closed afterwards; in this
-        # case the return of open is the block result.
+        # Opens and returns an sha file in the specified mode.  If a block is
+        # given the file is yielded to it and closed afterwards; in this case
+        # the return of open is the block result.
         def open(path, mode="r")
-          idx = new(File.open(path, mode))
+          sha_file = new(File.open(path, mode))
           
-          return idx unless block_given?
+          return sha_file unless block_given?
 
           begin
-            yield(idx)
+            yield(sha_file)
           ensure
-            idx.close
+            sha_file.close
           end
         end
         
-        # Reads the index file and returns an array of shas.
+        # Reads the file and returns an array of shas.
         def read(path)
-          open(path) {|idx| idx.read(nil) }
+          open(path) {|sha_file| sha_file.read(nil) }
         end
         
-        # Opens the index file and writes the sha; previous contents
-        # are replaced.
+        # Opens the file and writes the sha; previous contents are replaced. 
+        # Multiple shas may be written at once by providing a string of
+        # concatenated shas. 
         def write(path, sha)
           dir = File.dirname(path)
           FileUtils.mkdir_p(dir) unless File.exists?(dir)
-          open(path, "w") {|idx| idx.write(sha) }
+          open(path, "w") {|sha_file| sha_file.write(sha) }
         end
         
-        # Opens the index file and appends the sha.
+        # Opens the file and appends the sha.  Multiple shas may be appended
+        # at once by providing a string of concatenated shas.
         def append(path, sha)
           dir = File.dirname(path)
           FileUtils.mkdir_p(dir) unless File.exists?(dir)
-          open(path, "a") {|idx| idx.write(sha) }
+          open(path, "a") {|sha_file| sha_file.write(sha) }
         end
         
-        # Opens the index file and removes the shas.
+        # Opens the file and removes the shas.
         def rm(path, *shas)
           return unless File.exists?(path)
           
@@ -59,14 +59,17 @@ module Gitgo
       # The unpacking format
       UNPACK = "H40"
       
+      # The size of an unpacked sha
+      ENTRY_SIZE = 40
+      
       # The size of a packed sha
-      ENTRY_SIZE = 20
+      PACKED_ENTRY_SIZE = 20
       
       # The file being wrapped
       attr_reader :file
       
-      # Initializes a new Index with the specified file.  The file will be set
-      # to binary mode.
+      # Initializes a new ShaFile with the specified file.  The file will be
+      # set to binary mode.
       def initialize(file)
         file.binmode
         @file = file
@@ -79,7 +82,7 @@ module Gitgo
       
       # The index of the current entry.
       def current
-        file.pos / ENTRY_SIZE
+        file.pos / PACKED_ENTRY_SIZE
       end
       
       # Reads n entries from the start index and returns them as an array. Nil
@@ -87,15 +90,15 @@ module Gitgo
       # current index.
       def read(n=10, start=0)
         if start
-          start_pos = start * ENTRY_SIZE 
+          start_pos = start * PACKED_ENTRY_SIZE 
           file.pos = start_pos
         end
         
-        str = file.read(n.nil? ? nil : n * ENTRY_SIZE).to_s
-        unless str.length % 20 == 0
+        str = file.read(n.nil? ? nil : n * PACKED_ENTRY_SIZE).to_s
+        unless str.length % PACKED_ENTRY_SIZE == 0
           raise "invalid packed sha length: #{str.length}"
         end
-        entries = str.unpack(UNPACK * (str.length / 20))
+        entries = str.unpack(UNPACK * (str.length / PACKED_ENTRY_SIZE))
 
         # clear out all missing entries, which will be empty
         while last = entries.last
@@ -112,7 +115,7 @@ module Gitgo
       # Writes the sha to the file at the current index.  Multiple shas may be
       # written at once by providing a string of concatenated shas.
       def write(sha)
-        unless sha.length % 40 == 0
+        unless sha.length % ENTRY_SIZE == 0
           raise "invalid sha length: #{sha.length}"
         end
         

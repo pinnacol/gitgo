@@ -1,5 +1,6 @@
 require 'enumerator'
-require 'gitgo/index/index_file'
+require 'gitgo/index/idx_file'
+require 'gitgo/index/sha_file'
 
 module Gitgo
   
@@ -7,7 +8,7 @@ module Gitgo
   # structures it's data into a branch-specific directory structure:
   #
   #   .git/gitgo/refs/[branch]/index
-  #   |- doc
+  #   |- filter
   #   |  `- key
   #   |     `- value
   #   |
@@ -65,8 +66,15 @@ module Gitgo
     # determine when a reindex is required relative to some other ref.
     HEAD = 'head'
     
-    # A file mapping shas to their origins like: sha,origin,sha,origin
+    # An idx file mapping shas to their graph heads
     MAP = 'map'
+    
+    # A sha file listing indexed shas; the index of the sha is used as an
+    # identifer for the sha in all idx files.
+    LIST = 'list'
+    
+    # The filter directory
+    FILTER = 'filter'
     
     # The head file for self
     attr_reader :head_file
@@ -74,24 +82,23 @@ module Gitgo
     # The map file for self
     attr_reader :map_file
     
-    # Returns an in-memory, self-filling cache of index files
+    # The list file for self
+    attr_reader :list_file
+    
+    # Returns an in-memory, self-filling cache of idx files
     attr_reader :cache
     
-    # References a string table that acts like a symbol table, but for shas.
-    attr_reader :string_table
-    
-    def initialize(path, string_table=nil)
+    def initialize(path)
       @path = path
       @head_file = File.expand_path(HEAD, path)
       @map_file = File.expand_path(MAP, path)
-      @string_table = string_table
+      @list_file = File.expand_path(LIST, path)
       
       @cache = Hash.new do |key_hash, key|
         key_hash[key] = Hash.new do |value_hash, value|
           value_hash[value] = begin
-            index = self.path(key, value)
-            values = File.exists?(index) ? IndexFile.read(index) : []
-            stringify(values)
+            index = self.path(FILTER, key, value)
+            File.exists?(index) ? IdxFile.read(index) : []
           end
         end
       end
@@ -105,46 +112,65 @@ module Gitgo
     # Returns the contents of map_file, as a hash.
     def map
       @map ||= begin
-        map = {}
-        array = File.exists?(map_file) ? IndexFile.read(map_file) : []
-        stringify(array).each_slice(2) {|sha, origin| map[sha] = origin }
-        map
+        entries = File.exists?(map_file) ? IdxFile.read(map_file) : []
+        Hash[*entries]
       end
     end
     
-    # Returns the tail filter.
-    def filter
-      self['tail']['filter']
+    # Returns the contents of list_file, as an array.
+    def list
+      @list ||= (File.exists?(list_file) ? ShaFile.read(list_file) : [])
     end
     
     # Returns the segments joined to the path used to initialize self.
     def path(*segments)
-      segments.collect! {|segment| segment.to_s }
       File.join(@path, *segments)
     end
     
-    #--
-    # note be careful not to modify idx[k][v], it is the actual storage
+    # Returns the idx for sha, as specified in list.  If the sha is not in
+    # list then it is appended to list.
+    def idx(sha)
+      case
+      when list[-1] == sha
+        list.length - 1
+      when idx = list.index(sha)
+        idx
+      else
+        idx = list.length
+        list << sha
+        idx
+      end
+    end
+    
+    # Returns cache[key], a self-filling hash of filter values.  Be careful
+    # not to modify index[k][v] as it is the actual cache storage.
     def [](key)
       cache[key]
     end
     
+    # Gets idx values for the filter.
     def get(key, value)
-      cache[key][value].dup
+      cache[key][value]
     end
     
-    def set(key, value, *shas)
-      cache[key][value] = shas
+    # Sets idx values for the filter.  A list of shas may also be provided;
+    # they will be resolved to an idx.
+    def set(key, value, *idxs)
+      cache[key][value] = idxs.collect {|idx| resolve(idx) }
       self
     end
     
-    def add(key, value, sha)
-      cache[key][value] << sha
+    # Appends the idx to the filter.  A sha may be provided; it will be
+    # resolved to an idx.
+    def add(key, value, idx)
+      cache[key][value] << resolve(idx)
       self
     end
     
-    def rm(key, value, sha)
-      cache[key][value].delete(sha)
+    # Removes the idx from the filter.  A sha may be provided; it will be
+    # resolved to an idx.
+    def rm(key, value, idx)
+      cache[key][value].delete resolve(idx)
       self
     end
     
@@ -152,7 +178,7 @@ module Gitgo
     def keys
       keys = cache.keys
       
-      Dir.glob(path("*")).select do |path|
+      Dir.glob(self.path(FILTER, '*')).select do |path|
         File.directory?(path)
       end.each do |path|
         keys << File.basename(path)
@@ -166,7 +192,7 @@ module Gitgo
     def values(key)
       values = cache[key].keys
       
-      base = path(key)
+      base  = self.path(FILTER, key)
       start = base.length + 1
       Dir.glob("#{base}/**/*").each do |path|
         values << path[start, path.length-start]
@@ -191,11 +217,13 @@ module Gitgo
       values.collect {|value| cache[key][value] }.flatten
     end
     
-    def select(shas, all=nil, any=nil)
+    def select(basis, all=nil, any=nil)
+      basis = basis.collect {|idx| resolve(idx) }
+      
       if all
         each_pair(all) do |key, value|
-          shas = shas & cache[key][value]
-          break if shas.empty?
+          basis = basis & cache[key][value]
+          break if basis.empty?
         end
       end
       
@@ -204,16 +232,16 @@ module Gitgo
         each_pair(any) do |key, value|
           matches.concat cache[key][value]
         end
-        shas = shas & matches
+        basis = basis & matches
       end
       
-      shas
+      basis
     end
     
     def clean
       @cache.values.each do |value_hash|
-        value_hash.values.each do |shas|
-          shas.uniq!
+        value_hash.values.each do |idx|
+          idx.uniq!
         end
       end
       self
@@ -224,20 +252,22 @@ module Gitgo
       clean
       
       @cache.each_pair do |key, value_hash|
-        value_hash.each_pair do |value, shas|
-          IndexFile.write(path(key, value), shas.join)
+        value_hash.each_pair do |value, idx|
+          IdxFile.write(path(FILTER, key, value), idx)
         end
       end
       
       FileUtils.mkdir_p(path) unless File.exists?(path)
       File.open(head_file, "w") {|io| io.write(sha) } if sha
-      IndexFile.write(map_file, map.to_a.join)
+      ShaFile.write(list_file, list.join)
+      IdxFile.write(map_file, map.to_a.flatten)
       
       self
     end
     
     # Clears the cache.
     def reset
+      @list = nil
       @map = nil
       @cache.clear
       self
@@ -253,6 +283,10 @@ module Gitgo
     
     private
     
+    def resolve(obj) # :nodoc:
+      Fixnum === obj ? obj : idx(obj)
+    end
+    
     def each_pair(pairs) # :nodoc:
       pairs.each_pair do |key, values|
         unless values.kind_of?(Array)
@@ -263,11 +297,6 @@ module Gitgo
           yield(key, value)
         end
       end
-    end
-    
-    def stringify(array) # :nodoc:
-      array.collect! {|str| string_table[str.to_s] } if string_table
-      array
     end
   end
 end
