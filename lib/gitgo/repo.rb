@@ -170,7 +170,7 @@ module Gitgo
     PATH         = 'gitgo.path'
     OPTIONS      = 'gitgo.options'
     GIT          = 'gitgo.git'
-    IDX          = 'gitgo.idx'
+    INDEX        = 'gitgo.index'
     REPO         = 'gitgo.repo'
     CACHE        = 'gitgo.cache'
     
@@ -236,14 +236,14 @@ module Gitgo
       env[GIT] ||= Git.init(path, env[OPTIONS] || {})
     end
     
-    # Returns the Index instance set in env[IDX].  If no instance is set then
+    # Returns the Index instance set in env[INDEX].  If no instance is set then
     # one will be initialized under the git working directory, specific to the
     # git branch.  For instance:
     #
-    #   .git/gitgo/index/branch
+    #   .git/gitgo/refs/branch/index
     #
-    def idx
-      env[IDX] ||= Index.new(File.join(git.work_dir, 'refs', git.branch, 'index'))
+    def index
+      env[INDEX] ||= Index.new(File.join(git.work_dir, 'refs', git.branch, 'index'))
     end
     
     # Returns or initializes a self-populating cache of attribute hashes in
@@ -425,7 +425,7 @@ module Gitgo
     # revisions are cached into the index for quick retreival.
     def rev_list(sha)
       sha = resolve(sha)
-      rev_lists = idx['cache']
+      rev_lists = index['cache']
       
       unless rev_lists.has_key?(sha)
         rev_lists[sha] = git.rev_list(sha)
@@ -482,7 +482,7 @@ module Gitgo
     # raise an error if there are no changes to commit.
     def commit(msg=status)
       sha = git.commit(msg)
-      idx.write(sha)
+      index.write(sha)
       sha
     end
     
@@ -491,7 +491,7 @@ module Gitgo
     # checking for changes.
     def commit!(msg=status)
       sha = git.commit!(msg)
-      idx.write(sha)
+      index.write(sha)
       sha
     end
     

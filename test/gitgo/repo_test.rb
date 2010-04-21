@@ -17,8 +17,8 @@ class RepoTest < Test::Unit::TestCase
     repo.git
   end
   
-  def idx
-    repo.idx
+  def index
+    repo.index
   end
   
   def serialize(attrs)
@@ -113,14 +113,14 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # idx test
+  # index test
   #
   
-  def test_idx_auto_initializes_using_git_path_and_branch
-    assert_equal nil, repo.env[Repo::IDX]
-    idx = repo.idx
-    assert_equal idx, repo.env[Repo::IDX]
-    assert_equal File.join(git.work_dir, 'index', git.branch), idx.path
+  def test_index_auto_initializes_using_git_path_and_branch
+    assert_equal nil, repo.env[Repo::INDEX]
+    index = repo.index
+    assert_equal index, repo.env[Repo::INDEX]
+    assert_equal File.join(git.work_dir, 'refs', git.branch, 'index'), index.path
   end
   
   #
