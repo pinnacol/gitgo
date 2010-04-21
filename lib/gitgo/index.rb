@@ -127,6 +127,12 @@ module Gitgo
       File.join(@path, *segments)
     end
     
+    # Returns cache[key], a self-filling hash of filter values.  Be careful
+    # not to modify index[k][v] as it is the actual cache storage.
+    def [](key)
+      cache[key]
+    end
+    
     # Returns the idx for sha, as specified in list.  If the sha is not in
     # list then it is appended to list.
     def idx(sha)
@@ -140,38 +146,6 @@ module Gitgo
         list << sha
         idx
       end
-    end
-    
-    # Returns cache[key], a self-filling hash of filter values.  Be careful
-    # not to modify index[k][v] as it is the actual cache storage.
-    def [](key)
-      cache[key]
-    end
-    
-    # Gets idx values for the filter.
-    def get(key, value)
-      cache[key][value]
-    end
-    
-    # Sets idx values for the filter.  A list of shas may also be provided;
-    # they will be resolved to an idx.
-    def set(key, value, *idxs)
-      cache[key][value] = idxs.collect {|idx| resolve(idx) }
-      self
-    end
-    
-    # Appends the idx to the filter.  A sha may be provided; it will be
-    # resolved to an idx.
-    def add(key, value, idx)
-      cache[key][value] << resolve(idx)
-      self
-    end
-    
-    # Removes the idx from the filter.  A sha may be provided; it will be
-    # resolved to an idx.
-    def rm(key, value, idx)
-      cache[key][value].delete resolve(idx)
-      self
     end
     
     # Returns a list of possible index keys.
@@ -192,10 +166,10 @@ module Gitgo
     def values(key)
       values = cache[key].keys
       
-      base  = self.path(FILTER, key)
+      base  = path(FILTER, key)
       start = base.length + 1
-      Dir.glob("#{base}/**/*").each do |path|
-        values << path[start, path.length-start]
+      Dir.glob("#{base}/**/*").each do |value_path|
+        values << value_path[start, value_path.length-start]
       end
       
       values.uniq!
@@ -213,13 +187,7 @@ module Gitgo
       results
     end
     
-    def join(key, *values)
-      values.collect {|value| cache[key][value] }.flatten
-    end
-    
     def select(basis, all=nil, any=nil)
-      basis = basis.collect {|idx| resolve(idx) }
-      
       if all
         each_pair(all) do |key, value|
           basis = basis & cache[key][value]
@@ -236,6 +204,10 @@ module Gitgo
       end
       
       basis
+    end
+    
+    def select_shas(basis, all=nil, any=nil)
+      select(basis, all, any).collect {|idx| list[idx] }
     end
     
     def compact
@@ -301,10 +273,6 @@ module Gitgo
     end
     
     private
-    
-    def resolve(obj) # :nodoc:
-      Fixnum === obj ? obj : idx(obj)
-    end
     
     def deconvolute(idx, map, visited=[])
       head_idx = map[idx]

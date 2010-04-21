@@ -120,131 +120,46 @@ class IndexTest < Test::Unit::TestCase
   end
   
   #
-  # add test
-  #
-  
-  def test_add_appends_int_to_key_value_filter
-    assert_equal [], index.cache['key']['value']
-    
-    index.add('key', 'value', 1)
-    assert_equal [1], index.cache['key']['value']
-  end
-  
-  def test_add_appends_sha_idx_to_key_value_filter
-    a, b, c = shas('a', 'b', 'c')
-    index.list.concat [a, b, c]
-    
-    assert_equal [], index.cache['key']['value']
-    
-    index.add('key', 'value', b)
-    assert_equal [1], index.cache['key']['value']
-  end
-  
-  def test_add_adds_sha_to_list_if_necessary
-    a = digest('a')
-    assert_equal [], index.list
-    
-    index.add('key', 'value', a)
-    assert_equal [0], index.cache['key']['value']
-    assert_equal [a], index.list
-  end
-  
-  #
-  # rm test
-  #
-  
-  def test_rm_unsets_int_in_key_value_filter
-    index.cache['key']['value'] = [0, 1, 2]
-    
-    index.rm('key', 'value', 1)
-    assert_equal [0, 2], index.cache['key']['value']
-  end
-  
-  def test_rm_unsets_sha_idx_in_key_value_filter
-    a, b, c = shas('a', 'b', 'c')
-    index.add('key', 'value', a)
-    index.add('key', 'value', b)
-    index.add('key', 'value', c)
-    
-    assert_equal [0, 1, 2], index.cache['key']['value']
-    
-    index.rm('key', 'value', b)
-    assert_equal [0, 2], index.cache['key']['value']
-  end
-  
-  def test_rm_does_not_remove_sha_from_list
-    a = digest('a')
-    index.list << a
-    
-    index.cache['key']['value'] = [0]
-    
-    index.rm('key', 'value', a)
-    assert_equal [], index.cache['key']['value']
-    assert_equal [a], index.list
-  end
-  
-  def test_rm_does_nothing_if_the_sha_is_not_set_in_key_value_filter
-    index.cache['key']['value'] = [0, 1, 2]
-    
-    index.rm('key', 'value', 5)
-    assert_equal [0, 1, 2], index.cache['key']['value']
-  end
-  
-  #
-  # join test
-  #
-  
-  def test_join_returns_sha_idx_for_specifed_values
-    a, b, c = shas('a', 'b', 'c')
-    index.add('key', 'one', a)
-    index.add('key', 'one', b)
-    index.add('key', 'two', c)
-    
-    assert_equal [0, 1], index.join('key', 'one').sort
-    assert_equal [0, 1, 2], index.join('key', 'one', 'two').sort
-  end
-  
-  #
   # select test
   #
   
   def test_select_returns_shas_matching_any_and_all_criteria
-    a, b, c = shas('a', 'b', 'c')
-    index.add('state', 'open', a).add('at', 'one', a)
-    index.add('state', 'closed', b).add('at', 'one', b)
-    index.add('state', 'open', c).add('at', 'two', c)
-    shas = [a, b, c]
+    index['state']['open'] = [0, 2]
+    index['state']['closed'] = [1]
+    index['at']['one'] = [0, 1]
+    index['at']['two'] = [2]
     
-    assert_equal [0, 2], index.select(shas, 'state' => 'open')
-    assert_equal [0], index.select(shas, 'state' => 'open', 'at' => 'one')
+    basis = [0, 1, 2]
     
-    assert_equal [0, 2], index.select(shas, nil, 'state' => 'open')
-    assert_equal [0, 1, 2], index.select(shas, nil, 'state' => 'open', 'at' => 'one')
+    assert_equal [0, 2], index.select(basis, 'state' => 'open')
+    assert_equal [0], index.select(basis, 'state' => 'open', 'at' => 'one')
     
-    assert_equal [0], index.select(shas, {'state' => 'open', 'at' => 'one'}, {'at' => 'one'})
-    assert_equal [], index.select(shas, {'state' => 'open', 'at' => 'one'}, {'at' => 'two'})
-    assert_equal [2], index.select(shas, {'state' => 'open'}, {'at' => 'two'})
+    assert_equal [0, 2], index.select(basis, nil, 'state' => 'open')
+    assert_equal [0, 1, 2], index.select(basis, nil, 'state' => 'open', 'at' => 'one')
+    
+    assert_equal [0], index.select(basis, {'state' => 'open', 'at' => 'one'}, {'at' => 'one'})
+    assert_equal [], index.select(basis, {'state' => 'open', 'at' => 'one'}, {'at' => 'two'})
+    assert_equal [2], index.select(basis, {'state' => 'open'}, {'at' => 'two'})
   end
   
   def test_select_allows_array_values
-    a, b = shas('a', 'b')
-    index.add('tags', 'a', a).add('tags', 'b', a)
-    index.add('tags', 'a', b).add('tags', 'c', b)
-    shas = [a, b]
+    index['tags']['a'] = [0, 1]
+    index['tags']['b'] = [0]
+    index['tags']['c'] = [1]
     
-    assert_equal [0], index.select(shas, 'tags' => ['a', 'b'])
-    assert_equal [], index.select(shas, 'tags' => ['a', 'd'])
-    assert_equal [0, 1], index.select(shas, nil, 'tags' => ['b', 'c'])
+    basis = [0, 1]
+    
+    assert_equal [0], index.select(basis, 'tags' => ['a', 'b'])
+    assert_equal [], index.select(basis, 'tags' => ['a', 'd'])
+    assert_equal [0, 1], index.select(basis, nil, 'tags' => ['b', 'c'])
   end
   
-  def test_select_only_selects_among_specified_shas
-    a, b, c = shas('a', 'b', 'c')
-    index.add('state', 'open', a)
-    index.add('state', 'open', b)
-    index.add('state', 'closed', c)
+  def test_select_only_selects_among_specified_basis
+    index['state']['open'] = [0, 1]
+    index['state']['closed'] = [2]
     
-    assert_equal [0], index.select([a, c], 'state' => 'open')
-    assert_equal [0, 1], index.select([a, b, c], 'state' => 'open')
+    assert_equal [0], index.select([0, 2], 'state' => 'open')
+    assert_equal [0, 1], index.select([0, 1, 2], 'state' => 'open')
   end
   
   #
@@ -276,9 +191,8 @@ class IndexTest < Test::Unit::TestCase
   
   def test_write_writes_cache_to_respective_index_files
     a, b, c = shas('a', 'b', 'c')
-    index.add('state', 'open', a)
-    index.add('state', 'closed', b)
-    index.add('state', 'open', c)
+    index['state']['open'] = [0, 2]
+    index['state']['closed'] = [1]
     index.write
     
     assert_equal pack_ints(0, 2), File.read(index.path(Index::FILTER, 'state', 'open'))
