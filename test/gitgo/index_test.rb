@@ -101,6 +101,36 @@ class IndexTest < Test::Unit::TestCase
   end
   
   #
+  # head_idx test
+  #
+  
+  def test_head_idx_idx_if_idx_is_unspecified_in_map
+    assert_equal 0, index.head_idx(0)
+  end
+  
+  def test_head_idx_idx_if_idx_is_nil_in_map
+    index.map[0] = nil
+    assert_equal 0, index.head_idx(0)
+  end
+  
+  def test_head_idx_returns_the_head_idx_as_specified_in_map
+    index.map[1] = 0
+    index.map[2] = 1
+    
+    assert_equal 0, index.head_idx(1)
+    assert_equal 0, index.head_idx(2)
+  end
+  
+  def test_head_idx_raises_error_for_circular_mapping
+    index.map[1] = 0
+    index.map[2] = 1
+    index.map[0] = 2
+    
+    err = assert_raises(RuntimeError) { index.head_idx(1) }
+    assert_equal 'circular mapping found: [1, 0, 2, 1]', err.message
+  end
+  
+  #
   # AGET test
   #
   

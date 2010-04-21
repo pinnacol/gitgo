@@ -148,6 +148,13 @@ module Gitgo
       end
     end
     
+    # Return the head idx for the specified idx (ie if idx represents the sha
+    # for a node in a graph then head_idx represents the graph head).
+    def head_idx(idx)
+      head_idx = deconvolute(idx, map)
+      head_idx.nil? ? idx : head_idx
+    end
+    
     # Returns a list of possible index keys.
     def keys
       keys = cache.keys
@@ -281,7 +288,7 @@ module Gitgo
     
     private
     
-    def deconvolute(idx, map, visited=[])
+    def deconvolute(idx, map, visited=[]) # :nodoc:
       head_idx = map[idx]
       if head_idx.nil? && visited.empty?
         return nil
@@ -291,8 +298,7 @@ module Gitgo
       visited << idx
       
       if circular
-        visited.collect! {|visited_idx| list[visited_idx] }
-        raise "circular head references found: #{visited.inspect}"
+        raise "circular mapping found: #{visited.inspect}"
       end
       
       head_idx.nil? ? idx : deconvolute(head_idx, map, visited)
