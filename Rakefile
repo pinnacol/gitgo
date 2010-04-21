@@ -1,19 +1,14 @@
 require 'rake'
-require 'rake/testtask'
 require 'rake/rdoctask'
 require 'rake/gempackagetask'
-
-ENV['GEMSPEC'] = 'gitgo.gemspec'
 
 #
 # Gem specification
 #
 
 def gemspec
-  data = File.read(ENV['GEMSPEC'])
-  spec = nil
-  Thread.new { spec = eval("$SAFE = 3\n#{data}") }.join
-  spec
+  require 'rubygems/specification'
+  eval File.read('gitgo.gemspec')
 end
 
 Rake::GemPackageTask.new(gemspec) do |pkg|

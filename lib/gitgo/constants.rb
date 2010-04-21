@@ -1,3 +1,5 @@
+require 'gitgo/version'
+
 module Gitgo
   # The expanded path to the Gitgo root directory, used for resolving paths to
   # views, public files, etc.
@@ -5,11 +7,4 @@ module Gitgo
   
   REPO_ENV_VAR  = 'gitgo.repo'
   MOUNT_ENV_VAR = 'gitgo.mount'
-  
-  MAJOR = 0
-  MINOR = 2
-  TINY = 0
-  
-  VERSION = "#{MAJOR}.#{MINOR}.#{TINY}"
-  WEBSITE = "http://github.com/pinnacol/gitgo"
 end

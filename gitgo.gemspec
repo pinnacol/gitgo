@@ -1,9 +1,11 @@
+require File.expand_path('../lib/gitgo/version', __FILE__)
+
 Gem::Specification.new do |s|
   s.name = "gitgo"
-  s.version = "0.2.0"
+  s.version = Gitgo::VERSION
   s.author = "Simon Chiang"
   s.email = "simon.a.chiang@gmail.com"
-  s.homepage = "http://github.com/pinnacol/gitgo"
+  s.homepage = Gitgo::WEBSITE
   s.platform = Gem::Platform::RUBY
   s.summary = "Issues, comments, and a wiki for git projects."
   s.bindir = "bin"
@@ -61,6 +63,7 @@ Gem::Specification.new do |s|
     lib/gitgo/repo/graph.rb
     lib/gitgo/repo/utils.rb
     lib/gitgo/server.rb
+    lib/gitgo/version.rb
     public/css/gitgo.css
     public/javascript/gitgo.js
     public/javascript/jquery-1.4.2.min.js
