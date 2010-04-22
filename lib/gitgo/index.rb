@@ -155,6 +155,16 @@ module Gitgo
       head_idx.nil? ? idx : head_idx
     end
     
+    def associate(source, target)
+      source_idx = idx(source)
+      target_idx = idx(target)
+      
+      cache['filter']['tail'] << source_idx
+      map[target_idx] = head_idx(source_idx)
+      
+      self
+    end
+    
     # Returns a list of possible index keys.
     def keys
       keys = cache.keys

@@ -182,9 +182,9 @@ module Gitgo
     #
     DOCUMENT_PATH = /^(.{2})\/(.{38})\/(.{40})$/
     
-    DEFAULT_MODE  = '444'.to_sym
+    DEFAULT_MODE  = '100644'.to_sym
     
-    UPDATE_MODE   = '440'.to_sym
+    UPDATE_MODE   = '100640'.to_sym
     
     # The repo env, typically the same as a request env.
     attr_reader :env
@@ -262,6 +262,7 @@ module Gitgo
     #   sh/a/empty_sha (DEFAULT_MODE, sha)
     #
     def create(sha)
+      sha = store(sha) if sha.kind_of?(Hash)
       git[sha_path(sha, empty_sha)] = [DEFAULT_MODE, sha]
       sha
     end
@@ -282,6 +283,7 @@ module Gitgo
     #
     def link(parent, child)
       git[sha_path(parent, child)] = [DEFAULT_MODE, child]
+      index.associate(parent, child)
       self
     end
     
@@ -291,6 +293,7 @@ module Gitgo
     #
     def update(old_sha, new_sha)
       git[sha_path(old_sha, new_sha)] = [UPDATE_MODE, new_sha]
+      index.associate(old_sha, new_sha)
       self
     end
     

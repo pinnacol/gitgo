@@ -48,12 +48,8 @@ module Gitgo
       #
       # Returns the new document.
       def create(attrs={})
-        parents = attrs.delete('parents')
-        children = attrs.delete('children')
-        
         doc = new(attrs, repo)
         doc.save
-        doc.link(parents, children)
         doc.reindex
         doc
       end
@@ -92,8 +88,10 @@ module Gitgo
       # cannot be specified with this method.
       def update(sha, attrs={})
         sha = sha.sha if sha.respond_to?(:sha)
-        doc = read(sha).merge!(attrs)
-        doc.update
+        
+        old_doc = read(sha)
+        doc = old_doc.merge(attrs).save
+        doc.update(old_doc)
         doc.reindex
         doc
       end
@@ -217,7 +215,10 @@ module Gitgo
         end
       end
     end
-    include Utils
+    
+    AUTHOR = /\A.*?<.*?>\z/
+    DATE = /\A\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d-\d\d:\d\d\z/
+    SHA = Git::SHA
     
     @define_attributes = false
     @validators = {}
@@ -236,8 +237,7 @@ module Gitgo
     
     validate(:author) {|author| validate_format(author, AUTHOR) }
     validate(:date)   {|date|   validate_format(date, DATE) }
-    validate(:origin) {|origin| validate_format_or_nil(origin, SHA) }
-    
+
     define_attributes do
       attr_accessor(:at)   {|at|   validate_format_or_nil(at, SHA) }
       attr_writer(:tags)   {|tags| validate_array_or_nil(tags) }
@@ -256,7 +256,20 @@ module Gitgo
     end
     
     def idx
-      index.idx(sha)
+      sha ? index.idx(sha) : nil
+    end
+    
+    def head
+      head_idx = index.head_idx(idx)
+      head_idx ? index.list[head_idx] : sha
+    end
+    
+    def graph
+      @graph ||= repo.graph(head)
+    end
+    
+    def node
+      graph[sha]
     end
     
     # Gets the specified attribute.
@@ -299,34 +312,9 @@ module Gitgo
       date
     end
     
-    def origin
-      self['origin'] || sha
-    end
-    
-    def origin=(sha)
-      self['origin'] = sha
-      reset
-    end
-    
-    def origin?
-      self['origin'].nil?
-    end
-    
     def active?(commit=nil)
       return true if at.nil? || commit.nil?
       repo.rev_list(commit).include?(at)
-    end
-    
-    def detached?
-      node.nil?
-    end
-    
-    def node
-      graph[sha]
-    end
-    
-    def graph
-      @graph ||= repo.graph(repo.resolve(origin))
     end
     
     def tags
@@ -353,10 +341,6 @@ module Gitgo
       end
       
       attrs['date'] ||= Time.now.iso8601
-      
-      if origin = attrs['origin']
-        attrs['origin'] = repo.resolve(origin)
-      end
       
       if at = attrs['at']
         attrs['at'] = repo.resolve(at)
@@ -408,10 +392,6 @@ module Gitgo
         yield('email', blank?(actor.email) ? 'unknown' : actor.email)
       end
       
-      if origin = attrs['origin']
-        yield('origin', origin)
-      end
-      
       if at = attrs['at']
         yield('at', at)
       end
@@ -431,7 +411,7 @@ module Gitgo
     
     def save
       validate
-      reset repo.store(attrs, date)
+      reset repo.create(attrs)
       self
     end
     
@@ -439,54 +419,58 @@ module Gitgo
       sha.nil? ? false : true
     end
     
-    def update(old_sha=sha)
-      old_sha = repo.resolve(old_sha)
-      reset old_sha
-      
-      validate
-      reset repo.store(attrs, date)
-      
-      unless old_sha.nil? || old_sha == sha
-        repo.update(old_sha, sha)
-        tail_filter(old_sha)
+    def update(new_sha)
+      unless saved?
+        raise "cannot update unless saved"
       end
       
-      self
+      if new_sha.kind_of?(Document)
+        unless new_sha.saved?
+          raise "cannot update with an unsaved document: #{new_sha.inspect}" 
+        end
+        new_sha.reset
+        new_sha = new_sha.sha
+      end
+      
+      repo.update(sha, new_sha)
+      reset
     end
     
-    def link(parents=nil, children=nil)
-      raise "cannot link unless saved" unless saved?
+    def link(*children)
+      unless saved?
+        raise "cannot link unless saved"
+      end
       
-      parents  = validate_links(parents)
-      children = validate_links(children)
+      children.collect! do |child|
+        next child unless child.kind_of?(Document)
+        
+        unless child.saved?
+          raise "cannot link to an unsaved document: #{child.inspect}"
+        end
+        child.reset
+        child.sha
+      end
       
-      parents.each {|parent| repo.link(parent, sha) }
-      children.each {|child| repo.link(sha, child) }
-      
-      tail_filter *parents
-      tail_filter sha unless children.empty?
-      
-      reset(sha)
-      self
+      children.each do |child|
+        repo.link(sha, child)
+      end
+      reset
     end
     
     def reindex
       raise "cannot reindex unless saved" unless saved?
       
-      idx = index.idx(sha)
-      each_index {|key, value| index[key][value] << idx }
-      index.map[idx] = index.idx(origin)
-      
-      if node && !node.tail?
-        tail_filter(sha)
+      idx = self.idx
+      each_index do |key, value|
+        index[key][value] << idx
       end
       
       self
     end
     
     def reset(new_sha=sha)
-      @graph = nil
       @sha = new_sha
+      @graph = nil
       self
     end
     
@@ -507,25 +491,47 @@ module Gitgo
     
     # This is a thin equality -- use with caution.
     def ==(another)
-      saved? ? sha == another.sha : super
+      saved? && another.kind_of?(Document) ? sha == another.sha : super
     end
     
     protected
     
-    def tail_filter(*shas) # :nodoc:
-      shas.collect! {|sha| index.idx(sha) }
-      index['filter']['tail'].concat(shas)
+    def arrayify(obj)
+      case obj
+      when Array  then obj
+      when nil    then []
+      when String then obj.strip.empty? ? [] : [obj]
+      else [obj]
+      end
     end
     
-    def validate_links(links) # :nodoc:
-      arrayify(links).collect do |doc|
-        unless doc.kind_of?(Document)
-          doc = repo.resolve(doc)
-          doc = Document[doc]
-        end
-        
-        validate_origins(doc, self)
-        doc.sha
+    def blank?(obj)
+      obj.nil? || obj.to_s.strip.empty?
+    end
+    
+    def validate_not_blank(str)
+      if blank?(str)
+        raise 'nothing specified'
+      end
+    end
+    
+    def validate_format(value, format)
+      if value.nil?
+        raise 'missing'
+      end
+      
+      unless value =~ format
+        raise 'misformatted'
+      end
+    end
+    
+    def validate_format_or_nil(value, format)
+      value.nil? || validate_format(value, format)
+    end
+    
+    def validate_array_or_nil(value)
+      unless value.nil? || value.kind_of?(Array)
+        raise 'not an array'
       end
     end
   end
