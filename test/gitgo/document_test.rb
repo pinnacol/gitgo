@@ -675,6 +675,11 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [['email', 'unknown']], doc.indexes
   end
   
+  def test_indexes_includes_date
+    doc['date'] = Time.utc(2008, 8, 9).iso8601
+    assert_equal [['date', '20080809']], doc.indexes
+  end
+  
   def test_indexes_includes_each_tag_individually
     doc['tags'] = ['one', 'two']
     

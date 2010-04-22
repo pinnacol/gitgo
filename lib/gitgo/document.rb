@@ -391,6 +391,11 @@ module Gitgo
         yield('email', blank?(actor.email) ? 'unknown' : actor.email)
       end
       
+      if date = attrs['date']
+        # reformats iso8601 as YYYYMMDD
+        yield('date', "#{date[0,4]}#{date[5,2]}#{date[8,2]}")
+      end
+      
       if at = attrs['at']
         yield('at', at)
       end
