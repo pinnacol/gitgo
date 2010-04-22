@@ -576,4 +576,38 @@ class GraphTest < Test::Unit::TestCase
       [c, 1, 2, [0,1], []]
     ], repo.graph(a).sort.collect
   end
+  
+  #
+  # draw test
+  #
+  
+  def test_draw_for_merge_and_fork_on_separate_branches
+    a, b, c, d, e, f, g = store_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
+    repo.link(a, b)
+    repo.link(a, c)
+    repo.link(a, e)
+    repo.link(b, d)
+    repo.link(c, d)
+    repo.link(e, f)
+    repo.link(e, g)
+    
+    expected = %q{
+*
+|---+
+* | |
+| | |
+| * |
+|-+ |
+*   |
+|   |
+|   *
+| +-|
+| * |
+| | |
+| | *
+| | |
+}.strip
+     
+     assert_equal expected, repo.graph(a).draw
+  end
 end

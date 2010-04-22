@@ -151,14 +151,14 @@ module Gitgo
       #   current_slots:: slots currently open (|)
       #   transitions:: the slots that this node should connect to (|,--+)
       #
-      def each(origin=nil) # :yields: sha, slot, index, current_slots, transitions
+      def each(head=nil) # :yields: sha, slot, index, current_slots, transitions
         slots = []
-        slot = {origin => 0}
+        slot = {head => 0}
         
         # visit walks each branch in the DAG and collects the visited nodes
         # in reverse; that way uniq + reverse_each will iterate the nodes in
         # order, with merges pushed down as far as necessary
-        order = visit(links, origin)
+        order = visit(links, head)
         order.uniq!
         
         index = 0
@@ -186,6 +186,46 @@ module Gitgo
         end
         
         self
+      end
+      
+      # Draws the graph
+      def draw(indent=0)
+        lines = []
+        each do |(sha, slot, index, current_slots, transitions)|
+          next if sha.nil?
+          
+          line = []
+          transition = []
+          
+          transitions.each do |target|
+            tstart = (slot * 2) + indent
+            tend = (target * 2) + indent
+            
+            if tstart > tend
+              tstart, tend = tend, tstart
+            end
+            
+            tstart.upto(tend) {|i| transition[i] = '-'}
+            transition[tstart] = '+'
+            transition[tend] = '+'
+          end
+          
+          if transitions.include?(slot)
+            transition[(slot * 2) + indent] = '|'
+          end
+          
+          current_slots.each do |cs|
+            line[(cs * 2) + indent] = '|'
+            transition[(cs * 2) + indent] = '|'
+          end
+          
+          line[(slot * 2) + indent] = '*'
+          
+          lines << line.collect! {|obj| obj.nil? ? ' ' : obj }.join
+          lines << transition.collect! {|obj| obj.nil? ? ' ' : obj }.join
+        end
+        
+        lines.join("\n")
       end
       
       # Resets the graph, recollecting all nodes and links.  Reset is required
@@ -217,10 +257,10 @@ module Gitgo
       
       # Returns a string like:
       #
-      #   #<Gitgo::Repo::Graph:object_id origin="sha">
+      #   #<Gitgo::Repo::Graph:object_id head="sha">
       #
       def inspect
-        "#<#{self.class}:#{object_id} origin=#{origin.inspect}>"
+        "#<#{self.class}:#{object_id} head=#{head.inspect}>"
       end
       
       protected
