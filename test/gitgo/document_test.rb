@@ -352,7 +352,7 @@ class DocumentTest < Test::Unit::TestCase
   # update_index test
   #
   
-  def test_update_index_indexes_docs_between_index_head_to_repo_head
+  def test_update_index_indexes_docs_from_index_head_to_repo_head
     a = Document.create('content' => 'a', 'tags' => ['one']).sha
     one = repo.commit
     
@@ -910,12 +910,9 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal "nil key", err.errors['key'].message
   end
   
-  def test_save_does_not_create_document
+  def test_save_does_not_create_associations
     doc.save
-    
-    associations = []
-    repo.each_assoc(doc.sha) {|sha, type| associations << [sha, type] }
-    assert_equal [], associations
+    assert_equal({}, repo.associations(doc.sha))
   end
   
   #
@@ -934,10 +931,7 @@ class DocumentTest < Test::Unit::TestCase
   
   def test_create_creates_create_association
     doc.save.create
-    
-    associations = []
-    repo.each_assoc(doc.sha) {|sha, type| associations << [sha, type] }
-    assert_equal [[doc.sha, :create]], associations
+    assert_equal({:create => true}, repo.associations(doc.sha))
   end
   
   #
@@ -961,10 +955,7 @@ class DocumentTest < Test::Unit::TestCase
     b = Document.save('content' => 'b')
     
     a.update(b)
-    
-    associations = []
-    repo.each_assoc(a.sha) {|sha, type| associations << [sha, type] }
-    assert_equal [[b.sha, :update]], associations
+    assert_equal({:updates => [b.sha]}, repo.associations(a.sha))
   end
   
   #
@@ -984,10 +975,7 @@ class DocumentTest < Test::Unit::TestCase
     b = Document.save('content' => 'b')
     
     a.link(b)
-    
-    associations = []
-    repo.each_assoc(a.sha) {|sha, type| associations << [sha, type] }
-    assert_equal [[b.sha, :link]], associations
+    assert_equal({:links => [b.sha]}, repo.associations(a.sha))
   end
   
   #

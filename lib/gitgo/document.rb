@@ -7,6 +7,40 @@ module Gitgo
   # access to documents stored in a Repo.  Content and data consistency
   # constraints are enforced on Document.
   #
+  # == Usage
+  #
+  # For the most part Document behaves like a standard ORM model.  The primary
+  # gotcha revolves around setting documents into the git repository and
+  # exists to prevent the creation of unnecessary git objects.
+  #
+  # Unlike you would expect, two method calls are required to store a
+  # document:
+  #
+  #   a = Document.new(:content => 'a')
+  #   a.save
+  #   a.create
+  #
+  # The save method sets the document data into the git repo as a blob and
+  # records the blob sha as a unique identifier for the document.  The create
+  # method is what places the sha along a path, and thereby 'stores' the
+  # document so that it will exist on your gitgo branch.  Simply calling save
+  # is not enough; the result is a hanging blob that will be gc'ed by git.
+  #
+  # Create does not need to be called (and indeed should not be called) when
+  # the document is intended as a link or update to another document.  For
+  # example:
+  #
+  #   b = Document.new(:content => 'b')
+  #   b.save
+  #   a.link(b)
+  #
+  # In this case link is used to store document b into the branch.  If create
+  # is called as well, then extra git objects are added to accomodate the
+  # 'create' path as well as the 'link' path.  The extra objects won't break
+  # anything, but they do take up space and are unnecessary.
+  #
+  # Additionally, as in the command-line git workflow, the newly added
+  # documents are not committed until commit is called.
   class Document
     class << self
       
@@ -172,10 +206,10 @@ module Gitgo
       
       # Finds all documents matching the any and all criteria.  The any and
       # all inputs are hashes of index values used to filter all possible
-      # documents. They consist of (key, value) or (key, [values]) pairs, at
-      # least one of which must match in the any case, all of which must match
-      # in the all case.  Specify nil for either array to prevent filtering
-      # using that criteria.
+      # documents. They consist of (key, value) or (key, [values]) pairs.  At
+      # least one of pair must match in the any case.  All pairs must match in
+      # the all case.  Specify nil for either array to prevent filtering using
+      # that criteria.
       #
       # See basis for more detail regarding the scope of 'all documents' that
       # can be found via find.
@@ -183,8 +217,7 @@ module Gitgo
       # If update_index is specified, then the document index will be updated
       # before the find is performed.  Typically update_index should be
       # specified to true to capture any new documents added, for instance by
-      # a merge; it adds little overhead in the most common case where the
-      # index is already up-to-date.
+      # a merge; it adds little overhead when the index is already up-to-date.
       def find(all={}, any=nil, update_index=true)
         self.update_index if update_index
         index.select(
