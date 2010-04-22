@@ -292,6 +292,14 @@ class GitTest < Test::Unit::TestCase
     assert_equal ["", "one", ""], array
   end
   
+  def test_AGET_returns_full_entry_if_specified
+    setup_repo("simple.git")
+    
+    assert_equal ["one", "one.txt", "x", "x.txt"], git['', true].keys.sort
+    assert_equal ["two", "two.txt"], git["/one", true].keys.sort
+    assert_equal [Git::DEFAULT_BLOB_MODE, "32f1859c0aaf1394789093c952f2b03ab04a1aad"], git["one.txt", true]
+  end
+  
   def test_AGET_returns_committed_content_if_specified
     setup_repo("simple.git")
   
@@ -299,7 +307,7 @@ class GitTest < Test::Unit::TestCase
     git.tree["one.txt"] = [Git::DEFAULT_BLOB_MODE, git.set(:blob, "new content")]
     
     assert_equal "new content", git["one.txt"]
-    assert_equal "Contents of file ONE.", git["one.txt", true]
+    assert_equal "Contents of file ONE.", git["one.txt", false, true]
   end
   
   #
@@ -328,7 +336,7 @@ class GitTest < Test::Unit::TestCase
   
   def test_new_blob_content_is_not_committed_automatically
     git["/a/b.txt"] = "content"
-    assert_equal nil, git["/a/b.txt", true]
+    assert_equal nil, git["/a/b.txt", false, true]
   end
 
   #

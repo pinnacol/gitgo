@@ -335,12 +335,12 @@ module Gitgo
     
     # Gets the content for path; either the blob data or an array of content
     # names for a tree.  Returns nil if path doesn't exist.
-    def [](path, committed=false)
+    def [](path, entry=false, committed=false)
       tree = committed ? commit_tree : @tree
       
       segments = split(path)
       unless basename = segments.pop
-        return tree.keys
+        return entry ? tree : tree.keys
       end
       
       unless tree = tree.subtree(segments)
@@ -348,6 +348,8 @@ module Gitgo
       end
       
       obj = tree[basename]
+      return obj if entry
+      
       case obj
       when Array then get(:blob, obj[1]).data
       when Tree  then obj.keys
