@@ -316,15 +316,17 @@ module Gitgo
     
     # Returns the association type given the source, target, and mode.
     def assoc_type(source, target, mode=assoc_mode(source, target))
-      case target
-      when empty_sha then :head
-      when source    then :delete
-      else 
-        case mode
-        when DEFAULT_MODE then :link
-        when UPDATE_MODE  then :update
-        else :invalid
+      case mode
+      when DEFAULT_MODE
+        case target
+        when empty_sha then :head
+        when source    then :delete
+        else :link
         end
+      when UPDATE_MODE
+        :update
+      else
+        :invalid
       end
     end
     
@@ -340,7 +342,17 @@ module Gitgo
       
       self
     end
-
+    
+    # Returns true if sha has a :head association in the convoluted DAG.
+    def graph_head?(sha)
+      assoc_type(sha, empty_sha) == :head
+    end
+    
+    # Returns true if sha has a :delete association in the convoluted DAG.
+    def deleted?(sha)
+      assoc_type(sha, sha) == :delete
+    end
+    
     # Yields the sha of each document in the repo, in no particular order and
     # with duplicates for every link/update that has multiple association
     # sources.

@@ -269,6 +269,9 @@ class RepoTest < Test::Unit::TestCase
     assert_equal :link, repo.assoc_type(a, b)
     assert_equal :update, repo.assoc_type(b, c)
     assert_equal :delete, repo.assoc_type(c, c)
+    
+    assert_equal :invalid, repo.assoc_type(a, a)
+    assert_equal :invalid, repo.assoc_type(b, empty_sha)
   end
   
   #
@@ -301,6 +304,38 @@ class RepoTest < Test::Unit::TestCase
     assert_equal [b, c].sort, links.sort
     assert_equal [d], updates
     assert_equal [a], deletes
+  end
+  
+  #
+  # graph_head? test
+  #
+  
+  def test_graph_head_check_returns_true_if_sha_has_a_head_association
+    a, b, c = store_nodes('a', 'b', 'c')
+    repo.create(a)
+    repo.link(a, b)
+    repo.update(b, c)
+    repo.delete(a)
+    
+    assert_equal true, repo.graph_head?(a)
+    assert_equal false, repo.graph_head?(b)
+    assert_equal false, repo.graph_head?(c)
+  end
+  
+  #
+  # deleted? test
+  #
+  
+  def test_deleted_check_returns_true_if_sha_has_a_deleted_association
+    a, b, c = store_nodes('a', 'b', 'c')
+    repo.create(a)
+    repo.link(a, b)
+    repo.update(b, c)
+    repo.delete(a)
+    
+    assert_equal true, repo.deleted?(a)
+    assert_equal false, repo.deleted?(b)
+    assert_equal false, repo.deleted?(c)
   end
   
   #
