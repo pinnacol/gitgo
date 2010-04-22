@@ -39,10 +39,6 @@ class DocumentTest < Test::Unit::TestCase
     JSON.parse(str)
   end
   
-  def date_path(date, sha)
-    Repo::Utils.date_path(date, sha)
-  end
-  
   #
   # Document.validators test
   #
@@ -156,22 +152,27 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
-  # Document.create test
+  # Document.save test
   #
   
-  def test_create_initializes_doc_and_saves
-    a = Document.create('content' => 'a')
+  def test_save_initializes_doc_and_saves
+    a = Document.save('content' => 'a')
     assert_equal true, a.saved?
     
     attrs = deserialize(git.get(:blob, a.sha).data)
     assert_equal 'a', attrs['content']
   end
   
-  def test_created_documents_can_be_linked_and_updated
-    a = Document.create('content' => 'a')
-    b = Document.create('content' => 'b')
-    c = Document.create('content' => 'c')
-    d = Document.create('content' => 'd')
+  def test_save_documents_have_no_associations
+    a = Document.save('content' => 'a')
+    assert_equal({}, repo.associations(a.sha))
+  end
+  
+  def test_saved_documents_can_be_linked_and_updated
+    a = Document.save('content' => 'a')
+    b = Document.save('content' => 'b')
+    c = Document.save('content' => 'c')
+    d = Document.save('content' => 'd')
     
     a.link(b, c)
     c.update(d)
@@ -180,11 +181,67 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [b.sha, d.sha].sort, a.node.children.sort
   end
   
-  def test_create_caches_document_attrs
+  def test_save_caches_document_attrs
     assert_equal({}, repo.cache)
-
-    a = Document.create('content' => 'a')
+    
+    a = Document.save('content' => 'a')
     assert_equal({a.sha => a.attrs}, repo.cache)
+  end
+  
+  def test_save_does_not_index_document
+    a = Document.save('tags' => 'tag')
+    assert_equal [], index['tags']['tag']
+  end
+  
+  #
+  # Document.create test
+  #
+  
+  def test_create_documentation
+    git = repo.git
+    
+    a = Document.save(:content => 'a')
+    b = Document.save(:content => 'b')
+    a.create
+    a.link(b)
+  
+    assert_equal 2, git.status.length
+    git.reset
+    
+    a = Document.create(:content => 'a')
+    b = Document.create({:content => 'b'}, a)
+  
+    assert_equal 2, git.status.length
+    git.reset
+    
+    a = Document.create(:content => 'a')
+    b = Document.create(:content => 'b')
+    a.link(b)
+  
+    assert_equal 3, git.status.length
+  end
+  
+  def test_create_saves_doc_and_stores_using_a_head_association
+    a = Document.create('content' => 'a')
+    assert_equal true, a.saved?
+    
+    attrs = deserialize(git.get(:blob, a.sha).data)
+    assert_equal 'a', attrs['content']
+    
+    assert_equal({:head => true}, repo.associations(a.sha))
+  end
+  
+  def test_create_links_doc_to_parents_if_specified_rather_than_using_a_head_association
+    a = Document.save('content' => 'a')
+    b = Document.create({'content' => 'b'}, a)
+    
+    assert_equal({:links => [b.sha]}, repo.associations(a.sha))
+    assert_equal({}, repo.associations(b.sha))
+  end
+  
+  def test_create_indexes_document
+    a = Document.create('tags' => 'tag')
+    assert_equal [a.idx], index['tags']['tag']
   end
   
   #
@@ -214,18 +271,33 @@ class DocumentTest < Test::Unit::TestCase
   # Document.update test
   #
   
-  def test_update_merges_attrs_saves_and_returns_new_doc
-    a = Document.create('content' => 'a', 'tags' => 'one')
-    b = Document.update(a.sha, 'content' => 'b')
+  def test_update_documentation
+    a = Document.create(:content => 'a')
+    b = Document.update(a, :content => 'b')
+    c = Document.update(a, :content => 'c')
+  
+    d = Document.update(b, :content => 'd')
+    c.update(d)
+  
+    a.reset
+    assert_equal [d.sha], a.node.versions.uniq
+  end
+  
+  def test_update_merges_attrs_with_old_doc_and_returns_new_doc
+    a = Document.save('content' => 'a', 'tags' => 'one')
+    b = Document.update(a, 'content' => 'b')
     
     assert_equal 'a', a['content']
     assert_equal 'b', b['content']
     assert_equal ['one'], b['tags']
+    
+    assert_equal({:updates => [b.sha]}, repo.associations(a.sha))
+    assert_equal({}, repo.associations(b.sha))
   end
   
   def test_update_indexes_document
-    a = Document.create
-    b = Document.update(a.sha, 'tags' => 'tag')
+    a = Document.save
+    b = Document.update(a, 'tags' => 'tag')
     assert_equal [b.idx], index['tags']['tag']
   end
   
@@ -571,17 +643,6 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal true, doc.active?(one)
   end
   
-  # # #
-  # # # graph test
-  # # #
-  # # 
-  # # def test_graph_resolves_doc_origins
-  # #   origin = Document.new.save
-  # #   
-  # #   doc['origin'] = origin.sha[0,8]
-  # #   assert_equal origin.sha, doc.graph.origin 
-  # # end
-  
   #
   # parents test
   #
@@ -849,6 +910,14 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal "nil key", err.errors['key'].message
   end
   
+  def test_save_does_not_create_document
+    doc.save
+    
+    associations = []
+    repo.each_assoc(doc.sha) {|sha, type| associations << [sha, type] }
+    assert_equal [], associations
+  end
+  
   #
   # saved? test
   #
@@ -860,12 +929,24 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
+  # create test
+  #
+  
+  def test_create_creates_head_association
+    doc.save.create
+    
+    associations = []
+    repo.each_assoc(doc.sha) {|sha, type| associations << [sha, type] }
+    assert_equal [[doc.sha, :head]], associations
+  end
+  
+  #
   # update test
   #
   
   def test_update_updates_self_to_new_doc
-    a = Document.create('content' => 'a')
-    b = Document.create('content' => 'b')
+    a = Document.save('content' => 'a')
+    b = Document.save('content' => 'b')
     
     a.update(b)
     
@@ -875,16 +956,38 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal false, a.node.current?
   end
   
+  def test_update_creates_update_association
+    a = Document.save('content' => 'a')
+    b = Document.save('content' => 'b')
+    
+    a.update(b)
+    
+    associations = []
+    repo.each_assoc(a.sha) {|sha, type| associations << [sha, type] }
+    assert_equal [[b.sha, :update]], associations
+  end
+  
   #
   # link test
   #
   
   def test_link_links_child_to_doc
-    a = Document.create('content' => 'a')
-    b = Document.create('content' => 'b')
+    a = Document.save('content' => 'a')
+    b = Document.save('content' => 'b')
     a.link(b)
   
     assert_equal [b.sha], a.node.children
+  end
+  
+  def test_link_creates_link_association
+    a = Document.save('content' => 'a')
+    b = Document.save('content' => 'b')
+    
+    a.link(b)
+    
+    associations = []
+    repo.each_assoc(a.sha) {|sha, type| associations << [sha, type] }
+    assert_equal [[b.sha, :link]], associations
   end
   
   #

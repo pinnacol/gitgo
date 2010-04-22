@@ -3,8 +3,8 @@ require 'gitgo/document/invalid_document_error'
 
 module Gitgo
   
-  # Document represents the data model of Gitgo, and provides high-level
-  # access to documents stored in a Repo.  Content and data consistentcy
+  # Document represents the data model of Gitgo, and provides high(er)-level
+  # access to documents stored in a Repo.  Content and data consistency
   # constraints are enforced on Document.
   #
   class Document
@@ -41,20 +41,82 @@ module Gitgo
         types[self]
       end
       
-      # Creates, links, and indexes a new document.  The new document is
-      # returned. The 'parent' and 'children' attributes specify the document
-      # links and, if present, will not be stored in the document itself.
+      # Creates a new document with the attributes and saves.  Note that a
+      # saved document is not automatically associated with a graph in a
+      # permanent way, nor will it be indexed.  Documents must be associated
+      # with a graph via create/update/link to actually be 'stored' in the
+      # repo, and reindexed manually using reindex.
       #
-      # Returns the new document.
-      def create(attrs={})
-        doc = new(attrs, repo)
-        doc.save
+      # From a technical perspective, unstored documents are hanging blobs and
+      # as such they will be gc'ed by git.
+      def save(attrs={})
+        new(attrs, repo).save
+      end
+      
+      # Creates a new document with the attrs.  The document is saved, stored,
+      # and indexed before being returned.  If parents are specified, the
+      # document is linked to each of them rather than being stored.
+      #
+      # === Usage Note
+      #
+      # Use create in preference of save when you don't intend to link the
+      # document to parents after creation (or when you know the parents and
+      # can provide them to create).  Doing so results in fewer objects being
+      # written the repo.
+      #
+      # For example, one correct way:
+      #
+      #   git = repo.git
+      #
+      #   a = Document.save(:content => 'a')
+      #   b = Document.save(:content => 'b')
+      #   a.create
+      #   a.link(b)
+      #
+      #   git.status.length   # => 2
+      #   git.reset
+      #
+      # Vs another correct way:
+      #
+      #   a = Document.create(:content => 'a')
+      #   b = Document.create({:content => 'b'}, a)
+      #
+      #   git.status.length   # => 2
+      #   git.reset
+      #
+      # Vs the wrong way:
+      #
+      #   a = Document.create(:content => 'a')
+      #   b = Document.create(:content => 'b')
+      #   a.link(b)
+      #
+      #   git.status.length   # => 3
+      #
+      # In the last case both a and b are stored as if they were graph heads,
+      # and then b also gets used as a link.  The unnecessary storage of b as
+      # a graph head results in an extra path in the repo (which actually
+      # corresponds to 3 extra git objects; 2 trees and a blob).
+      #
+      def create(attrs={}, *parents)
+        doc = save(attrs)
+        
+        if parents.empty?
+          doc.create
+        else
+          parents.each do |parent|
+            parent = Document[parent] unless parent.kind_of?(Document)
+            parent.link(doc)
+          end
+        end
+        
         doc.reindex
         doc
       end
       
       # Reads the specified document and casts it into an instance as per
       # cast.  Returns nil if the document doesn't exist.
+      #
+      # == Usage Note
       #
       # Read will re-read the document directly from the git repository every
       # time it is called.  For better performance, use the AGET method which
@@ -82,17 +144,30 @@ module Gitgo
         klass.new(attrs, repo, sha)
       end
       
-      # Updates and indexes the specified document with new attributes.  The
-      # new attributes are merged with the existing attributes.  New linkages
-      # cannot be specified with this method.
-      def update(sha, attrs={})
-        sha = sha.sha if sha.respond_to?(:sha)
+      # Updates and indexes the old document with new attributes.  The new
+      # attributes are merged with the current doc attributes.  Returns the
+      # new document.
+      #
+      # The new document can be used to update other documents, if necessary,
+      # to resolve forks in the update graph:
+      #
+      #   a = Document.create(:content => 'a')
+      #   b = Document.update(a, :content => 'b')
+      #   c = Document.update(a, :content => 'c')
+      #
+      #   d = Document.update(b, :content => 'd')
+      #   c.update(d)
+      #
+      #   a.reset
+      #   a.node.versions.uniq    # => [d.sha]
+      #
+      def update(old_doc, attrs={})
+        old_doc = Document[old_doc] unless old_doc.kind_of?(Document)
         
-        old_doc = read(sha)
-        doc = old_doc.merge(attrs).save
-        doc.update(old_doc)
-        doc.reindex
-        doc
+        new_doc = old_doc.merge(attrs).save
+        old_doc.update(new_doc)
+        new_doc.reindex
+        new_doc
       end
       
       # Finds all documents matching the any and all criteria.  The any and
@@ -423,12 +498,20 @@ module Gitgo
     
     def save
       validate
-      reset repo.create(attrs)
-      self
+      reset repo.store(attrs)
     end
     
     def saved?
       sha.nil? ? false : true
+    end
+    
+    def create
+      unless saved?
+        raise "cannot create unless saved"
+      end
+      
+      repo.create(sha)
+      self
     end
     
     def update(new_sha)

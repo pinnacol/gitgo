@@ -251,7 +251,6 @@ module Gitgo
     #   sh/a/empty_sha (DEFAULT_MODE, sha)
     #
     def create(sha)
-      sha = store(sha) if sha.kind_of?(Hash)
       git[sha_path(sha, empty_sha)] = [DEFAULT_MODE, sha]
       sha
     end
@@ -328,6 +327,37 @@ module Gitgo
       else
         :invalid
       end
+    end
+    
+    # Returns a hash of associations for the source, mainly used as a
+    # convenience method during testing.
+    def associations(source, sort=true)
+      associations = {}
+      links = []
+      updates = []
+      
+      each_assoc(source) do |sha, type|
+        case type
+        when :head, :delete
+          associations[type] = true
+        when :link
+          links << sha
+        when :update
+          updates << sha
+        end
+      end
+      
+      unless links.empty?
+        
+        associations[:links] = links
+      end
+      
+      unless updates.empty?
+        updates.sort! if sort
+        associations[:updates] = updates
+      end
+      
+      associations
     end
     
     # Yield each association for source to the block, with the association sha

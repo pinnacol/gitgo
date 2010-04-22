@@ -307,6 +307,28 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # associations test
+  #
+  
+  def test_associations_returns_a_hash_describing_associations_for_the_sha
+    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    repo.create(a)
+    repo.link(a, b)
+    repo.link(a, c)
+    repo.update(a, d)
+    repo.delete(a)
+    
+    assert_equal({
+      :head => true,
+      :links => [b, c].sort,
+      :updates => [d],
+      :delete => true
+    }, repo.associations(a))
+    
+    assert_equal({}, repo.associations(b))
+  end
+  
+  #
   # each test
   #
   
