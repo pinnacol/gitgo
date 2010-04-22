@@ -282,7 +282,7 @@ module Gitgo
           target = collect_nodes(doc_sha)
           
           case doc_type
-          when :head
+          when :create
           when :link
             links   << target
           when :update

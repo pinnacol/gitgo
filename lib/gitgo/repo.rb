@@ -9,8 +9,8 @@ module Gitgo
   # Git instance for storing documents in the repository, and an Index
   # instance for queries on the documents. The internal workings of Repo are a
   # bit complex; this document provides terminology and details on how
-  # documents and linkages are stored.  See Index and Graph for how the stored
-  # information is accessed.
+  # documents and associations are stored.  See Index and Graph for how
+  # document information is accessed.
   #
   # == Terminology
   #
@@ -23,7 +23,7 @@ module Gitgo
   # multiple DAGs, each made up of multiple documents.
   #
   # The DAGs used by Gitgo are a little weird because they use some nodes to
-  # represent revisions, and other nodes to represent the 'current' nodes in a
+  # represent revisions and other nodes to represent the 'current' nodes in a
   # graph (this setup allows documents to be immutable, and thereby to prevent
   # merge conflicts).  
   #
@@ -62,26 +62,26 @@ module Gitgo
   #
   # The full DAG is refered to as the 'convoluted graph' and the current DAG
   # is the 'deconvoluted graph'.  The logic performing the deconvolution is
-  # encapsulated in Gitgo::Graph.
+  # encapsulated in Graph and Node.
   #
   # Parent-child associations are referred to as links, while previous-update
   # associations are referred to as updates.  Links and updates are
   # collectively referred to as associations.
   #
-  # There are two additional types of associations; head and delete.  Head
-  # associations consists of a sha associated with the empty sha (ie the sha
-  # for an empty document). These indicate which shas act as the head of a
-  # DAG.  Deletes associate a sha with itself; these act as a break in the DAG
-  # where all subsequent links and updates are omitted.
-  #     
+  # There are two additional types of associations; create and delete.  Create
+  # associations occur when a sha is associated with the empty sha (ie the sha
+  # for an empty document). These associations place new documents along a
+  # path in the repo when the new document isn't a child or update. Deletes
+  # associate a sha with itself; these act as a break in the DAG such that all
+  # subsequent links and updates are omitted.
+  #         
   # The first member in an association (parent/previous/sha) is a source and
   # the second (child/update/sha) is a target.
   #
-  
   # == Storage
   #
   # Documents are stored on a dedicated git branch in a way that prevents
-  # merge conflicts, and allows merges to directly add nodes anywhere in a
+  # merge conflicts and allows merges to directly add nodes anywhere in a
   # document graph.  The branch may be checked out and handled like any other
   # git branch, although typically users manage the gitgo branch through Gitgo
   # itself.
@@ -93,13 +93,14 @@ module Gitgo
   # this ('-' refers to the empty sha, and a/b to different shas):
   #
   #   source   target   mode   type
-  #   a        -        644    head
+  #   a        -        644    create
   #   a        b        644    link
   #   a        b        640    update
   #   a        a        644    delete
   #
   # Using this system, a traveral of the associations is enough to determine
-  # how documents are related in a DAG without loading documents into memory.
+  # how documents are related in a graph without loading documents into
+  # memory.
   #
   # == Implementation Note
   #
@@ -241,12 +242,19 @@ module Gitgo
       cache[sha] = attrs
     end
     
-    def store(attrs)
+    # Serializes and sets the attributes as a blob in the git repo and caches
+    # the attributes by the blob sha.  Returns the blob sha.
+    #
+    # Note that save does not put the blob along a path in the repo;
+    # immediately after save the blob is hanging and will be gc'ed by git
+    # unless set into a path by create, link, or update.
+    def save(attrs)
       sha = git.set(:blob, JSON.generate(attrs))
       cache[sha] = attrs
       sha
     end
     
+    # Creates a create association for the sha:
     #
     #   sh/a/empty_sha (DEFAULT_MODE, sha)
     #
@@ -255,8 +263,8 @@ module Gitgo
       sha
     end
     
-    # Reads an deserializes specified hash of attrs.  If sha does not indicate
-    # a blob that deserializes as JSON then read returns nil.
+    # Reads and deserializes the specified hash of attrs.  If sha does not
+    # indicate a blob that deserializes as JSON then read returns nil.
     def read(sha)
       begin
         JSON.parse(git.get(:blob, sha).data)
@@ -265,7 +273,7 @@ module Gitgo
       end
     end
     
-    # Creates a link file for parent and child:
+    # Creates a link association for parent and child:
     #
     #   pa/rent/child (DEFAULT_MODE, child)
     #
@@ -275,7 +283,7 @@ module Gitgo
       self
     end
     
-    # Creates an update file for old and new shas:
+    # Creates an update association for old and new shas:
     #
     #   ol/d_sha/new_sha (UPDATE_MODE, new_sha)
     #
@@ -285,7 +293,7 @@ module Gitgo
       self
     end
     
-    # Creates a delete file for the sha:
+    # Creates a delete association for the sha:
     #
     #   sh/a/sha (DEFAULT_MODE, empty_sha)
     #
@@ -318,7 +326,7 @@ module Gitgo
       case mode
       when DEFAULT_MODE
         case target
-        when empty_sha then :head
+        when empty_sha then :create
         when source    then :delete
         else :link
         end
@@ -338,7 +346,7 @@ module Gitgo
       
       each_assoc(source) do |sha, type|
         case type
-        when :head, :delete
+        when :create, :delete
           associations[type] = true
         when :link
           links << sha
@@ -438,7 +446,7 @@ module Gitgo
         type = assoc_type(source, target)
         
         status = case assoc_type(source, target)
-        when :head
+        when :create
           create_status(sha, self[sha], &block)
         when :link
           link_status(source, target, &block)

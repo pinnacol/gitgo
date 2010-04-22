@@ -13,9 +13,9 @@ class GraphTest < Test::Unit::TestCase
     @repo = Repo.new(Repo::PATH => method_root.path(:repo))
   end
   
-  def store_nodes(*contents)
+  def shas(*contents)
     contents.collect do |content|
-      repo.store("content" => content)
+      repo.save("content" => content)
     end
   end
   
@@ -46,7 +46,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_original_returns_original_version_of_the_node
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    a, b, c, d = shas('a', 'b', 'c', 'd')
     repo.update(a, b)
     repo.update(a, c)
     repo.update(c, d)
@@ -62,7 +62,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_versions_returns_current_versions_of_the_node
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    a, b, c, d = shas('a', 'b', 'c', 'd')
     repo.update(a, b)
     repo.update(a, c)
     repo.update(c, d)
@@ -78,7 +78,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_parents_returns_deconvoluted_parents_of_the_node
-    a, b, c, d, e = store_nodes('a', 'b', 'c', 'd', 'e')
+    a, b, c, d, e = shas('a', 'b', 'c', 'd', 'e')
     repo.link(a, b)
     repo.link(b, d)
     repo.link(a, c)
@@ -98,7 +98,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_children_returns_deconvoluted_children_of_the_node
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    a, b, c, d = shas('a', 'b', 'c', 'd')
     repo.update(a, b)
     repo.link(a, c)
     repo.link(b, d)
@@ -114,7 +114,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def tails_returns_all_tails_in_the_graph
-    a, b, c, d, e = store_nodes('a', 'b', 'c', 'd', 'e')
+    a, b, c, d, e = shas('a', 'b', 'c', 'd', 'e')
     repo.update(a, b)
     repo.link(a, c)
     repo.link(c, d)
@@ -129,7 +129,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_current_check_returns_true_if_node_has_no_updates
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.update(a, b)
     repo.link(a, c)
     
@@ -144,7 +144,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_tail_check_returns_true_if_node_has_no_children
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.update(a, b)
     repo.link(a, c)
     
@@ -159,7 +159,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_links_returns_an_mapping_of_node_child_linkages
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.link(a, b)
     repo.link(b, c)
 
@@ -174,7 +174,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_links_allows_forks
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.link(a, b)
     repo.link(a, c)
 
@@ -189,7 +189,7 @@ class GraphTest < Test::Unit::TestCase
   end
 
   def test_links_allows_merges
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    a, b, c, d = shas('a', 'b', 'c', 'd')
     repo.link(a, b).link(b, d)
     repo.link(a, c).link(c, d)
 
@@ -205,7 +205,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_links_deconvolutes_updates
-    a, b, c, d, m, n, x, y = store_nodes('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
+    a, b, c, d, m, n, x, y = shas('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
     repo.link(a, b)
     repo.link(b, c)
     repo.link(c, d)
@@ -226,7 +226,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_links_removes_deletes
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    a, b, c, d = shas('a', 'b', 'c', 'd')
     repo.link(a, b)
     repo.link(b, c)
     repo.link(c, d)
@@ -242,7 +242,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_links_removes_deletes_from_update
-    a, b, c, x, y, z = store_nodes('a', 'b', 'c', 'x', 'y', 'z')
+    a, b, c, x, y, z = shas('a', 'b', 'c', 'x', 'y', 'z')
     repo.link(a, b)
     repo.link(b, c)
     repo.update(b, x)
@@ -261,7 +261,7 @@ class GraphTest < Test::Unit::TestCase
   end
 
   def test_links_with_multiple_heads
-    a, b, m, n, x, y = store_nodes('a', 'b', 'm', 'n', 'x', 'y')
+    a, b, m, n, x, y = shas('a', 'b', 'm', 'n', 'x', 'y')
     repo.link(a, b).update(a, m).update(a, x)
     repo.link(m, n)
     repo.link(x, y)
@@ -279,7 +279,7 @@ class GraphTest < Test::Unit::TestCase
   end
 
   def test_links_with_merged_lineages
-    a, b, c, d, m, n, x, y = store_nodes('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
+    a, b, c, d, m, n, x, y = shas('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y')
     repo.link(a, b).link(a, x)
     repo.link(b, c)
 
@@ -302,7 +302,7 @@ class GraphTest < Test::Unit::TestCase
   end
 
   def test_links_with_merged_lineages_and_multiple_updates
-    a, b, c, d, m, n, x, y, p, q = store_nodes('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y', 'p', 'q')
+    a, b, c, d, m, n, x, y, p, q = shas('a', 'b', 'c', 'd', 'm', 'n', 'x', 'y', 'p', 'q')
     repo.link(a, b).link(a, x)
     repo.link(b, c)
 
@@ -328,7 +328,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_links_detects_circular_linkage
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.link(a, b)
     repo.link(b, c)
     repo.link(c, a)
@@ -343,7 +343,7 @@ class GraphTest < Test::Unit::TestCase
   end
 
   def test_links_detects_circular_linkage_with_replacement
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.link(a, b)
     repo.update(b, c)
     repo.link(b, a)
@@ -357,7 +357,7 @@ class GraphTest < Test::Unit::TestCase
   end
 
   def test_links_detects_circular_linkage_through_replacement
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.link(a, b)
     repo.update(b, c)
     repo.link(c, a)
@@ -371,7 +371,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_links_detects_circular_linkage_causes_by_replacement
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    a, b, c, d = shas('a', 'b', 'c', 'd')
     repo.link(a, b)
     repo.link(b, c)
     
@@ -407,7 +407,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_graph_for_single_line
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.link(a, b)
     repo.link(b, c)
     
@@ -420,7 +420,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_graph_for_fork
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd').sort
+    a, b, c, d = shas('a', 'b', 'c', 'd').sort
     repo.link(a, b)
     repo.link(a, c)
     repo.link(a, d)
@@ -435,7 +435,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_graph_for_fork_and_merge
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd').sort
+    a, b, c, d = shas('a', 'b', 'c', 'd').sort
     repo.link(a, b)
     repo.link(a, c)
     repo.link(b, d)
@@ -451,7 +451,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_graph_for_fork_with_partial_merge
-    a, b, c, d, e = store_nodes('a', 'b', 'c', 'd', 'e').sort
+    a, b, c, d, e = shas('a', 'b', 'c', 'd', 'e').sort
     repo.link(a, b)
     repo.link(a, c)
     repo.link(a, d)
@@ -470,7 +470,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_graph_for_multiple_merge_inward
-    a, b, c, d, e = store_nodes('a', 'b', 'c', 'd', 'e').sort
+    a, b, c, d, e = shas('a', 'b', 'c', 'd', 'e').sort
     repo.link(a, b)
     repo.link(a, c)
     
@@ -492,7 +492,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_graph_for_multiple_merge_outward
-    a, b, c, d, e, f, g = store_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
+    a, b, c, d, e, f, g = shas('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
     repo.link(a, b)
     repo.link(a, c)
     
@@ -518,7 +518,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_graph_for_fork_merge_refork
-    a, b, c, d, e, f, g, h, i = store_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i').sort
+    a, b, c, d, e, f, g, h, i = shas('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i').sort
     repo.link(a, b)
     repo.link(a, c)
     repo.link(a, d)
@@ -544,7 +544,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_graph_for_merge_and_fork_on_separate_branches
-    a, b, c, d, e, f, g = store_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
+    a, b, c, d, e, f, g = shas('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
     repo.link(a, b)
     repo.link(a, c)
     repo.link(a, e)
@@ -566,7 +566,7 @@ class GraphTest < Test::Unit::TestCase
   end
   
   def test_graph_for_multiple_heads
-    a, b, c = store_nodes('a', 'b', 'c').sort
+    a, b, c = shas('a', 'b', 'c').sort
     repo.update(a, b)
     repo.update(a, c)
     
@@ -582,7 +582,7 @@ class GraphTest < Test::Unit::TestCase
   #
   
   def test_draw_for_merge_and_fork_on_separate_branches
-    a, b, c, d, e, f, g = store_nodes('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
+    a, b, c, d, e, f, g = shas('a', 'b', 'c', 'd', 'e', 'f', 'g').sort
     repo.link(a, b)
     repo.link(a, c)
     repo.link(a, e)

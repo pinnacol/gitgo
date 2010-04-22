@@ -25,9 +25,9 @@ class RepoTest < Test::Unit::TestCase
     JSON.generate(attrs)
   end
   
-  def store_nodes(*contents)
+  def shas(*contents)
     contents.collect do |content|
-      repo.store("content" => content)
+      repo.save("content" => content)
     end
   end
   
@@ -137,7 +137,7 @@ class RepoTest < Test::Unit::TestCase
   end
 
   def test_cache_reads_and_caches_attrs
-    a = repo.store('content' => 'a')
+    a = repo.save('content' => 'a')
     b = repo.cache[a]
 
     assert_equal 'a', b['content']
@@ -145,17 +145,17 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # store test
+  # save test
   #
   
-  def test_store_serializes_and_stores_attributes
-    sha = repo.store('key' => 'value')
+  def test_save_serializes_and_saves_attributes
+    sha = repo.save('key' => 'value')
     assert_equal serialize('key' => 'value'), git.get(:blob, sha).data
   end
   
-  def test_store_caches_attrs
+  def test_save_caches_attrs
     attrs = {'content' => 'a'}
-    a = repo.store(attrs)
+    a = repo.save(attrs)
     
     assert_equal({a => attrs}, repo.cache)
   end
@@ -164,8 +164,8 @@ class RepoTest < Test::Unit::TestCase
   # create test
   #
   
-  def test_create_stores_attrs_under_empty_sha_path
-    a = store_nodes('a').first
+  def test_create_associates_sha_to_empty_sha
+    a = shas('a').first
     repo.create(a)
     
     assert_equal [Repo::DEFAULT_MODE, a], git[sha_path(a, empty_sha), true]
@@ -191,8 +191,8 @@ class RepoTest < Test::Unit::TestCase
   # link test
   #
 
-  def test_link_links_parent_to_child_using_default_mode_and_child_sha
-    a, b = store_nodes('a', 'b')
+  def test_link_associates_parent_to_child_using_default_mode_and_child_sha
+    a, b = shas('a', 'b')
     repo.link(a, b)
     
     assert_equal [Repo::DEFAULT_MODE, b], git[sha_path(a, b), true]
@@ -202,8 +202,8 @@ class RepoTest < Test::Unit::TestCase
   # update test
   #
   
-  def test_update_links_old_sha_to_new_sha_update_mode_and_child_sha
-    a, b = store_nodes('a', 'b')
+  def test_update_associates_old_sha_to_new_sha_update_mode_and_child_sha
+    a, b = shas('a', 'b')
     repo.update(a, b)
     
     assert_equal [Repo::UPDATE_MODE, b], git[sha_path(a, b), true]
@@ -214,7 +214,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_delete_links_sha_to_sha_with_empty_sha
-    a = store_nodes('a').first
+    a = shas('a').first
     repo.delete(a)
     
     assert_equal [Repo::DEFAULT_MODE, empty_sha], git[sha_path(a, a), true]
@@ -225,7 +225,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_assoc_sha_returns_the_sha_for_the_document
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
@@ -242,7 +242,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_assoc_mode_returns_the_mode_for_the_document
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
@@ -259,13 +259,13 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_assoc_type_returns_the_assoc_type_given_the_source_target_and_mode
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
     repo.delete(c)
     
-    assert_equal :head, repo.assoc_type(a, empty_sha)
+    assert_equal :create, repo.assoc_type(a, empty_sha)
     assert_equal :link, repo.assoc_type(a, b)
     assert_equal :update, repo.assoc_type(b, c)
     assert_equal :delete, repo.assoc_type(c, c)
@@ -279,7 +279,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_each_assoc_yields_the_sha_and_mode_of_each_assoc_to_the_block
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    a, b, c, d = shas('a', 'b', 'c', 'd')
     repo.create(a)
     repo.link(a, b)
     repo.link(a, c)
@@ -293,7 +293,7 @@ class RepoTest < Test::Unit::TestCase
     
     repo.each_assoc(a) do |sha, type|
       case type
-      when :head   then heads
+      when :create then heads
       when :link   then links
       when :update then updates
       when :delete then deletes
@@ -311,7 +311,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_associations_returns_a_hash_describing_associations_for_the_sha
-    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    a, b, c, d = shas('a', 'b', 'c', 'd')
     repo.create(a)
     repo.link(a, b)
     repo.link(a, c)
@@ -319,7 +319,7 @@ class RepoTest < Test::Unit::TestCase
     repo.delete(a)
     
     assert_equal({
-      :head => true,
+      :create => true,
       :links => [b, c].sort,
       :updates => [d],
       :delete => true
@@ -333,9 +333,9 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_each_yields_each_doc_to_the_block
-    a = repo.create repo.store('content' => 'a')
-    b = repo.create repo.store('content' => 'b')
-    c = repo.create repo.store('content' => 'c')
+    a = repo.create repo.save('content' => 'a')
+    b = repo.create repo.save('content' => 'b')
+    c = repo.create repo.save('content' => 'c')
     
     results = []
     repo.each {|sha| results << sha }
@@ -347,15 +347,13 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_diff_returns_shas_added_from_a_to_b
-    one = repo.store('content' => 'one')
+    one, two, three = shas('one', 'two', 'three')
     repo.create(one)
     a = git.commit!('added one')
-    
-    two = repo.store('content' => 'two')
+
     repo.create(two)
     b = git.commit!('added two')
     
-    three = repo.store('content' => 'three')
     repo.create(three)
     c = git.commit!('added three')
     
@@ -370,7 +368,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_diff_treats_nil_as_prior_to_initial_commit
-    one = repo.store('content' => 'one')
+    one = repo.save('content' => 'one')
     repo.create(one)
     a = git.commit!('added one')
     
@@ -385,7 +383,7 @@ class RepoTest < Test::Unit::TestCase
   def test_status_returns_formatted_lines_of_status
     assert_equal '', repo.status
     
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
@@ -398,7 +396,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_status_converts_shas_as_determined_by_block
-    a, b, c = store_nodes('a', 'b', 'c')
+    a, b, c = shas('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
@@ -416,7 +414,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_commit_commits_with_status_by_default
-    a, b = store_nodes('a', 'b')
+    a, b = shas('a', 'b')
     repo.create(a)
     repo.create(b)
     

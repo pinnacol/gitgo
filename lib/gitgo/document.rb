@@ -498,7 +498,7 @@ module Gitgo
     
     def save
       validate
-      reset repo.store(attrs)
+      reset repo.save(attrs)
     end
     
     def saved?

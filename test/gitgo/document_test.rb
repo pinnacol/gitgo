@@ -221,17 +221,17 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 3, git.status.length
   end
   
-  def test_create_saves_doc_and_stores_using_a_head_association
+  def test_create_saves_doc_and_stores_using_a_create_association
     a = Document.create('content' => 'a')
     assert_equal true, a.saved?
     
     attrs = deserialize(git.get(:blob, a.sha).data)
     assert_equal 'a', attrs['content']
     
-    assert_equal({:head => true}, repo.associations(a.sha))
+    assert_equal({:create => true}, repo.associations(a.sha))
   end
   
-  def test_create_links_doc_to_parents_if_specified_rather_than_using_a_head_association
+  def test_create_links_doc_to_parents_if_specified_rather_than_using_a_create_association
     a = Document.save('content' => 'a')
     b = Document.create({'content' => 'b'}, a)
     
@@ -648,8 +648,8 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_parents_queries_graph_for_parents
-    a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b')
+    a = repo.save('content' => 'a')
+    b = repo.save('content' => 'b')
     repo.link(a,b)
     doc.reset(b)
     
@@ -661,8 +661,8 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_children_queries_graph_for_children
-    a = repo.store('content' => 'a')
-    b = repo.store('content' => 'b')
+    a = repo.save('content' => 'a')
+    b = repo.save('content' => 'b')
     repo.link(a,b)
     doc.reset(a)
     
@@ -932,12 +932,12 @@ class DocumentTest < Test::Unit::TestCase
   # create test
   #
   
-  def test_create_creates_head_association
+  def test_create_creates_create_association
     doc.save.create
     
     associations = []
     repo.each_assoc(doc.sha) {|sha, type| associations << [sha, type] }
-    assert_equal [[doc.sha, :head]], associations
+    assert_equal [[doc.sha, :create]], associations
   end
   
   #
