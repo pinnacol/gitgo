@@ -543,6 +543,7 @@ module Gitgo
         raise "cannot create unless saved"
       end
       
+      index.create(sha)
       repo.create(sha)
       self
     end
@@ -560,29 +561,37 @@ module Gitgo
         new_sha = new_sha.sha
       end
       
+      index.associate(sha, new_sha)
       repo.update(sha, new_sha)
       reset
     end
     
-    def link(*children)
+    def link(child)
       unless saved?
         raise "cannot link unless saved"
       end
       
-      children.collect! do |child|
-        next child unless child.kind_of?(Document)
-        
+      if child.kind_of?(Document)
         unless child.saved?
           raise "cannot link to an unsaved document: #{child.inspect}"
         end
         child.reset
-        child.sha
+        child = child.sha
       end
       
-      children.each do |child|
-        repo.link(sha, child)
-      end
+      index.associate(sha, child)
+      repo.link(sha, child)
       reset
+    end
+    
+    def delete
+      unless saved?
+        raise "cannot delete unless saved"
+      end
+      
+      index.delete(sha)
+      repo.delete(sha)
+      self
     end
     
     def reindex

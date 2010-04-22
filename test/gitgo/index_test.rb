@@ -104,16 +104,17 @@ class IndexTest < Test::Unit::TestCase
   # graph_head_idx test
   #
   
-  def test_graph_head_idx_returns_idx_if_idx_is_not_mapped
-    assert_equal 0, index.graph_head_idx(0)
+  def test_graph_head_idx_returns_nil_if_idx_is_not_mapped
+    assert_equal nil, index.graph_head_idx(0)
   end
   
-  def test_graph_head_idx_returns_idx_if_idx_is_nil_in_map
+  def test_graph_head_idx_returns_nil_if_idx_is_nil_in_map
     index.map[0] = nil
-    assert_equal 0, index.graph_head_idx(0)
+    assert_equal nil, index.graph_head_idx(0)
   end
   
   def test_graph_head_idx_returns_the_deconvoluted_graph_head_idx_as_specified_in_map
+    index.map[0] = 0
     index.map[1] = 0
     index.map[2] = 1
     
@@ -256,15 +257,15 @@ class IndexTest < Test::Unit::TestCase
     a, b, c = shas('a', 'b', 'c')
     index.list.concat [a, b, b, c, a]
     
-    index.map[0] = nil
+    index.map[0] = 0
     index.map[1] = 0   # b -> a
     index.map[2] = 0   # b -> a
     index.map[3] = 2   # c -> b
-    index.map[4] = nil
+    index.map[4] = 4
     
     index.compact
     assert_equal({
-      0 => nil,
+      0 => 0,
       1 => 0,
       2 => 0
     }, index.map)

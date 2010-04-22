@@ -169,12 +169,13 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_saved_documents_can_be_linked_and_updated
-    a = Document.save('content' => 'a')
+    a = Document.create('content' => 'a')
     b = Document.save('content' => 'b')
     c = Document.save('content' => 'c')
     d = Document.save('content' => 'd')
     
-    a.link(b, c)
+    a.link(b)
+    a.link(c)
     c.update(d)
     
     assert_equal [a.sha], d.node.parents
@@ -232,10 +233,10 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_create_links_doc_to_parents_if_specified_rather_than_using_a_create_association
-    a = Document.save('content' => 'a')
+    a = Document.create('content' => 'a')
     b = Document.create({'content' => 'b'}, a)
     
-    assert_equal({:links => [b.sha]}, repo.associations(a.sha))
+    assert_equal({:create => true, :links => [b.sha]}, repo.associations(a.sha))
     assert_equal({}, repo.associations(b.sha))
   end
   
@@ -284,19 +285,19 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_update_merges_attrs_with_old_doc_and_returns_new_doc
-    a = Document.save('content' => 'a', 'tags' => 'one')
+    a = Document.create('content' => 'a', 'tags' => 'one')
     b = Document.update(a, 'content' => 'b')
     
     assert_equal 'a', a['content']
     assert_equal 'b', b['content']
     assert_equal ['one'], b['tags']
     
-    assert_equal({:updates => [b.sha]}, repo.associations(a.sha))
+    assert_equal({:create => true, :updates => [b.sha]}, repo.associations(a.sha))
     assert_equal({}, repo.associations(b.sha))
   end
   
   def test_update_indexes_document
-    a = Document.save
+    a = Document.create
     b = Document.update(a, 'tags' => 'tag')
     assert_equal [b.idx], index['tags']['tag']
   end
@@ -463,12 +464,8 @@ class DocumentTest < Test::Unit::TestCase
   
   def test_graph_head_returns_the_sha_for_the_graph_head_doc_belongs_to
     a = Document.create('content' => 'a')
-    b = Document.create('content' => 'b')
-    c = Document.create('content' => 'c')
-    
-    assert_equal a.sha, a.graph_head
-    assert_equal b.sha, b.graph_head
-    assert_equal c.sha, c.graph_head
+    b = Document.save('content' => 'b')
+    c = Document.save('content' => 'c')
     
     a.link(b)
     a.update(c)
@@ -488,13 +485,9 @@ class DocumentTest < Test::Unit::TestCase
   
   def test_graph_head_check_returns_true_for_graph_heads
     a = Document.create('content' => 'a')
-    b = Document.create('content' => 'b')
-    c = Document.create('content' => 'c')
-    
-    assert_equal true, a.graph_head?
-    assert_equal true, b.graph_head?
-    assert_equal true, c.graph_head?
-    
+    b = Document.save('content' => 'b')
+    c = Document.save('content' => 'c')
+
     a.link(b)
     a.update(c)
     
@@ -595,7 +588,7 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_tail_check_returns_false_unless_doc_is_tail
-    doc.merge!('content' => 'a').save
+    doc.merge!('content' => 'a').save.create
     assert_equal true, doc.node.tail?
     
     # update
@@ -606,7 +599,7 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal false, doc.node.tail?
     
     # child
-    child = Document.create('content' => 'c')
+    child = Document.save('content' => 'c')
     update.link(child)
     
     assert_equal false, update.node.tail?
@@ -648,12 +641,11 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_parents_queries_graph_for_parents
-    a = repo.save('content' => 'a')
-    b = repo.save('content' => 'b')
-    repo.link(a,b)
-    doc.reset(b)
+    a = Document.create('content' => 'a')
+    b = Document.save('content' => 'b')
+    a.link(b)
     
-    assert_equal [a], doc.node.parents
+    assert_equal [a.sha], b.node.parents
   end
   
   #
@@ -661,12 +653,11 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_children_queries_graph_for_children
-    a = repo.save('content' => 'a')
-    b = repo.save('content' => 'b')
-    repo.link(a,b)
-    doc.reset(a)
+    a = Document.create('content' => 'a')
+    b = Document.save('content' => 'b')
+    a.link(b)
     
-    assert_equal [b], doc.node.children
+    assert_equal [b.sha], a.node.children
   end
   
   #
@@ -939,7 +930,7 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_update_updates_self_to_new_doc
-    a = Document.save('content' => 'a')
+    a = Document.create('content' => 'a')
     b = Document.save('content' => 'b')
     
     a.update(b)
@@ -951,11 +942,11 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_update_creates_update_association
-    a = Document.save('content' => 'a')
+    a = Document.create('content' => 'a')
     b = Document.save('content' => 'b')
     
     a.update(b)
-    assert_equal({:updates => [b.sha]}, repo.associations(a.sha))
+    assert_equal({:create => true, :updates => [b.sha]}, repo.associations(a.sha))
   end
   
   #
@@ -963,7 +954,7 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_link_links_child_to_doc
-    a = Document.save('content' => 'a')
+    a = Document.create('content' => 'a')
     b = Document.save('content' => 'b')
     a.link(b)
   
@@ -971,11 +962,11 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   def test_link_creates_link_association
-    a = Document.save('content' => 'a')
+    a = Document.create('content' => 'a')
     b = Document.save('content' => 'b')
     
     a.link(b)
-    assert_equal({:links => [b.sha]}, repo.associations(a.sha))
+    assert_equal({:create => true, :links => [b.sha]}, repo.associations(a.sha))
   end
   
   #

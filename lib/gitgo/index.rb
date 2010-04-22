@@ -156,20 +156,44 @@ module Gitgo
     
     # Return the graph head idx for the specified idx.
     def graph_head_idx(idx)
-      graph_head_idx = deconvolute(idx, map)
-      graph_head_idx.nil? ? idx : graph_head_idx
+      deconvolute(idx, map)
     end
     
-    # Records an association between source and target.
-    def associate(source, target, type)
-      if type == :link || type == :update
-        source_idx = idx(source)
-        target_idx = idx(target)
-        
-        cache['filter']['tail'] << source_idx
-        map[target_idx] = graph_head_idx(source_idx)
+    def create(source)
+      source_idx = idx(source)
+
+      head_idx = graph_head_idx(source_idx)
+      unless head_idx.nil? || head_idx == source_idx
+        raise "create graph fail: #{source} (already associated with graph #{list[head_idx]})"
       end
-      
+
+      map[source_idx] = source_idx
+      self
+    end
+
+    def associate(source, target)
+      source_idx = idx(source)
+      target_idx = idx(target)
+
+      source_head_idx = graph_head_idx(source_idx)
+      if source_head_idx.nil?
+        raise "associate fail: #{source} -> #{target} (source is not associated with a graph)"
+      end
+
+      target_head_idx = graph_head_idx(target_idx)
+      unless target_head_idx.nil? || target_head_idx == source_head_idx
+        raise "associate fail: #{source} -> #{target} (different graph heads #{list[source_head_idx]}/#{list[target_head_idx]})"
+      end
+
+      map[target_idx] = source_head_idx
+      cache['filter']['tail'] << source_idx
+
+      self
+    end
+
+    def delete(source)
+      source_idx = idx(source)
+      cache['filter']['tail'] << source_idx
       self
     end
     
@@ -262,7 +286,7 @@ module Gitgo
       # update/deconvolute mapped idx values
       new_map = {}
       map.each_pair {|idx, head_idx| new_map[idx_map[idx]] = idx_map[head_idx] }
-      new_map.keys.each {|idx| new_map[idx] = deconvolute(idx, new_map) }
+      new_map.keys.each {|idx| new_map[idx] = deconvolute(idx, new_map) || idx }
       
       @map = new_map
       
@@ -310,10 +334,17 @@ module Gitgo
     
     private
     
-    def deconvolute(idx, map, visited=[]) # :nodoc:
+    # walks up the map to find the graph head for idx.  returns nil if idx is not
+    # associated with a graph
+    def deconvolute(idx, map, visited=nil) # :nodoc:
       head_idx = map[idx]
-      if head_idx.nil? && visited.empty?
-        return nil
+      
+      if visited.nil?
+        if head_idx.nil?
+          return nil
+        else
+          visited = []
+        end
       end
       
       circular = visited.include?(idx)
@@ -323,7 +354,7 @@ module Gitgo
         raise "cannot deconvolute cyclic graph: #{visited.inspect}"
       end
       
-      head_idx.nil? ? idx : deconvolute(head_idx, map, visited)
+      head_idx == idx ? idx : deconvolute(head_idx, map, visited)
     end
     
     def each_pair(pairs) # :nodoc:

@@ -279,7 +279,6 @@ module Gitgo
     #
     def link(parent, child)
       git[sha_path(parent, child)] = [DEFAULT_MODE, child]
-      index.associate(parent, child, :link)
       self
     end
     
@@ -289,7 +288,6 @@ module Gitgo
     #
     def update(old_sha, new_sha)
       git[sha_path(old_sha, new_sha)] = [UPDATE_MODE, new_sha]
-      index.associate(old_sha, new_sha, :update)
       self
     end
     
