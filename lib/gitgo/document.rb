@@ -1,5 +1,4 @@
 require 'gitgo/repo'
-require 'gitgo/document/utils'
 require 'gitgo/document/invalid_document_error'
 
 module Gitgo
