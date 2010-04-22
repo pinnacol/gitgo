@@ -343,16 +343,6 @@ module Gitgo
       self
     end
     
-    # Returns true if sha has a :head association in the convoluted DAG.
-    def graph_head?(sha)
-      assoc_type(sha, empty_sha) == :head
-    end
-    
-    # Returns true if sha has a :delete association in the convoluted DAG.
-    def deleted?(sha)
-      assoc_type(sha, sha) == :delete
-    end
-    
     # Yields the sha of each document in the repo, in no particular order and
     # with duplicates for every link/update that has multiple association
     # sources.

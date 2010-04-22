@@ -307,38 +307,6 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # graph_head? test
-  #
-  
-  def test_graph_head_check_returns_true_if_sha_has_a_head_association
-    a, b, c = store_nodes('a', 'b', 'c')
-    repo.create(a)
-    repo.link(a, b)
-    repo.update(b, c)
-    repo.delete(a)
-    
-    assert_equal true, repo.graph_head?(a)
-    assert_equal false, repo.graph_head?(b)
-    assert_equal false, repo.graph_head?(c)
-  end
-  
-  #
-  # deleted? test
-  #
-  
-  def test_deleted_check_returns_true_if_sha_has_a_deleted_association
-    a, b, c = store_nodes('a', 'b', 'c')
-    repo.create(a)
-    repo.link(a, b)
-    repo.update(b, c)
-    repo.delete(a)
-    
-    assert_equal true, repo.deleted?(a)
-    assert_equal false, repo.deleted?(b)
-    assert_equal false, repo.deleted?(c)
-  end
-  
-  #
   # each test
   #
   
