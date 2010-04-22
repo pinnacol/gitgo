@@ -258,9 +258,17 @@ module Gitgo
       sha ? index.idx(sha) : nil
     end
     
+    def graph_head_idx
+      index.graph_head_idx(idx)
+    end
+    
+    def graph_head?
+      graph_head_idx == idx
+    end
+    
     def graph_head
-      graph_head_idx = index.graph_head_idx(idx)
-      graph_head_idx ? index.list[graph_head_idx] : sha
+      idx = graph_head_idx
+      idx ? index.list[idx] : nil
     end
     
     def graph

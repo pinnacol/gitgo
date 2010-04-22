@@ -73,6 +73,12 @@ module Gitgo
         reset
       end
       
+      # Returns true if head is nil (implying that no meaningful nodes can be
+      # reached from this graph).
+      def empty?
+        head.nil?
+      end
+      
       # Same as node.
       def [](sha)
         nodes[sha]

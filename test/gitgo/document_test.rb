@@ -364,6 +364,90 @@ class DocumentTest < Test::Unit::TestCase
   end
   
   #
+  # idx test
+  #
+  
+  def test_idx_returns_nil_for_unsaved_document
+    assert_equal nil, doc.idx
+  end
+  
+  def test_idx_returns_idx_of_document_in_index_list
+    doc.save
+    assert_equal 0, doc.idx
+    assert_equal [doc.sha], index.list
+    
+    index.list.clear
+    index.list.concat ['notsha', doc.sha, 'notsha']
+    assert_equal 1, doc.idx
+  end
+  
+  #
+  # graph_head test
+  #
+  
+  def test_graph_head_returns_nil_for_unsaved_document
+    assert_equal nil, doc.graph_head
+  end
+  
+  def test_graph_head_returns_the_sha_for_the_graph_head_doc_belongs_to
+    a = Document.create('content' => 'a')
+    b = Document.create('content' => 'b')
+    c = Document.create('content' => 'c')
+    
+    assert_equal a.sha, a.graph_head
+    assert_equal b.sha, b.graph_head
+    assert_equal c.sha, c.graph_head
+    
+    a.link(b)
+    a.update(c)
+    
+    assert_equal a.sha, a.graph_head
+    assert_equal a.sha, b.graph_head
+    assert_equal a.sha, c.graph_head
+  end
+  
+  #
+  # graph_head? test
+  #
+  
+  def test_graph_head_check_returns_true_for_unsaved_document
+    assert_equal true, doc.graph_head?
+  end
+  
+  def test_graph_head_check_returns_true_for_graph_heads
+    a = Document.create('content' => 'a')
+    b = Document.create('content' => 'b')
+    c = Document.create('content' => 'c')
+    
+    assert_equal true, a.graph_head?
+    assert_equal true, b.graph_head?
+    assert_equal true, c.graph_head?
+    
+    a.link(b)
+    a.update(c)
+    
+    assert_equal true, a.graph_head?
+    assert_equal false, b.graph_head?
+    assert_equal false, c.graph_head?
+  end
+  
+  #
+  # graph test
+  #
+  
+  def test_graph_returns_empty_graph_for_unsaved_document
+    assert_equal true, doc.graph.empty?
+  end
+  
+  #
+  # node test
+  #
+  
+  def test_node_returns_node_for_unsaved_document
+    assert_equal nil, doc.node.sha
+  end
+  
+  #
   # author= test
   #
   
