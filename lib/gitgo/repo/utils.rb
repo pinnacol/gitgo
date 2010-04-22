@@ -7,17 +7,18 @@ module Gitgo
     # A set of utility functions split out for ease of testing.
     module Utils
       module_function
+
+      # Returns the sha for an empty string, and ensures the corresponding
+      # object is set in the repo.
+      def empty_sha # :nodoc:
+        @empty_sha ||= git.set(:blob, "")
+      end
       
       # Creates a nested sha path like: ab/xyz/paths
       def sha_path(sha, *paths)
         paths.unshift sha[2,38]
         paths.unshift sha[0,2]
         paths
-      end
-      
-      # Creates a date/sha path like: YYYY/MMDD/sha
-      def date_path(date, sha)
-        date.utc.strftime("%Y/%m%d/#{sha}")
       end
       
       def state_str(state)
@@ -28,22 +29,21 @@ module Gitgo
         end
       end
       
-      def doc_status(sha, attrs)
+      def create_status(sha, attrs)
         type = attrs['type']
-        origin = attrs['re']
-        
-        [type || 'doc', origin ? "#{yield(sha)} re  #{yield(origin)}" : yield(sha)]
+        [type || 'doc', yield(sha)]
       end
       
-      def link_status(parent, child, ref)
-        case
-        when parent == child
-          nil
-        when parent == ref
-          ['update', "#{yield(child)} was #{yield(parent)}"]
-        else
-          ['link', "#{yield(parent)} to  #{yield(child)}"]
-        end 
+      def link_status(parent, child)
+        ['link', "#{yield(parent)} to  #{yield(child)}"]
+      end
+      
+      def update_status(old_sha, new_sha)
+        ['update', "#{yield(new_sha)} was #{yield(old_sha)}"]
+      end
+      
+      def delete_status(sha)
+        ['delete', yield(sha)]
       end
       
       def format_status(lines)

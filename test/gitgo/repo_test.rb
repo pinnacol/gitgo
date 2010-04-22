@@ -3,8 +3,8 @@ require 'gitgo/repo'
 
 class RepoTest < Test::Unit::TestCase
   acts_as_file_test
-  
   Repo = Gitgo::Repo
+  include Repo::Utils
   
   attr_accessor :repo
   
@@ -25,11 +25,9 @@ class RepoTest < Test::Unit::TestCase
     JSON.generate(attrs)
   end
   
-  def create_nodes(*contents)
-    date = Time.now
+  def store_nodes(*contents)
     contents.collect do |content|
-      date += 1
-      repo.store("content" => content, "date" => date)
+      repo.store("content" => content)
     end
   end
   
@@ -155,17 +153,22 @@ class RepoTest < Test::Unit::TestCase
     assert_equal serialize('key' => 'value'), git.get(:blob, sha).data
   end
   
-  def test_store_stores_attributes_at_current_time_in_utc
-    sha = repo.store
-    date = Time.now.utc
-    assert_equal git.get(:blob, sha).data, git[date.strftime("%Y/%m%d/#{sha}")]
-  end
-  
   def test_store_caches_attrs
     attrs = {'content' => 'a'}
     a = repo.store(attrs)
     
     assert_equal({a => attrs}, repo.cache)
+  end
+  
+  #
+  # create test
+  #
+  
+  def test_create_stores_attrs_under_empty_sha_path
+    a = store_nodes('a').first
+    repo.create(a)
+    
+    assert_equal [Repo::DEFAULT_MODE, a], git[sha_path(a, empty_sha), true]
   end
   
   #
@@ -188,186 +191,147 @@ class RepoTest < Test::Unit::TestCase
   # link test
   #
 
-  def test_link_links_parent_to_child_using_an_empty_sha
-    a, b = create_nodes('a', 'b')
+  def test_link_links_parent_to_child_using_default_mode_and_child_sha
+    a, b = store_nodes('a', 'b')
     repo.link(a, b)
     
-    assert_equal '', git[Repo::Utils.sha_path(a, b)]
-  end
-  
-  def test_link_raises_an_error_when_linking_to_self
-    a = repo.store
-    err = assert_raises(RuntimeError) { repo.link(a, a) }
-    assert_equal "cannot link to self: #{a} -> #{a}", err.message
-  end
-  
-  def test_link_raises_an_error_when_linking_to_an_update
-    a, b = create_nodes('a', 'b')
-    repo.update(a, b)
-    
-    err = assert_raises(RuntimeError) { repo.link(a, b) }
-    assert_equal "cannot link to an update: #{a} -> #{b}", err.message
+    assert_equal [Repo::DEFAULT_MODE, b], git[sha_path(a, b), true]
   end
   
   #
   # update test
   #
   
-  def test_update_links_old_sha_to_new_sha_using_the_old_sha
-    a, b = create_nodes('a', 'b')
+  def test_update_links_old_sha_to_new_sha_update_mode_and_child_sha
+    a, b = store_nodes('a', 'b')
     repo.update(a, b)
     
-    assert_equal git.get(:blob, a).data, git[Repo::Utils.sha_path(a, b)]
-  end
-  
-  def test_update_raises_an_error_when_updating_to_self
-    a = repo.store
-    err = assert_raises(RuntimeError) { repo.update(a, a) }
-    assert_equal "cannot update with self: #{a} -> #{a}", err.message
-  end
-  
-  def test_update_raises_an_error_when_updating_with_a_link
-    a, b = create_nodes('a', 'b')
-    repo.link(a, b)
-    
-    err = assert_raises(RuntimeError) { repo.update(a, b) }
-    assert_equal "cannot update with a link: #{a} -> #{b}", err.message
+    assert_equal [Repo::UPDATE_MODE, b], git[sha_path(a, b), true]
   end
   
   #
   # delete test
   #
   
-  def test_delete_links_to_sha_with_sha
-    a = create_nodes('a').first
+  def test_delete_links_sha_to_sha_with_empty_sha
+    a = store_nodes('a').first
     repo.delete(a)
     
-    assert_equal git.get(:blob, a).data, git[Repo::Utils.sha_path(a, a)]
+    assert_equal [Repo::DEFAULT_MODE, empty_sha], git[sha_path(a, a), true]
   end
   
   #
-  # linkage test
+  # document_sha test
   #
   
-  def test_linkage_returns_the_sha_for_the_linkage
-    a, b, c = create_nodes('a', 'b', 'c')
-    repo.link(a, b)
-    repo.update(b, c)
-    
-    empty_sha = git.set(:blob, '')
-    assert_equal empty_sha, repo.linkage(a, b)
-    assert_equal b, repo.linkage(b, c)
-  end
-  
-  def test_linkage_returns_nil_if_no_such_link_exists
-    a, b = create_nodes('a', 'b')
-    
-    assert_equal nil, repo.linkage(a, a)
-    assert_equal nil, repo.linkage(a, b)
-  end
-  
-  #
-  # linkage_type test
-  #
-  
-  def test_linkage_type_returns_the_linkage_type_given_the_source_target_and_sha
-    a, b, c = create_nodes('a', 'b', 'c')
+  def test_document_sha_returns_the_sha_for_the_document
+    a, b, c = store_nodes('a', 'b', 'c')
+    repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
     repo.delete(c)
     
-    assert_equal :link, repo.linkage_type(a, b)
-    assert_equal :update, repo.linkage_type(b, c)
-    assert_equal :delete, repo.linkage_type(c, c)
-    assert_equal :invalid, repo.linkage_type(a, a)
+    assert_equal a, repo.document_sha(a, empty_sha)
+    assert_equal b, repo.document_sha(a, b)
+    assert_equal c, repo.document_sha(b, c)
+    assert_equal c, repo.document_sha(c, c)
   end
   
   #
-  # each_linkage test
+  # document_mode test
   #
   
-  def test_each_linkage_yields_the_target_of_each_linkage_with_linkage_type
-    a, b, c, d = create_nodes('a', 'b', 'c', 'd')
+  def test_document_mode_returns_the_mode_for_the_document
+    a, b, c = store_nodes('a', 'b', 'c')
+    repo.create(a)
+    repo.link(a, b)
+    repo.update(b, c)
+    repo.delete(c)
+    
+    assert_equal Repo::DEFAULT_MODE, repo.document_mode(a, empty_sha)
+    assert_equal Repo::DEFAULT_MODE, repo.document_mode(a, b)
+    assert_equal Repo::UPDATE_MODE, repo.document_mode(b, c)
+    assert_equal Repo::DEFAULT_MODE, repo.document_mode(c, c)
+  end
+  
+  #
+  # document_type test
+  #
+  
+  def test_document_type_returns_the_document_type_given_the_source_target_and_mode
+    a, b, c = store_nodes('a', 'b', 'c')
+    repo.create(a)
+    repo.link(a, b)
+    repo.update(b, c)
+    repo.delete(c)
+    
+    assert_equal :head, repo.document_type(a, empty_sha)
+    assert_equal :link, repo.document_type(a, b)
+    assert_equal :update, repo.document_type(b, c)
+    assert_equal :delete, repo.document_type(c, c)
+  end
+  
+  #
+  # each_document test
+  #
+  
+  def test_each_document_yields_the_sha_and_mode_of_each_document_to_the_block
+    a, b, c, d = store_nodes('a', 'b', 'c', 'd')
+    repo.create(a)
     repo.link(a, b)
     repo.link(a, c)
     repo.update(a, d)
     repo.delete(a)
     
+    heads = []
     links = []
     updates = []
     deletes = []
     
-    repo.each_linkage(a) do |linkage, type|
+    repo.each_document(a) do |sha, type|
       case type
+      when :head   then heads
       when :link   then links
       when :update then updates
       when :delete then deletes
-      end << linkage
+      end << sha
     end
     
+    assert_equal [a], heads
     assert_equal [b, c].sort, links.sort
-    assert_equal [d], updates.sort
-    assert_equal [a], deletes.sort
+    assert_equal [d], updates
+    assert_equal [a], deletes
   end
-
+  
   #
   # each test
   #
   
-  def test_each_yields_each_doc_to_the_block_reverse_ordered_by_date
-    a = repo.store({'content' => 'a'}, Time.utc(2009, 9, 11))
-    b = repo.store({'content' => 'b'}, Time.utc(2009, 9, 10))
-    c = repo.store({'content' => 'c'}, Time.utc(2009, 9, 9))
+  def test_each_yields_each_doc_to_the_block
+    a = repo.create repo.store('content' => 'a')
+    b = repo.create repo.store('content' => 'b')
+    c = repo.create repo.store('content' => 'c')
     
     results = []
     repo.each {|sha| results << sha }
-    assert_equal [a, b, c], results
+    assert_equal [a, b, c].sort, results.sort
   end
   
-  def test_each_does_not_yield_non_doc_entries_in_repo
-    a = repo.store({'content' => 'a'}, Time.utc(2009, 9, 11))
-    b = repo.store({'content' => 'b'}, Time.utc(2009, 9, 10))
-    c = repo.store({'content' => 'c'}, Time.utc(2009, 9, 9))
-    
-    git.add(
-      "year/mmdd" => "skipped",
-      "00/0000" => "skipped",
-      "0000/00" => "skipped"
-    )
-    
-    results = []
-    repo.each {|sha| results << sha }
-    assert_equal [a, b, c], results
-  end
-  
-  #
-  # timeline test
-  #
-  
-  def test_timeline_returns_the_most_recently_added_docs
-    a = repo.store({'content' => 'a'}, Time.utc(2009, 9, 11))
-    d = repo.store({'content' => 'd'}, Time.utc(2009, 9, 10))
-    c = repo.store({'content' => 'c'}, Time.utc(2009, 9, 9))
-    
-    b = repo.store({'content' => 'b'}, Time.utc(2008, 9, 10))
-    e = repo.store({'content' => 'e'}, Time.utc(2008, 9, 9))
-    
-    assert_equal [a, d, c, b, e], repo.timeline
-    assert_equal [ d, c, b], repo.timeline(:n => 3, :offset => 1)
-  end
-
   #
   # diff test
   #
   
   def test_diff_returns_shas_added_from_a_to_b
     one = repo.store('content' => 'one')
+    repo.create(one)
     a = git.commit!('added one')
     
     two = repo.store('content' => 'two')
+    repo.create(two)
     b = git.commit!('added two')
     
     three = repo.store('content' => 'three')
+    repo.create(three)
     c = git.commit!('added three')
     
     assert_equal [two, three].sort, repo.diff(a, c).sort
@@ -382,6 +346,7 @@ class RepoTest < Test::Unit::TestCase
   
   def test_diff_treats_nil_as_prior_to_initial_commit
     one = repo.store('content' => 'one')
+    repo.create(one)
     a = git.commit!('added one')
     
     assert_equal [one], repo.diff(nil, a)
@@ -395,29 +360,27 @@ class RepoTest < Test::Unit::TestCase
   def test_status_returns_formatted_lines_of_status
     assert_equal '', repo.status
     
-    a, b, c = create_nodes('a', 'b', 'c')
+    a, b, c = store_nodes('a', 'b', 'c')
+    repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
     
     assert_equal [
       "+ doc    #{a}",
-      "+ doc    #{b}",
-      "+ doc    #{c}",
       "+ link   #{a} to  #{b}",
       "+ update #{c} was #{b}"
     ].sort, repo.status.split("\n")
   end
   
   def test_status_converts_shas_as_determined_by_block
-    a, b, c = create_nodes('a', 'b', 'c')
+    a, b, c = store_nodes('a', 'b', 'c')
+    repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
     
     actual = repo.status {|sha| sha[0,8] }
     assert_equal [
       "+ doc    #{a[0,8]}",
-      "+ doc    #{b[0,8]}",
-      "+ doc    #{c[0,8]}",
       "+ link   #{a[0,8]} to  #{b[0,8]}",
       "+ update #{c[0,8]} was #{b[0,8]}"
     ].sort, actual.split("\n")
@@ -428,7 +391,10 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_commit_commits_with_status_by_default
-    a, b = create_nodes('a', 'b')
+    a, b = store_nodes('a', 'b')
+    repo.create(a)
+    repo.create(b)
+    
     status = repo.status
     sha = repo.commit
     

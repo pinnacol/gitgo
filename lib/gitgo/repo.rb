@@ -174,27 +174,17 @@ module Gitgo
     REPO         = 'gitgo.repo'
     CACHE        = 'gitgo.cache'
     
-    # Matches YYYY in a formatted date
-    YEAR = /\A\d{4,}\z/
-    
-    # Matches MMDD in a formatted date
-    MMDD = /\A\d{4}\z/
-    
-    # Matches a link path -- 'ab/xyz/sha'.  After the match:
+    # Matches a path -- 'ab/xyz/sha'.  After the match:
     #
     #  $1:: ab
     #  $2:: xyz
     #  $3:: sha
     #
-    LINK = /^(.{2})\/(.{38})\/(.{40})$/
+    DOCUMENT_PATH = /^(.{2})\/(.{38})\/(.{40})$/
     
-    # Matches a document path -- 'YYYY/MMDD/sha'.  After the match:
-    #
-    #  $1:: year
-    #  $2:: month-day
-    #  $3:: sha
-    #
-    DOCUMENT = /^(\d{4,})\/(\d{4})\/(.{40})$/
+    DEFAULT_MODE  = '444'.to_sym
+    
+    UPDATE_MODE   = '440'.to_sym
     
     # The repo env, typically the same as a request env.
     attr_reader :env
@@ -262,17 +252,17 @@ module Gitgo
       cache[sha] = attrs
     end
     
-    # Stores a hash of attrs into the repo under a directory as specified by
-    # date. The actual path will be 'YYYY/MMDD/sha' and the hash is serialized
-    # as JSON.  Returns the sha of the serialized data.
-    #
-    # Store will cache the attrs in cache, if specified.
-    def store(attrs={}, date=Time.now, store_in_cache=true)
+    def store(attrs)
       sha = git.set(:blob, JSON.generate(attrs))
-      
-      git[date_path(date, sha)] = sha.to_sym
-      cache[sha] = attrs if store_in_cache
-      
+      cache[sha] = attrs
+      sha
+    end
+    
+    #
+    #   sh/a/empty_sha (DEFAULT_MODE, sha)
+    #
+    def create(sha)
+      git[sha_path(sha, empty_sha)] = [DEFAULT_MODE, sha]
       sha
     end
     
@@ -288,132 +278,86 @@ module Gitgo
     
     # Creates a link file for parent and child:
     #
-    #   pa/rent/child (empty_sha)
+    #   pa/rent/child (DEFAULT_MODE, child)
     #
     def link(parent, child)
-      if parent == child
-        raise "cannot link to self: #{parent} -> #{child}"
-      end
-      
-      current = linkage(parent, child)
-      if current && current != empty_sha
-        raise "cannot link to an update: #{parent} -> #{child}"
-      end
-      
-      git[sha_path(parent, child)] = empty_sha.to_sym
+      git[sha_path(parent, child)] = [DEFAULT_MODE, child]
       self
     end
     
     # Creates an update file for old and new shas:
     #
-    #   ol/d_sha/new_sha (old_sha)
+    #   ol/d_sha/new_sha (UPDATE_MODE, new_sha)
     #
     def update(old_sha, new_sha)
-      if old_sha == new_sha
-        raise "cannot update with self: #{old_sha} -> #{new_sha}"
-      end
-      
-      current = linkage(old_sha, new_sha)
-      if current && current == empty_sha
-        raise "cannot update with a link: #{old_sha} -> #{new_sha}"
-      end
-      
-      git[sha_path(old_sha, new_sha)] = old_sha.to_sym
+      git[sha_path(old_sha, new_sha)] = [UPDATE_MODE, new_sha]
       self
     end
     
     # Creates a delete file for the sha:
     #
-    #   sh/a/sha (sha)
+    #   sh/a/sha (DEFAULT_MODE, empty_sha)
     #
     def delete(sha)
-      git[sha_path(sha, sha)] = sha.to_sym
+      git[sha_path(sha, sha)] = [DEFAULT_MODE, empty_sha]
       self
     end
     
-    # Returns the sha for the linkage file between the source and target.
-    def linkage(source, target)
-      links = git.tree.subtree(sha_path(source))
-      return nil unless links
-      
-      mode, sha = links[target]
-      sha
+    def document_sha(source, target)
+      case target
+      when source    then source
+      when empty_sha then source
+      else target
+      end
+    end
+    
+    def document_mode(source, target)
+      tree = git.tree.subtree(sha_path(source))
+      return nil unless tree
+
+      mode, sha = tree[target]
+      mode
     end
     
     # Returns the linkage type, given the source, target and sha.
-    def linkage_type(source, target, sha=linkage(source, target))
-      case sha
-      when empty_sha then :link
-      when target    then :delete
-      when source    then :update
-      else :invalid
+    def document_type(source, target, mode=document_mode(source, target))
+      case target
+      when empty_sha then :head
+      when source    then :delete
+      else 
+        case mode
+        when DEFAULT_MODE then :link
+        when UPDATE_MODE  then :update
+        else :invalid
+        end
       end
     end
     
     # Yield each linkage off of source to the block, with the linkage type.
-    def each_linkage(source) # :yields: target, type
+    def each_document(source) # :yields: sha, type
       return self if source.nil?
       
-      linkages = git.tree.subtree(sha_path(source))
-      linkages.each_pair do |target, (mode, sha)|
-        yield(target, linkage_type(source, target, sha))
-      end if linkages
+      target_tree = git.tree.subtree(sha_path(source))
+      target_tree.each_pair do |target, (mode, sha)|
+        yield document_sha(source, target), document_type(source, target, mode)
+      end if target_tree
       
       self
     end
 
-    # Yields the sha of each document in the repo, ordered by date (with day
-    # resolution).  Each does not distinguish between indexed and non-indexed
-    # documents.
+    # Yields the sha of each document in the repo, in no particular order and
+    # with duplicates for every link/update that has multiple parents.
     def each
-      years = git[[]] || []
-      years.sort!
-      years.reverse_each do |year|
-        next unless year =~ YEAR
-
-        mmdd = git[[year]] || []
-        mmdd.sort!
-        mmdd.reverse_each do |mmdd|
-          next unless mmdd =~ MMDD
-
-          # y,md need to be iterated in reverse to correctly sort by
-          # date; this is not the case with the unordered shas
-          git[[year, mmdd]].each do |sha|
-            yield(sha)
+      git.tree.each_pair(true) do |ab, xyz_tree|
+        xyz_tree.each_pair(true) do |xyz, target_tree|
+          source = "#{ab}#{xyz}"
+          
+          target_tree.keys.each do |target|
+            doc_sha = document_sha(source, target)
+            yield(doc_sha) if doc_sha
           end
         end
       end
-    end
-    
-    # Returns an array of shas representing recent documents added.  Paging
-    # options may be specified:
-    #
-    #   n:: number of shas to include (default 10)
-    #   offset:: offset to start timeline (default 0)
-    #
-    # A block may be given to filter shas.  Only shas for which the block
-    # returns true will make it into the timeline.
-    def timeline(options={})
-      options = {:n => 10, :offset => 0}.merge(options)
-      offset = options[:offset]
-      n = options[:n]
-
-      shas = []
-      return shas if n <= 0
-
-      each do |sha|
-        if block_given?
-          next unless yield(sha)
-        end
-        
-        if offset > 0
-          offset -= 1
-        else
-          shas << sha
-          break if n && shas.length == n
-        end
-      end
-      shas
     end
     
     # Initializes a Graph for the sha.
@@ -444,8 +388,8 @@ module Gitgo
       
       paths = a.nil? ? git.ls_tree(b) : git.diff_tree(a, b)[type]
       paths.collect! do |path|
-        path =~ DOCUMENT
-        $3
+        ab, xyz, target = path.split('/', 3)
+        document_sha("#{ab}#{xyz}", target)
       end
 
       paths.compact!
@@ -458,12 +402,21 @@ module Gitgo
       
       lines = []
       git.status.each_pair do |path, state|
-        status = case path
-        when DOCUMENT
-          doc_status($3, self[$3], &block)
-        when LINK
-          mode, ref = git.tree.subtree([$1, $2])[$3]
-          link_status("#{$1}#{$2}", $3, ref.to_s, &block)
+        ab, xyz, target = path.split('/', 3)
+        source = "#{ab}#{xyz}"
+        
+        sha  = document_sha(source, target)
+        type = document_type(source, target)
+        
+        status = case document_type(source, target)
+        when :head
+          create_status(sha, self[sha], &block)
+        when :link
+          link_status(source, target, &block)
+        when :update
+          update_status(source, target, &block)
+        when :delete
+          delete_status(sha, &block)
         else
           ['unknown', path]
         end
@@ -498,14 +451,6 @@ module Gitgo
     # Sets self as the current Repo for the duration of the block.
     def scope
       Repo.with_env(REPO => self) { yield }
-    end
-
-    protected
-    
-    # Returns the sha for an empty string, and ensures the corresponding
-    # object is set in the repo.
-    def empty_sha # :nodoc:
-      @empty_sha ||= git.set(:blob, "")
     end
   end
 end

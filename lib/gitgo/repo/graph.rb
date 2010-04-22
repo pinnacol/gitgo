@@ -221,10 +221,11 @@ module Gitgo
         node = Node.new(sha, nodes, links, updates)
         nodes[sha] = node
         
-        repo.each_linkage(sha) do |linkage, type|
-          target = collect_nodes(linkage)
+        repo.each_document(sha) do |doc_sha, doc_type|
+          target = collect_nodes(doc_sha)
           
-          case type
+          case doc_type
+          when :head
           when :link
             links   << target
           when :update
