@@ -150,6 +150,18 @@ class IndexTest < Test::Unit::TestCase
   end
   
   #
+  # join test
+  #
+  
+  def test_join_returns_idx_for_specifed_values
+    index['key']['one'] = [0, 1]
+    index['key']['two'] = [2]
+    
+    assert_equal [0, 1], index.join('key', 'one').sort
+    assert_equal [0, 1, 2], index.join('key', 'one', 'two').sort
+  end
+  
+  #
   # select test
   #
   

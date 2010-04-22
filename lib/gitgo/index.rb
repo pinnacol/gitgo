@@ -204,6 +204,10 @@ module Gitgo
       results
     end
     
+    def join(key, *values)
+      values.collect {|value| cache[key][value] }.flatten
+    end
+    
     def select(options={})
       basis = options[:basis] || (0..list.length).to_a
       
