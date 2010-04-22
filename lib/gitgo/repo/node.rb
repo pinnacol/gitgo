@@ -88,19 +88,6 @@ module Gitgo
       #
       # This method is public so that it may be used from a Graph, but should
       # not be called otherwise.
-      #--
-      # Deconvolution is necessary because, due to the arbitrary order in
-      # which nodes are initially collected into a graph, it is not feasible
-      # to immediately and unambiguously determine the relationships of
-      # previous and updated nodes.  For that, all of the nodes within a graph
-      # must be available.
-      #
-      # Internally Graph first collects all nodes, then deconvolutes all
-      # original nodes.  Updates do not have to be deconvoluted directly
-      # because they will be deconvoluted from their original (indeed it can
-      # cause duplicates in the graph tree if updates are deconvoluted
-      # separately).
-      #
       def deconvolute(original=sha, links=nil, versions=[])
         if original
           @original = original

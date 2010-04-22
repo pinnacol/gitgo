@@ -64,53 +64,42 @@ module Gitgo
   # is the 'deconvoluted graph'.  The logic performing the deconvolution is
   # encapsulated in Gitgo::Graph.
   #
-  # Parent-child relationships are referred to as links, while previous-update
-  # relationships are referred to as updates.  Links and updates are
-  # collectively referred to as linkages.  The first member in a linkage
-  # (parent/previous) is a source and the second (child/update) is a target.
+  # Parent-child associations are referred to as links, while previous-update
+  # associations are referred to as updates.  Links and updates are
+  # collectively referred to as associations.
   #
-  # Deletes are supported as a special type of update where the document is
-  # updated to itself; these act as a break in the DAG where all subsequent
-  # links and updates are omitted.
-  #             
-  # == Documents and Linkages
+  # There are two additional types of associations; head and delete.  Head
+  # associations consists of a sha associated with the empty sha (ie the sha
+  # for an empty document). These indicate which shas act as the head of a
+  # DAG.  Deletes associate a sha with itself; these act as a break in the DAG
+  # where all subsequent links and updates are omitted.
+  #     
+  # The first member in an association (parent/previous/sha) is a source and
+  # the second (child/update/sha) is a target.
   #
-  # Documents and linkages are stored on a dedicated git branch in a way that
-  # prevents merge conflicts, and allows merges to directly add nodes anywhere
-  # in a document graph.  The branch may be checked out and handled like any
-  # other git branch, although typically users manage the gitgo branch through
-  # Gitgo itself.
+  
+  # == Storage
   #
-  # Individual documents are stored by a date/sha path like this, where sha is
-  # the sha of the serialized document (ie it identifies the blob storing the
-  # document):
+  # Documents are stored on a dedicated git branch in a way that prevents
+  # merge conflicts, and allows merges to directly add nodes anywhere in a
+  # document graph.  The branch may be checked out and handled like any other
+  # git branch, although typically users manage the gitgo branch through Gitgo
+  # itself.
   #
-  #   path              mode    blob
-  #   YYYY/MMDD/sha     100644  sha
+  # Individual documents are stored with their associations along sha-based
+  # paths like 'so/urce/target' where the source is split into substrings of
+  # length 2 and 38.  The mode and the relationship of the source-target shas
+  # determine the type of association involved.  The logic breaks down like
+  # this ('-' refers to the empty sha, and a/b to different shas):
   #
-  # The path is meaningful to determine a timeline of activity without
-  # examining the contents of any individual document.
+  #   source   target   mode   type
+  #   a        -        644    head
+  #   a        b        644    link
+  #   a        b        640    update
+  #   a        a        644    delete
   #
-  # Linkages similarly incorporate document shas into their path, but split up
-  # the source sha into substrings of length 2 and 38 (note that empty sha
-  # refers to the sha of an empty file):
-  #
-  #   path              mode    blob
-  #   pa/rent/child     100644  empty_sha
-  #   pr/evious/update  100644  previous
-  #   de/lete/delete    100644  delete
-  #
-  # The relationship between the source, target, and blob shas is used to
-  # determine the type of linkage involved.  The logic breaks down like so:
-  #
-  #   source == target   blob         linkage type
-  #   no                 empty_sha    link
-  #   no                 source       update
-  #   yes                target       delete
-  #
-  # Using this logic, a traveral of the linkages is enough to determine how
-  # documents are related, again without loading individual documents into
-  # memory.
+  # Using this system, a traveral of the associations is enough to determine
+  # how documents are related in a DAG without loading documents into memory.
   #
   # == Implementation Note
   #
@@ -306,7 +295,9 @@ module Gitgo
       self
     end
     
-    def document_sha(source, target)
+    # Returns the operative sha in an association, ie the source in a
+    # head/delete association and the target in a link/update association.
+    def assoc_sha(source, target)
       case target
       when source    then source
       when empty_sha then source
@@ -314,7 +305,8 @@ module Gitgo
       end
     end
     
-    def document_mode(source, target)
+    # Returns the mode of the specified association.
+    def assoc_mode(source, target)
       tree = git.tree.subtree(sha_path(source))
       return nil unless tree
 
@@ -322,8 +314,8 @@ module Gitgo
       mode
     end
     
-    # Returns the linkage type, given the source, target and sha.
-    def document_type(source, target, mode=document_mode(source, target))
+    # Returns the association type given the source, target, and mode.
+    def assoc_type(source, target, mode=assoc_mode(source, target))
       case target
       when empty_sha then :head
       when source    then :delete
@@ -336,27 +328,29 @@ module Gitgo
       end
     end
     
-    # Yield each linkage off of source to the block, with the linkage type.
-    def each_document(source) # :yields: sha, type
+    # Yield each association for source to the block, with the association sha
+    # and type. Returns self.
+    def each_assoc(source) # :yields: sha, type
       return self if source.nil?
       
       target_tree = git.tree.subtree(sha_path(source))
       target_tree.each_pair do |target, (mode, sha)|
-        yield document_sha(source, target), document_type(source, target, mode)
+        yield assoc_sha(source, target), assoc_type(source, target, mode)
       end if target_tree
       
       self
     end
 
     # Yields the sha of each document in the repo, in no particular order and
-    # with duplicates for every link/update that has multiple parents.
+    # with duplicates for every link/update that has multiple association
+    # sources.
     def each
       git.tree.each_pair(true) do |ab, xyz_tree|
         xyz_tree.each_pair(true) do |xyz, target_tree|
           source = "#{ab}#{xyz}"
           
           target_tree.keys.each do |target|
-            doc_sha = document_sha(source, target)
+            doc_sha = assoc_sha(source, target)
             yield(doc_sha) if doc_sha
           end
         end
@@ -392,7 +386,7 @@ module Gitgo
       paths = a.nil? ? git.ls_tree(b) : git.diff_tree(a, b)[type]
       paths.collect! do |path|
         ab, xyz, target = path.split('/', 3)
-        document_sha("#{ab}#{xyz}", target)
+        assoc_sha("#{ab}#{xyz}", target)
       end
 
       paths.compact!
@@ -408,10 +402,10 @@ module Gitgo
         ab, xyz, target = path.split('/', 3)
         source = "#{ab}#{xyz}"
         
-        sha  = document_sha(source, target)
-        type = document_type(source, target)
+        sha  = assoc_sha(source, target)
+        type = assoc_type(source, target)
         
-        status = case document_type(source, target)
+        status = case assoc_type(source, target)
         when :head
           create_status(sha, self[sha], &block)
         when :link

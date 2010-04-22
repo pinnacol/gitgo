@@ -221,61 +221,61 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # document_sha test
+  # assoc_sha test
   #
   
-  def test_document_sha_returns_the_sha_for_the_document
+  def test_assoc_sha_returns_the_sha_for_the_document
     a, b, c = store_nodes('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
     repo.delete(c)
     
-    assert_equal a, repo.document_sha(a, empty_sha)
-    assert_equal b, repo.document_sha(a, b)
-    assert_equal c, repo.document_sha(b, c)
-    assert_equal c, repo.document_sha(c, c)
+    assert_equal a, repo.assoc_sha(a, empty_sha)
+    assert_equal b, repo.assoc_sha(a, b)
+    assert_equal c, repo.assoc_sha(b, c)
+    assert_equal c, repo.assoc_sha(c, c)
   end
   
   #
-  # document_mode test
+  # assoc_mode test
   #
   
-  def test_document_mode_returns_the_mode_for_the_document
+  def test_assoc_mode_returns_the_mode_for_the_document
     a, b, c = store_nodes('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
     repo.delete(c)
     
-    assert_equal Repo::DEFAULT_MODE, repo.document_mode(a, empty_sha)
-    assert_equal Repo::DEFAULT_MODE, repo.document_mode(a, b)
-    assert_equal Repo::UPDATE_MODE, repo.document_mode(b, c)
-    assert_equal Repo::DEFAULT_MODE, repo.document_mode(c, c)
+    assert_equal Repo::DEFAULT_MODE, repo.assoc_mode(a, empty_sha)
+    assert_equal Repo::DEFAULT_MODE, repo.assoc_mode(a, b)
+    assert_equal Repo::UPDATE_MODE, repo.assoc_mode(b, c)
+    assert_equal Repo::DEFAULT_MODE, repo.assoc_mode(c, c)
   end
   
   #
-  # document_type test
+  # assoc_type test
   #
   
-  def test_document_type_returns_the_document_type_given_the_source_target_and_mode
+  def test_assoc_type_returns_the_assoc_type_given_the_source_target_and_mode
     a, b, c = store_nodes('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)
     repo.update(b, c)
     repo.delete(c)
     
-    assert_equal :head, repo.document_type(a, empty_sha)
-    assert_equal :link, repo.document_type(a, b)
-    assert_equal :update, repo.document_type(b, c)
-    assert_equal :delete, repo.document_type(c, c)
+    assert_equal :head, repo.assoc_type(a, empty_sha)
+    assert_equal :link, repo.assoc_type(a, b)
+    assert_equal :update, repo.assoc_type(b, c)
+    assert_equal :delete, repo.assoc_type(c, c)
   end
   
   #
-  # each_document test
+  # each_assoc test
   #
   
-  def test_each_document_yields_the_sha_and_mode_of_each_document_to_the_block
+  def test_each_assoc_yields_the_sha_and_mode_of_each_assoc_to_the_block
     a, b, c, d = store_nodes('a', 'b', 'c', 'd')
     repo.create(a)
     repo.link(a, b)
@@ -288,7 +288,7 @@ class RepoTest < Test::Unit::TestCase
     updates = []
     deletes = []
     
-    repo.each_document(a) do |sha, type|
+    repo.each_assoc(a) do |sha, type|
       case type
       when :head   then heads
       when :link   then links

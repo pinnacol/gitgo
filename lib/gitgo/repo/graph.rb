@@ -5,7 +5,7 @@ module Gitgo
     # Graph performs the important and somewhat complicated task of
     # deconvoluting document graphs.  Graph and Node use signifant amounts of
     # caching to make sure traversal of the document graph is as quick as
-    # possible.  Graphs must be reset to detect any linkages added after
+    # possible.  Graphs must be reset to detect any associations added after
     # initialization.
     #
     # See Gitgo::Repo for terminology used in this documentation.
@@ -14,7 +14,7 @@ module Gitgo
     #
     # Deconvolution involves replacing each node in a DAG with the current
     # versions of that node, and specifically reassigning parent and children
-    # linkages from updated nodes to their current versions.
+    # links from updated nodes to their current versions.
     #
     #          a                              a
     #          |                              |
@@ -184,6 +184,17 @@ module Gitgo
       
       # Resets the graph, recollecting all nodes and links.  Reset is required
       # detect new nodes inserted after initialization.
+      #
+      #-- 
+      #
+      # Nodes are collected in an ambigous order by collect_nodes.  As a
+      # result is not feasible to determine the relationships of previous and
+      # updated nodes in one pass. First collects all nodes, then deconvolute
+      # original nodes.  Updates do not have to be deconvoluted directly
+      # because they will be deconvoluted from their original (indeed it will
+      # cause duplicates in the graph tree if updates are deconvoluted
+      # separately).
+      #
       def reset
         @nodes = {}
         collect_nodes(head)
@@ -221,7 +232,7 @@ module Gitgo
         node = Node.new(sha, nodes, links, updates)
         nodes[sha] = node
         
-        repo.each_document(sha) do |doc_sha, doc_type|
+        repo.each_assoc(sha) do |doc_sha, doc_type|
           target = collect_nodes(doc_sha)
           
           case doc_type
