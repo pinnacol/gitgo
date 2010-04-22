@@ -14,27 +14,27 @@ module Gitgo
   #   |
   #   |- head
   #   |- list
-  #   `- map
+  #   `- graph_map
   #
   # The files contain the following data (in conceptual order):
   #
   #   head      The user commit sha at which the last reindex occured.
   #   list      A list of H* packed shas representing all of the documents
-  #             accessible by the gitgo branch. The index of the sha in list
-  #             serves as an identifier for the sha in map and filters.
-  #   map       A list of L* packed identifier pairs mapping a document to
-  #             its graph head.
-  #   [value]   A list of L* packed identifiers that match the key-value
-  #             pair.  These lists act as filters in searches.
+  #             accessible by the gitgo branch. The index (idx) of the sha in
+  #             list serves as an identifier for the sha in map and filters.
+  #   map       A list of L* packed idx pairs mapping a document to its graph
+  #             head.
+  #   [value]   A list of L* packed idx that match the key-value pair. These
+  #             lists act as filters in searches.
   #
   # The packing format for each of the index files was chosen for performance;
   # both to minimize the footprint of the file and optimize the usage of the
   # file data.
-  #
+  #--
   # Index also maintains a cache of temporary files that auto-expire after a
   # certain period of time.  The temporary files contain H* packed shas and
   # represent the results of various queries, such as rev-lists.
-  #
+  #++
   # == Usage
   #
   # Index files are used primarily to select documents based on various
@@ -51,14 +51,20 @@ module Gitgo
   #   shas  = heads.collect {|id| idx.list[id] }.uniq
   #
   # The array operations are very quick because the filters are composed of
-  # integers, as is the map.  The final step looks up the shas, but this too
-  # is simply an array lookup.
+  # integers, as is the map.  The final step resolves the integers to shas,
+  # but this too is simply an array lookup.  The select method encapsulates
+  # this logic:
   #
-  # Importantly the index files can all contain duplication without affecting
-  # the results of the select procedure; this allows new documents to be
-  # quickly added into a filter, or appended to list/map. As needed or
-  # convenient, the index can take the time to compact itself and remove
-  # duplication.
+  #   shas = index.select(
+  #     :all => {'type' => 'comment', 'tag' => 'important'},
+  #     :map => true,
+  #     :shas => true
+  #   )
+  #
+  # Importantly, any of the index files can contain duplication without
+  # affecting the results of select; this allows new documents to be quickly
+  # added into a filter or appended to list/map. As needed or convenient, the
+  # index can compact itself and remove duplication.
   #
   class Index
     
@@ -148,19 +154,21 @@ module Gitgo
       end
     end
     
-    # Return the head idx for the specified idx (ie if idx represents the sha
-    # for a node in a graph then head_idx represents the graph head).
-    def head_idx(idx)
-      head_idx = deconvolute(idx, map)
-      head_idx.nil? ? idx : head_idx
+    # Return the graph head idx for the specified idx.
+    def graph_head_idx(idx)
+      graph_head_idx = deconvolute(idx, map)
+      graph_head_idx.nil? ? idx : graph_head_idx
     end
     
-    def associate(source, target)
-      source_idx = idx(source)
-      target_idx = idx(target)
-      
-      cache['filter']['tail'] << source_idx
-      map[target_idx] = head_idx(source_idx)
+    # Records an association between source and target.
+    def associate(source, target, type)
+      if type == :link || type == :update
+        source_idx = idx(source)
+        target_idx = idx(target)
+        
+        cache['filter']['tail'] << source_idx
+        map[target_idx] = graph_head_idx(source_idx)
+      end
       
       self
     end
@@ -226,7 +234,7 @@ module Gitgo
         basis = basis & matches
       end
       
-      if options[:heads]
+      if options[:map]
         basis.collect! {|idx| map[idx] }
       end
       
@@ -312,7 +320,7 @@ module Gitgo
       visited << idx
       
       if circular
-        raise "circular mapping found: #{visited.inspect}"
+        raise "cannot deconvolute cyclic graph: #{visited.inspect}"
       end
       
       head_idx.nil? ? idx : deconvolute(head_idx, map, visited)
