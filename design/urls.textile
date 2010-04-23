@@ -1,36 +1,93 @@
+treeish: ref, sha, tag -> rev_parse to get sha
 
-/
-/blob          # list of blobs, search by [id, blob] or [path, blob]
-/blob/id       # show blob
-/tree          # list of trees, search by [id, tree] or [path, tree]
-/tree/id       # show tree
-/commit        # list of commits, search by [id, commit]
-/commit/id     # show commit
-/tag           # list of tags, search by [id, tag]
-/tag/id        # show tag
-/issue         # show list of issues, search by [id, issue]
-               # (grep, filtered by type: issue|update)
-/issue/id      # show issue
-/issue/new     # new issue
-/issues        # main issues search page... params dictate criteria
-/issues/id     # issues, at commit
+== Documents
 
-/comment       # show list of comments, search by [id, comment]
-               # (grep, filtered by type: comment)
+  doc:
+    author:           # set by session
+    date:             # set automatically
+    at: []            # treeishs where the document is active
+    tags: []          # string identifiers
+    type:             # the document type
 
-/comment/id    # show comment
-               - put to update
-               - delete to destory
+== Code Controller
 
-/comments                # comments history listing commit
-/comments/parent         # comments for commit
-                         - post to create
-/comments/parent/child   # comments for commit, highlight child
+Objects link to document graph if any current node:
 
+  at: sha
 
-# GENERAL RULES
-/singular              # list of objects, search by [id, type]
-/singular/commit/id    # show at the commit
+Objects show document graph if any current node:
 
-/plural            # search on a type of object
-/plural/id         # search, filtered by id
+  re: sha
+
+To create a comment:
+
+  doc:
+    content: ''
+    re: []            # shas for objects the document is regarding
+
+Implement the default interface then make inline forms that simply post to the
+expected locations.  Default interface allows redirection to the re fields.
+
+/code                       # code index
+/obj/sha                    # show object as type
+/raw/sha                    # return raw data, download optional
+
+/blob                       # grep blobs, list refs
+/blob/treeish/path          # show blob path@treeish (redirect to tree if tree)
+
+/tree                       # grep trees, list refs
+/tree/treeish/path          # show tree path@treeish (redirect to blob if blob)
+
+/commit                     # grep commits, list refs
+/commit/treeish             # show commit (redirect to tag if tag)
+
+/commits                    # list commits (master)
+/commits/treeish            # list commits (history)
+
+/tag                        # list tags
+/tag/treeish                # show tag (redirect to commit if commit)
+
+/comments                   # comment timeline 
+/comments/new               # default new form (post)
+/comments/sha               # show comment (put,delete)
+/comments/sha/edit          # default edit form
+                            
+== Issue Controller
+
+To create an issue:
+
+  doc:
+    title: ''         # optional
+    content: ''       # optional
+    files: []         # store and replace with shas
+
+/issues                     # show issues, with search
+/issues/new                 # default new form (post)
+/issues/sha                 # show issue (put,delete)
+/issues/sha/edit            # default edit form
+
+== Pages Controller
+
+To create an issue:
+
+  doc:
+    content: ''       # optional
+
+/pages                      # show page, with search
+/pages/new                  # default new form (post)
+/pages/sha                  # show issue (put,delete)
+/pages/sha/edit             # default edit form
+
+== Repo Controller
+
+/repo                       # basic info, controls
+/repo/setup                 # any setup -- tracking, branch changes, etc (post)
+/repo/status                # status, controls (commit, reset)
+/repo/update                # sync/pull (post)
+/repo/fsck                  # fsck status, stats, controls (gc, prune)
+/repo/gc                    # gc (post)
+/repo/prune                 # prune (post)
+/repo/reset                 # clear cache, full also reindexes (post)
+/repo/reindex               # reindex (post)
+/repo/index                 # list index contents, controls (reindex)
+/repo/index/key/value       # list index values
