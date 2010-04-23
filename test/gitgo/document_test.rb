@@ -189,29 +189,14 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal({a.sha => a.attrs}, repo.cache)
   end
   
-  def test_save_does_not_index_document
+  def test_save_indexes_document
     a = Document.save('tags' => 'tag')
-    assert_equal [], index['tags']['tag']
+    assert_equal [a.idx], index['tags']['tag']
   end
   
   #
   # Document.create test
   #
-  
-  def test_create_documentation
-    a = Document.save('content' => 'a')
-    b = Document.save('content' => 'b')
-    a.create
-    a.link(b)
-  
-    c = Document.create('content' => 'c')
-    d = Document.create({'content' => 'd'}, c)
-  
-    e = Document.create('content' => 'e')
-    f = Document.create('content' => 'f')
-    err = assert_raises(RuntimeError) { e.link(f) }
-    assert_equal "link fail: #{e.sha} -> #{f.sha} (different graph heads #{e.sha}/#{f.sha})", err.message
-  end
   
   def test_create_saves_doc_and_stores_using_a_create_association
     a = Document.create('content' => 'a')
@@ -221,14 +206,6 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal 'a', attrs['content']
     
     assert_equal({:create => true}, repo.associations(a.sha))
-  end
-  
-  def test_create_links_doc_to_parents_if_specified_rather_than_using_a_create_association
-    a = Document.create('content' => 'a')
-    b = Document.create({'content' => 'b'}, a)
-    
-    assert_equal({:create => true, :links => [b.sha]}, repo.associations(a.sha))
-    assert_equal({}, repo.associations(b.sha))
   end
   
   def test_create_indexes_document

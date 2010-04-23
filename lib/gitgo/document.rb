@@ -75,60 +75,24 @@ module Gitgo
         types[self]
       end
       
-      # Creates a new document with the attributes and saves.  Note that a
-      # saved document is not automatically associated with a graph in a
-      # permanent way, nor will it be indexed.  Documents must be associated
-      # with a graph via create/update/link to actually be 'stored' in the
-      # repo, and reindexed manually using reindex.
+      # Creates a new document with the attributes and saves.  Saved documents
+      # are not automatically associated with a document graph and must be
+      # associated with one via create/update/link to be permanently stored in
+      # the repo.
       def save(attrs={})
-        new(attrs, repo).save
+        doc = new(attrs, repo)
+        doc.save
+        doc.reindex
+        doc
       end
       
-      # Creates a new document with the attrs.  The document is saved and
-      # indexed before being returned.  If no parents are specified the the
-      # document will be stored as a graph head, otherwise the document will
-      # be linked to the parents.
-      #
-      # === Usage Note
-      #
-      # Use create in preference of save when you don't intend to link the
-      # document to parents after creation, or when you know the parents and
-      # can provide them upfront.
-      #
-      # For example, one correct way:
-      #
-      #   a = Document.save(:content => 'a')
-      #   b = Document.save(:content => 'b')
-      #   a.create
-      #   a.link(b)
-      #
-      # Vs another correct way:
-      #
-      #   c = Document.create(:content => 'c')
-      #   d = Document.create({:content => 'd'}, c)
-      #
-      # Vs the wrong way:
-      #
-      #   e = Document.create(:content => 'e')
-      #   f = Document.create(:content => 'f')
-      #   e.link(f)                              # => RuntimeError
-      #
-      # In the last case both e and f are created as graph heads, and then f
-      # also gets used as a link (which causes the error).
-      def create(attrs={}, *parents)
+      # Creates a new document with the attrs.  The document is saved,
+      # created, and indexed before being returned.
+      def create(attrs={})
         update_index
+        
         doc = save(attrs)
-        
-        if parents.empty?
-          doc.create
-        else
-          parents.each do |parent|
-            parent = Document[parent] unless parent.kind_of?(Document)
-            parent.link(doc)
-          end
-        end
-        
-        doc.reindex
+        doc.create
         doc
       end
       
@@ -182,13 +146,16 @@ module Gitgo
       #
       def update(old_doc, attrs={})
         update_index
+        
         unless old_doc.kind_of?(Document)
           old_doc = Document[old_doc]
         end
         
-        new_doc = old_doc.merge(attrs).save
-        old_doc.update(new_doc)
+        new_doc = old_doc.merge(attrs)
+        new_doc.save
         new_doc.reindex
+        
+        old_doc.update(new_doc)
         new_doc
       end
       
@@ -513,11 +480,14 @@ module Gitgo
       self
     end
     
+    # Validates and saves attrs into the repo, then resets self with the
+    # resulting sha. Returns self.
     def save
       validate
       reset repo.save(attrs)
     end
     
+    # Returns true if sha is set.
     def saved?
       sha.nil? ? false : true
     end
