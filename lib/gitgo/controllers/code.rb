@@ -33,6 +33,14 @@ module Gitgo
       
       Comment = Documents::Comment
       
+      def git
+        @git ||= repo.git
+      end
+      
+      def grit
+        @grit ||= git.grit
+      end
+      
       #
       # actions
       #
@@ -179,7 +187,7 @@ module Gitgo
       end
       
       def create
-        comment = Comment.create(request['doc'])
+        comment = Comment.save(request['doc'], *request['parents'])
         repo.commit! if request['commit']
         redirect_to_origin(comment)
       end
@@ -207,7 +215,7 @@ module Gitgo
       end
       
       def redirect_to_origin(doc)
-        redirect "#{doc.origin}##{doc.sha}"
+        redirect "#{doc.graph_head}##{doc.sha}"
       end
     end
   end

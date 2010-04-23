@@ -5,10 +5,7 @@ require 'gitgo/document'
 
 module Gitgo
   class Controller < Sinatra::Base
-    # The expanded path to the Gitgo root directory, used for resolving paths to
-    # views, public files, etc.
     ROOT = File.expand_path(File.dirname(__FILE__) + "/../..")
-    
     HEAD  = 'gitgo.head'
     MOUNT = 'gitgo.mount'
     
@@ -47,44 +44,33 @@ module Gitgo
       @repo ||= Repo.current
     end
     
-    def git
-      @git ||= repo.git
-    end
-    
-    def idx
-      @index ||= repo.index
-    end
-    
-    def grit
-      @grit ||= git.grit
-    end
-    
     def call(env)
       env[Repo::REPO] ||= @repo
       Repo.with_env(env) { super(env) }
     end
     
-    def head
+    def session_head
       # grit.head will be nil if not on a local branch
-      @head ||= begin
+      @session_head ||= begin
         if session.has_key?(HEAD)
           session[HEAD]
         else
+          grit = repo.git.grit
           session[HEAD] = grit.head ? grit.head.name : nil
         end
       end
     end
     
-    def head=(input)
-      @head = session[HEAD] = input
+    def session_head=(input)
+      @session_head = session[HEAD] = input
     end
     
-    def mount
-      @mount ||= (env[MOUNT] || '/')
+    def mount_point
+      @mount_point ||= (env[MOUNT] || '/')
     end
     
     def url(paths)
-      File.join(mount, *paths)
+      File.join(mount_point, *paths)
     end
     
     def format

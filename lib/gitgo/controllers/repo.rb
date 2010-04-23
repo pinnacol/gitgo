@@ -6,9 +6,9 @@ module Gitgo
       set :views, File.expand_path('views/repo', ROOT)
       
       get('/repo')           { index }
-      get('/repo/idx')       { show_idx }
-      get('/repo/idx/:key')  {|key| show_idx(key) }
-      get('/repo/idx/:k/:v') {|key, value| show_idx(key, value) }
+      get('/repo/index')       { show_idx }
+      get('/repo/index/:key')  {|key| show_idx(key) }
+      get('/repo/index/:k/:v') {|key, value| show_idx(key, value) }
       get('/repo/status')    { repo_status }
       get('/repo/maintenance') { maintenance }
       get('/repo/*')         {|path| template(path) }
@@ -22,6 +22,14 @@ module Gitgo
       post('/repo/gc')       { gc }
       post('/repo/setup')    { setup }
       
+      def git
+        @git ||= repo.git
+      end
+      
+      def grit
+        @grit ||= git.grit
+      end
+      
       #
       # actions
       #
@@ -32,7 +40,8 @@ module Gitgo
           :branch => git.branch,
           :commit => git.head.nil? ? nil : grit.commit(git.head),
           :upstream_branch => git.upstream_branch,
-          :active_commit => head ? grit.commit(head) : nil
+          :active_commit => session_head ? grit.commit(session_head) : nil,
+          :head => session_head
         }
       end
       
@@ -45,12 +54,14 @@ module Gitgo
       end
       
       def show_idx(key=nil, value=nil)
+        index = repo.index
+        
         erb :idx, :locals => {
           :current_key => key,
-          :index_keys => idx.keys.sort,
+          :index_keys => index.keys.sort,
           :current_value => value,
-          :index_values => key ? idx.values(key).sort : [],
-          :shas => key && value ? idx.get(key, value).sort : []
+          :index_values => key ? index.values(key).sort : [],
+          :shas => key && value ? index[key][value].collect {|idx| index.list[idx] } : []
         }
       end
       
@@ -65,7 +76,7 @@ module Gitgo
       def maintenance
         erb :maintenance, :locals => {
           :branch => git.branch,
-          :head => head,
+          :head => session_head,
           :issues => git.fsck.split("\n"),
           :stats => git.stats
         }
@@ -89,7 +100,7 @@ module Gitgo
           # there is no good way to detect that failure, see issue 7f7e85, the
           # next best option is to ensure a pull if doing a push.
           git.pull(upstream_branch)
-          Document.update_idx
+          Document.update_index
           
           if request['sync'] == 'true'
             git.push(upstream_branch)
@@ -107,13 +118,13 @@ module Gitgo
       end
       
       def reset
-        idx.clear
+        repo.index.clear
         
         if full = request['full']
           git.reset(full == 'true')
         end
         
-        Document.update_idx
+        Document.update_index
         redirect env['HTTP_REFERER'] || url('/repo')
       end
       

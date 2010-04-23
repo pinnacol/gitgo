@@ -25,7 +25,7 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_index_shows_current_commit
-    sha = repo.store({})
+    sha = repo.save({})
     repo.commit!
     
     get("/repo")
@@ -108,7 +108,8 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_gc_packs_repo
-    repo.store('content' => 'new document')
+    sha = repo.save('content' => 'new document')
+    repo.create(sha)
     repo.commit!
     
     get("/repo/maintenance")
@@ -127,23 +128,17 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_update_pulls_changes_then_pushes_changes_if_specified
-    one = repo.scope do
-      Document.create("content" => "one").sha
-    end
+    one = repo.scope { Document.create("content" => "one").sha }
     repo.commit!
     
     clone = git.clone(method_root.path(:tmp, 'clone'))
     clone.track('origin/gitgo')
     clone = Gitgo::Repo.new(Gitgo::Repo::GIT => clone)
     
-    two = repo.scope do
-      Document.create("content" => "two").sha
-    end
+    two = repo.scope { Document.create("content" => "two").sha }
     repo.commit!
     
-    three = clone.scope do
-      Document.create("content" => "three").sha
-    end
+    three = clone.scope { Document.create("content" => "three").sha }
     clone.commit!
     
     @app = Gitgo::Controllers::Repo.new(nil, clone)
@@ -191,38 +186,38 @@ class RepoControllerTest < Test::Unit::TestCase
     sha = repo.scope { Document.create("content" => "document", "tags" => ["a", "b"]).sha }
     repo.commit!
     
-    idx = repo.idx
-    idx.reset
+    index = repo.index
+    index.reset
     
-    b_index = idx.path("tags", "b")
+    b_index = index.path(Gitgo::Index::FILTER, "tags", "b")
     FileUtils.rm(b_index)
     
-    fake_index = idx.path("tags", "c")
-    Gitgo::Index::IndexFile.write(fake_index, sha)
+    fake_index = index.path(Gitgo::Index::FILTER, "tags", "c")
+    Gitgo::Index::IdxFile.write(fake_index, index.idx(sha))
     
-    get("/repo/idx/tags/a")
+    get("/repo/index/tags/a")
     assert last_response.ok?
     assert last_response.body.include?(sha)
     
-    get("/repo/idx/tags/b")
+    get("/repo/index/tags/b")
     assert last_response.ok?
     assert !last_response.body.include?(sha)
     
-    get("/repo/idx/tags/c")
+    get("/repo/index/tags/c")
     assert last_response.ok?
     assert last_response.body.include?(sha)
     
     post("/repo/reset")
     
-    get("/repo/idx/tags/a")
+    get("/repo/index/tags/a")
     assert last_response.ok?
     assert last_response.body.include?(sha)
     
-    get("/repo/idx/tags/b")
+    get("/repo/index/tags/b")
     assert last_response.ok?
     assert last_response.body.include?(sha)
     
-    get("/repo/idx/tags/c")
+    get("/repo/index/tags/c")
     assert last_response.ok?
     assert !last_response.body.include?(sha)
   end

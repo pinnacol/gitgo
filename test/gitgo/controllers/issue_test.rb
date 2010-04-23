@@ -26,7 +26,7 @@ class IssueControllerTest < Test::Unit::TestCase
   def update_issue(sha, attrs={})
     issue = repo.scope { Gitgo::Documents::Issue.read(sha) }
     attrs['doc[tags]'] ||= issue.tags
-    attrs['doc[origin]'] ||= issue.origin
+    attrs['doc[origin]'] ||= issue.graph_head
     attrs['doc[parents]'] ||= [sha]
     attrs['doc[state]'] ||= 'closed'
     
@@ -242,7 +242,7 @@ class IssueControllerTest < Test::Unit::TestCase
     post("/issue", "doc[title]" => "b", "doc[state]" => "open", "doc[origin]" => parent, "doc[parents]" => [parent[0,8]])
     
     child = last_issue
-    assert_equal [child], repo.links(parent)
+    assert_equal [child], repo.graph(parent).children
   end
   
   def test_put_raises_error_for_invalid_parents

@@ -54,7 +54,7 @@ class AppTest < Test::Unit::TestCase
     assert last_response.redirect?
     assert_equal "/", last_response['Location']
     
-    get("/repo/idx/tags/tag", {}, {Gitgo::Repo::REPO => repo})
+    get("/repo/index/tags/tag", {}, {Gitgo::Repo::REPO => repo})
     assert last_response.ok?
     assert last_response.body.include?(sha), last_response.body
   end

@@ -1,5 +1,5 @@
-require 'gitgo/constants'
 require 'gitgo/app'
+require 'gitgo/version'
 require 'rack/server'
 
 module Gitgo
@@ -31,7 +31,7 @@ module Gitgo
       Controller.set(:environment, options[:environment].to_sym)
       
       repo = Repo.init(options[:repo], options)
-      Session.new(App, Gitgo::REPO_ENV_VAR => repo, Gitgo::MOUNT_ENV_VAR => options[:mount])
+      Session.new(App, Repo::REPO => repo, Controller::MOUNT => options[:mount])
     end
     
     def default_options

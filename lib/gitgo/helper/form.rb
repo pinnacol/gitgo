@@ -18,15 +18,15 @@ module Gitgo
       end
       
       def refs
-        @refs ||= controller.grit.refs.sort {|a, b| a.name <=> b.name }
+        @refs ||= controller.repo.git.grit.refs.sort {|a, b| a.name <=> b.name }
       end
       
       def states
-        @states ||= (DEFAULT_STATES + controller.idx.values("states")).uniq
+        @states ||= (DEFAULT_STATES + controller.repo.index.values("states")).uniq
       end
     
       def tags
-        @tags ||= controller.idx.values("tags")
+        @tags ||= controller.repo.index.values("tags")
       end
       
       #

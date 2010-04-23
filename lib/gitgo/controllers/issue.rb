@@ -58,7 +58,7 @@ module Gitgo
           :tags => tags,
           :sort => sort,
           :reverse => reverse, 
-          :active_sha => head
+          :active_sha => session_head
         }
       end
       
@@ -67,7 +67,7 @@ module Gitgo
       end
       
       def preview
-        erb :new, :locals => {:doc => doc_attrs}
+        erb :new, :locals => {:doc => doc_attrs, :head => session_head}
       end
     
       def create(sha=nil)
@@ -83,7 +83,7 @@ module Gitgo
         end
         
         issue.merge!(doc_attrs)
-        erb :edit, :locals => {:issue => issue}
+        erb :edit, :locals => {:issue => issue, :head => session_head}
       end
       
       def update(sha)
@@ -120,7 +120,8 @@ module Gitgo
           :update => update,
           :current_titles => current_titles,
           :current_tags => current_tags,
-          :current_states => current_states
+          :current_states => current_states,
+          :head => session_head
         }
       end
       

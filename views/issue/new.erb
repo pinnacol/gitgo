@@ -1,5 +1,5 @@
 <h1>New Issue</h1>
 
 <form class="issue" action="<%= form.url('issue') %>" method="post">
-<%= erb :_issue_form, :locals => {:doc => doc, :origin => true, :submit => 'Create'}, :layout => false %>
+<%= erb :_issue_form, :locals => {:doc => doc, :origin => true, :submit => 'Create', :head => head}, :layout => false %>
 </form>

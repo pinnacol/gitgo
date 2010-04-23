@@ -63,7 +63,7 @@ module Gitgo
         :author => author,
         :timeline => timeline,
         :authors => repo.index.all('author'),
-        :active_sha => head
+        :active_sha => session_head
       }
     end
   end

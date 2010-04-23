@@ -88,11 +88,18 @@ module Gitgo
       
       # Creates a new document with the attrs.  The document is saved,
       # created, and indexed before being returned.
-      def create(attrs={})
+      def create(attrs={}, *parents)
         update_index
-        
         doc = save(attrs)
-        doc.create
+        
+        if parents.empty?
+          doc.create
+        else
+          parents.each do |parent|
+            Document[parent].link(doc)
+          end
+        end
+        
         doc
       end
       
