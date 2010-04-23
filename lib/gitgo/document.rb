@@ -5,7 +5,8 @@ module Gitgo
   
   # Document represents the data model of Gitgo, and provides high(er)-level
   # access to documents stored in a Repo.  Content and data consistency
-  # constraints are enforced on Document.
+  # constraints are enforced on Document and not on Repo.  As such, Document
+  # should be the only way casual users enter data into a Repo.
   #
   # == Usage
   #
@@ -22,25 +23,24 @@ module Gitgo
   #
   # The save method sets the document data into the git repo as a blob and
   # records the blob sha as a unique identifier for the document.  The create
-  # method is what places the sha along a path, and thereby 'stores' the
-  # document so that it will exist on your gitgo branch.  Simply calling save
-  # is not enough; the result is a hanging blob that will be gc'ed by git.
+  # method is what indicates the document is the head of a new document graph.
+  # Simply calling save is not enough (indeed the result of save is a hanging
+  # blob that can be gc'd by git).
   #
-  # Create does not need to be called (and indeed should not be called) when
-  # the document is intended as a link or update to another document.  For
-  # example:
+  # The link and update methods are used instead of create to associate new
+  # documents into an existing graph.  For example:
   #
   #   b = Document.new(:content => 'b')
   #   b.save
   #   a.link(b)
   #
-  # In this case link is used to store document b into the branch.  If create
-  # is called as well, then extra git objects are added to accomodate the
-  # 'create' path as well as the 'link' path.  The extra objects won't break
-  # anything, but they do take up space and are unnecessary.
+  # Calling create prevents a document from being linked into another graph
+  # and vice-versa; the intent is that a given document only belongs to one
+  # document graph.  This constraint is only enforced at the Document level
+  # and represents the main reason why using repo directy is a no-no.
   #
-  # Additionally, as in the command-line git workflow, the newly added
-  # documents are not committed until commit is called.
+  # Additionally, as in the command-line git workflow, newly added documents
+  # are not actually committed to a repo until commit is called.
   class Document
     class << self
       
@@ -80,58 +80,43 @@ module Gitgo
       # permanent way, nor will it be indexed.  Documents must be associated
       # with a graph via create/update/link to actually be 'stored' in the
       # repo, and reindexed manually using reindex.
-      #
-      # From a technical perspective, unstored documents are hanging blobs and
-      # as such they will be gc'ed by git.
       def save(attrs={})
         new(attrs, repo).save
       end
       
-      # Creates a new document with the attrs.  The document is saved, stored,
-      # and indexed before being returned.  If parents are specified, the
-      # document is linked to each of them rather than being stored.
+      # Creates a new document with the attrs.  The document is saved and
+      # indexed before being returned.  If no parents are specified the the
+      # document will be stored as a graph head, otherwise the document will
+      # be linked to the parents.
       #
       # === Usage Note
       #
       # Use create in preference of save when you don't intend to link the
-      # document to parents after creation (or when you know the parents and
-      # can provide them to create).  Doing so results in fewer objects being
-      # written the repo.
+      # document to parents after creation, or when you know the parents and
+      # can provide them upfront.
       #
       # For example, one correct way:
-      #
-      #   git = repo.git
       #
       #   a = Document.save(:content => 'a')
       #   b = Document.save(:content => 'b')
       #   a.create
       #   a.link(b)
       #
-      #   git.status.length   # => 2
-      #   git.reset
-      #
       # Vs another correct way:
       #
-      #   a = Document.create(:content => 'a')
-      #   b = Document.create({:content => 'b'}, a)
-      #
-      #   git.status.length   # => 2
-      #   git.reset
+      #   c = Document.create(:content => 'c')
+      #   d = Document.create({:content => 'd'}, c)
       #
       # Vs the wrong way:
       #
-      #   a = Document.create(:content => 'a')
-      #   b = Document.create(:content => 'b')
-      #   a.link(b)
+      #   e = Document.create(:content => 'e')
+      #   f = Document.create(:content => 'f')
+      #   e.link(f)                              # => RuntimeError
       #
-      #   git.status.length   # => 3
-      #
-      # In the last case both a and b are stored as if they were graph heads,
-      # and then b also gets used as a link.  The unnecessary storage of b as
-      # a graph head results in an extra path in the repo (which actually
-      # corresponds to 3 extra git objects; 2 trees and a blob).
-      #
+      # In the last case both e and f are created as graph heads, and then f
+      # also gets used as a link (which causes the error).
       def create(attrs={}, *parents)
+        update_index
         doc = save(attrs)
         
         if parents.empty?
@@ -183,7 +168,7 @@ module Gitgo
       # new document.
       #
       # The new document can be used to update other documents, if necessary,
-      # to resolve forks in the update graph:
+      # as when resolving forks in an update graph:
       #
       #   a = Document.create(:content => 'a')
       #   b = Document.update(a, :content => 'b')
@@ -196,7 +181,10 @@ module Gitgo
       #   a.node.versions.uniq    # => [d.sha]
       #
       def update(old_doc, attrs={})
-        old_doc = Document[old_doc] unless old_doc.kind_of?(Document)
+        update_index
+        unless old_doc.kind_of?(Document)
+          old_doc = Document[old_doc]
+        end
         
         new_doc = old_doc.merge(attrs).save
         old_doc.update(new_doc)
@@ -213,13 +201,9 @@ module Gitgo
       #
       # See basis for more detail regarding the scope of 'all documents' that
       # can be found via find.
-      #
-      # If update_index is specified, then the document index will be updated
-      # before the find is performed.  Typically update_index should be
-      # specified to true to capture any new documents added, for instance by
-      # a merge; it adds little overhead when the index is already up-to-date.
-      def find(all={}, any=nil, update_index=true)
-        self.update_index if update_index
+      def find(all={}, any=nil)
+        update_index
+        
         index.select(
           :basis => basis, 
           :all => all, 
@@ -538,6 +522,7 @@ module Gitgo
       sha.nil? ? false : true
     end
     
+    # Stores self as a new graph head. Returns self.
     def create
       unless saved?
         raise "cannot create unless saved"
@@ -548,42 +533,51 @@ module Gitgo
       self
     end
     
-    def update(new_sha)
+    # Updates self with the new document. Returns self.
+    def update(new_doc)
       unless saved?
         raise "cannot update unless saved"
       end
       
-      if new_sha.kind_of?(Document)
-        unless new_sha.saved?
-          raise "cannot update with an unsaved document: #{new_sha.inspect}" 
-        end
-        new_sha.reset
-        new_sha = new_sha.sha
+      unless new_doc.saved?
+        raise "cannot update with an unsaved document: #{new_doc.inspect}" 
       end
       
-      index.associate(sha, new_sha)
+      new_sha = new_doc.sha
+      if repo.assoc_type(sha, new_sha) == :link
+        raise "cannot update with a child of self: #{sha} -> #{new_sha}"
+      end
+      
+      index.update(sha, new_sha)
       repo.update(sha, new_sha)
+      
+      new_doc.reset
       reset
     end
     
+    # Links the child document to self. Returns self.
     def link(child)
       unless saved?
         raise "cannot link unless saved"
       end
       
-      if child.kind_of?(Document)
-        unless child.saved?
-          raise "cannot link to an unsaved document: #{child.inspect}"
-        end
-        child.reset
-        child = child.sha
+      unless child.saved?
+        raise "cannot link to an unsaved document: #{child.inspect}" 
       end
       
-      index.associate(sha, child)
-      repo.link(sha, child)
+      child_sha = child.sha
+      if repo.assoc_type(sha, child_sha) == :update
+        raise "cannot link to an update of self: #{sha} -> #{child_sha}"
+      end
+      
+      index.link(sha, child_sha)
+      repo.link(sha, child_sha)
+      
+      child.reset
       reset
     end
     
+    # Deletes self.  Delete raises an error if unsaved. Returns self.
     def delete
       unless saved?
         raise "cannot delete unless saved"

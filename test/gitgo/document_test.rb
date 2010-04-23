@@ -199,27 +199,18 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_create_documentation
-    git = repo.git
-    
-    a = Document.save(:content => 'a')
-    b = Document.save(:content => 'b')
+    a = Document.save('content' => 'a')
+    b = Document.save('content' => 'b')
     a.create
     a.link(b)
   
-    assert_equal 2, git.status.length
-    git.reset
-    
-    a = Document.create(:content => 'a')
-    b = Document.create({:content => 'b'}, a)
+    c = Document.create('content' => 'c')
+    d = Document.create({'content' => 'd'}, c)
   
-    assert_equal 2, git.status.length
-    git.reset
-    
-    a = Document.create(:content => 'a')
-    b = Document.create(:content => 'b')
-    a.link(b)
-  
-    assert_equal 3, git.status.length
+    e = Document.create('content' => 'e')
+    f = Document.create('content' => 'f')
+    err = assert_raises(RuntimeError) { e.link(f) }
+    assert_equal "link fail: #{e.sha} -> #{f.sha} (different graph heads #{e.sha}/#{f.sha})", err.message
   end
   
   def test_create_saves_doc_and_stores_using_a_create_association
@@ -273,11 +264,11 @@ class DocumentTest < Test::Unit::TestCase
   #
   
   def test_update_documentation
-    a = Document.create(:content => 'a')
-    b = Document.update(a, :content => 'b')
-    c = Document.update(a, :content => 'c')
+    a = Document.create('content' => 'a')
+    b = Document.update(a, 'content' => 'b')
+    c = Document.update(a, 'content' => 'c')
   
-    d = Document.update(b, :content => 'd')
+    d = Document.update(b, 'content' => 'd')
     c.update(d)
   
     a.reset
@@ -925,6 +916,19 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal({:create => true}, repo.associations(doc.sha))
   end
   
+  def test_create_raises_error_if_unsaved
+    err = assert_raises(RuntimeError) { doc.create }
+    assert_equal "cannot create unless saved", err.message
+  end
+  
+  def test_create_raises_error_if_doc_already_belongs_to_a_graph
+    head = Document.create('content' => 'a')
+    head.link doc.save
+    
+    err = assert_raises(RuntimeError) { doc.create }
+    assert_equal "create graph fail: #{doc.sha} (already associated with graph #{head.sha})", err.message
+  end
+  
   #
   # update test
   #
@@ -949,6 +953,57 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal({:create => true, :updates => [b.sha]}, repo.associations(a.sha))
   end
   
+  def test_update_raises_error_if_unsaved
+    new_doc = Document.save('content' => 'new_doc')
+    err = assert_raises(RuntimeError) { doc.update(new_doc) }
+    assert_equal "cannot update unless saved", err.message
+  end
+  
+  def test_update_raises_error_if_new_doc_is_unsaved
+    new_doc = Document.new('content' => 'new_doc')
+    doc.save
+    
+    err = assert_raises(RuntimeError) { doc.update(new_doc) }
+    assert_equal "cannot update with an unsaved document: #{new_doc.inspect}", err.message
+  end
+  
+  def test_update_raises_error_if_document_does_not_belong_to_a_graph
+    a = Document.save('content' => 'a')
+    b = Document.save('content' => 'b')
+    
+    err = assert_raises(RuntimeError) { a.update(b) }
+    assert_equal "update fail: #{a.sha} -> #{b.sha} (source is not associated with a graph)", err.message
+  end
+  
+  def test_update_raises_error_if_new_doc_belongs_to_a_different_graph
+    a = Document.create('content' => 'a')
+    b = Document.save('content' => 'b')
+    a.update(b)
+    
+    c = Document.create('content' => 'c')
+    d = Document.save('content' => 'd')
+    c.update(d)
+    
+    err = assert_raises(RuntimeError) { b.update(d) }
+    assert_equal "update fail: #{b.sha} -> #{d.sha} (different graph heads #{a.sha}/#{c.sha})", err.message
+  end
+  
+  def test_update_raises_error_if_updating_with_self
+    a = Document.create('content' => 'a')
+    
+    err = assert_raises(RuntimeError) { a.update(a) }
+    assert_equal "update fail: #{a.sha} -> #{a.sha} (cannot update with self)", err.message
+  end
+  
+  def test_update_raises_error_if_new_doc_is_a_child_of_self
+    a = Document.create('content' => 'a')
+    b = Document.save('content' => 'b')
+    a.link(b)
+    
+    err = assert_raises(RuntimeError) { a.update(b) }
+    assert_equal "cannot update with a child of self: #{a.sha} -> #{b.sha}", err.message
+  end
+  
   #
   # link test
   #
@@ -967,6 +1022,66 @@ class DocumentTest < Test::Unit::TestCase
     
     a.link(b)
     assert_equal({:create => true, :links => [b.sha]}, repo.associations(a.sha))
+  end
+  
+  def test_link_raises_error_if_unsaved
+    child = Document.new
+    err = assert_raises(RuntimeError) { doc.link(child) }
+    assert_equal "cannot link unless saved", err.message
+  end
+  
+  def test_link_raises_error_if_child_is_unsaved
+    child = Document.new('content' => 'child')
+    doc.save
+    
+    err = assert_raises(RuntimeError) { doc.link(child) }
+    assert_equal "cannot link to an unsaved document: #{child.inspect}", err.message
+  end
+  
+  def test_link_raises_error_if_document_does_not_belong_to_a_graph
+    a = Document.save('content' => 'a')
+    b = Document.save('content' => 'b')
+    
+    err = assert_raises(RuntimeError) { a.link(b) }
+    assert_equal "link fail: #{a.sha} -> #{b.sha} (source is not associated with a graph)", err.message
+  end
+  
+  def test_link_raises_error_if_child_belongs_to_a_different_graph
+    a = Document.create('content' => 'a')
+    b = Document.save('content' => 'b')
+    a.link(b)
+    
+    c = Document.create('content' => 'c')
+    d = Document.save('content' => 'd')
+    c.link(d)
+    
+    err = assert_raises(RuntimeError) { b.link(d) }
+    assert_equal "link fail: #{b.sha} -> #{d.sha} (different graph heads #{a.sha}/#{c.sha})", err.message
+  end
+  
+  def test_link_raises_error_if_linking_to_self
+    a = Document.create('content' => 'a')
+    
+    err = assert_raises(RuntimeError) { a.link(a) }
+    assert_equal "link fail: #{a.sha} -> #{a.sha} (cannot link with self)", err.message
+  end
+  
+  def test_link_raises_error_if_child_is_an_update_to_self
+    a = Document.create('content' => 'a')
+    b = Document.save('content' => 'b')
+    a.update(b)
+    
+    err = assert_raises(RuntimeError) { a.link(b) }
+    assert_equal "cannot link to an update of self: #{a.sha} -> #{b.sha}", err.message
+  end
+  
+  #
+  # delete test
+  #
+  
+  def test_delete_raises_error_if_unsaved
+    err = assert_raises(RuntimeError) { doc.delete }
+    assert_equal "cannot delete unless saved", err.message
   end
   
   #

@@ -170,27 +170,15 @@ module Gitgo
       map[source_idx] = source_idx
       self
     end
-
-    def associate(source, target)
-      source_idx = idx(source)
-      target_idx = idx(target)
-
-      source_head_idx = graph_head_idx(source_idx)
-      if source_head_idx.nil?
-        raise "associate fail: #{source} -> #{target} (source is not associated with a graph)"
-      end
-
-      target_head_idx = graph_head_idx(target_idx)
-      unless target_head_idx.nil? || target_head_idx == source_head_idx
-        raise "associate fail: #{source} -> #{target} (different graph heads #{list[source_head_idx]}/#{list[target_head_idx]})"
-      end
-
-      map[target_idx] = source_head_idx
-      cache['filter']['tail'] << source_idx
-
-      self
+    
+    def link(source, target)
+      associate :link, source, target
     end
-
+    
+    def update(source, target)
+      associate :update, source, target
+    end
+    
     def delete(source)
       source_idx = idx(source)
       cache['filter']['tail'] << source_idx
@@ -355,6 +343,30 @@ module Gitgo
       end
       
       head_idx == idx ? idx : deconvolute(head_idx, map, visited)
+    end
+    
+    def associate(type, source, target) # :nodoc:
+      if source == target
+        raise "#{type} fail: #{source} -> #{target} (cannot #{type} with self)"
+      end
+      
+      source_idx = idx(source)
+      target_idx = idx(target)
+
+      source_head_idx = graph_head_idx(source_idx)
+      if source_head_idx.nil?
+        raise "#{type} fail: #{source} -> #{target} (source is not associated with a graph)"
+      end
+
+      target_head_idx = graph_head_idx(target_idx)
+      unless target_head_idx.nil? || target_head_idx == source_head_idx
+        raise "#{type} fail: #{source} -> #{target} (different graph heads #{list[source_head_idx]}/#{list[target_head_idx]})"
+      end
+      
+      map[target_idx] = source_head_idx
+      cache['filter']['tail'] << source_idx
+
+      self
     end
     
     def each_pair(pairs) # :nodoc:
