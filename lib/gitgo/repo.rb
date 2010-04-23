@@ -400,6 +400,32 @@ module Gitgo
       Graph.new(self, sha)
     end
     
+    # Returns an array of shas representing recent documents added.
+    def timeline(options={})
+      options = {:n => 10, :offset => 0}.merge(options)
+      offset = options[:offset]
+      n = options[:n]
+
+      shas = []
+      return shas if n <= 0
+      
+      dates = index.values('date').sort.reverse
+      index.each_sha('date', dates) do |sha|
+        if block_given?
+          next unless yield(sha)
+        end
+        
+        if offset > 0
+          offset -= 1
+        else
+          shas << sha
+          break if n && shas.length == n
+        end
+      end
+      
+      shas
+    end
+    
     # Returns an array of revisions (commits) reachable from the sha.  These
     # revisions are cached into the index for quick retreival.
     def rev_list(sha)

@@ -224,6 +224,24 @@ module Gitgo
       results
     end
     
+    def each_idx(key, values)
+      unless values.respond_to?(:each)
+        values = [values]
+      end
+      
+      values.each do |value|
+        cache[key][value].each do |idx|
+          yield idx
+        end
+      end
+    end
+    
+    def each_sha(key, values)
+      each_idx(key, values) do |idx|
+        yield list[idx]
+      end
+    end
+    
     def join(key, *values)
       values.collect {|value| cache[key][value] }.flatten
     end

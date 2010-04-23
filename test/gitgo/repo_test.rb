@@ -343,6 +343,27 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # timeline test
+  #
+  
+  def test_timeline_returns_the_most_recently_added_docs_by_date_index
+    a, d, c, b, e = [
+      {'content' => 'a', 'date' => '20090911'},
+      {'content' => 'd', 'date' => '20090910'},
+      {'content' => 'c', 'date' => '20090909'},
+      {'content' => 'b', 'date' => '20080910'},
+      {'content' => 'e', 'date' => '20080909'}
+    ].collect do |attrs|
+      sha = repo.save(attrs)
+      index['date'][attrs['date']] << index.idx(sha)
+      sha
+    end
+    
+    assert_equal [a, d, c, b, e], repo.timeline
+    assert_equal [d, c, b], repo.timeline(:n => 3, :offset => 1)
+  end
+  
+  #
   # diff test
   #
   
