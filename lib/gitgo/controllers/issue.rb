@@ -98,17 +98,29 @@ module Gitgo
           raise "unknown issue: #{sha.inspect}"
         end
         
+        current_tails = issue.graph_tails
+        current_tags = []
+        current_states = []
+        current_tails.each do |tail|
+          current_tags.concat tail.tags
+          current_states << tail.state
+        end
+        current_tags.uniq!
+        current_states.uniq!
+        
+        current_titles = issue.graph_heads.collect {|head| head.title }
+        
         update = request['doc'] ? doc_attrs : {
-          'tags' => issue.current_tags, 
-          'parents' => issue.graph.tails.dup
+          'tags' => current_tags, 
+          'parents' => current_tails
         }
         
         erb :show, :locals => {
           :issue => issue,
           :update => update,
-          :current_titles => issue.titles,
-          :current_tags => issue.current_tags,
-          :current_states => issue.current_states
+          :current_titles => current_titles,
+          :current_tags => current_tags,
+          :current_states => current_states
         }
       end
       
@@ -128,7 +140,7 @@ module Gitgo
       end
       
       def redirect_to_issue(doc)
-        sha = doc.origin? ? doc.origin : "#{doc.origin}##{doc.sha}"
+        sha = doc.graph_head? ? doc.graph.head : "#{doc.graph.head}##{doc.sha}"
         redirect "/issue/#{sha}"
       end
     end

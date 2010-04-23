@@ -159,6 +159,13 @@ module Gitgo
       deconvolute(idx, map)
     end
     
+    def assoc(source, target)
+      source_idx = idx(source)
+      target_idx = idx(target)
+      map[target_idx] = source_idx
+      self
+    end
+    
     def create(source)
       source_idx = idx(source)
 

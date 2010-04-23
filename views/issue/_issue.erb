@@ -1,6 +1,6 @@
 
   <dl class="issue" active="<%= issue.active?(head) %>">
-  <dt class="content"><%= issue.origin? ? 'Description' : 'Comment' %></dt>
+  <dt class="content"><%= issue.graph_head? ? 'Description' : 'Comment' %></dt>
   <dd class="content"><%= format.content issue.content %></dd>
   <dt class="tags">Tags</dt>
   <dd class="tags"><%= format.tags issue.tags %></dd>

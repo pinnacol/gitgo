@@ -73,15 +73,15 @@ module Gitgo
         title = "(nameless issue)" if title.to_s.empty?
         state = escape_html doc.state
         
-        "<a class=\"#{state}\" id=\"#{doc.sha}\" href=\"#{url('issue', doc.origin)}\">#{escape_html title}</a>"
+        "<a class=\"#{state}\" id=\"#{doc.sha}\" href=\"#{url('issue', doc.graph.head)}\">#{escape_html title}</a>"
       end
       
       def index_key_a(key)
-        "<a href=\"#{url('repo', 'idx', key)}\">#{escape_html key}</a>"
+        "<a href=\"#{url('repo', 'index', key)}\">#{escape_html key}</a>"
       end
       
       def index_value_a(key, value)
-        "<a href=\"#{url('repo', 'idx', key, value)}\">#{escape_html value}</a>"
+        "<a href=\"#{url('repo', 'index', key, value)}\">#{escape_html value}</a>"
       end
       
       def type_a(doc)
@@ -111,7 +111,7 @@ module Gitgo
       def each_activity(timeline)
         timeline.reverse_each do |doc|
           type = (doc.type || 'unknown').capitalize
-          type = "Edit to #{type}" unless doc.original?
+          type = "Edit to #{type}" unless doc.node.original?
           yield(doc, escape_html(type), type_a(doc))
         end
       end

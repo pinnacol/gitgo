@@ -52,7 +52,7 @@ module Gitgo
     end
     
     def idx
-      @idx ||= repo.idx
+      @index ||= repo.index
     end
     
     def grit

@@ -36,13 +36,15 @@ module Gitgo
       unless remote_branch.nil? || remote_branch.empty?
         git.track(remote_branch)
         git.pull(remote_branch)
-        Document.update_idx
+        Document.update_index
       end
       
       redirect url('')
     end
     
     def timeline
+      Document.update_index
+      
       page = (request[:page] || 0).to_i
       per_page = (request[:per_page] || 5).to_i
       
@@ -60,7 +62,7 @@ module Gitgo
         :per_page => per_page,
         :author => author,
         :timeline => timeline,
-        :authors => repo.idx.all('author'),
+        :authors => repo.index.all('author'),
         :active_sha => head
       }
     end
