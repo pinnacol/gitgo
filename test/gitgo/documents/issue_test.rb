@@ -26,17 +26,24 @@ class IssueTest < Test::Unit::TestCase
   
   def test_find_searches_issues_by_tails
     a = Issue.create('state' => 'open')
-    b = Issue.create({'state' => 'closed'}, a)
+    b = Issue.save('state' => 'closed')
+    a.link(b)
+    
     assert_equal [a], Issue.find('state' => 'closed')
     
-    c = Issue.create({'state' => 'open'}, b)
+    c = Issue.create('state' => 'open')
+    b.link(c)
+    
     assert_equal [], Issue.find('state' => 'closed')
   end
   
   def test_find_does_not_return_duplicate_issues_for_multiple_matching_tails
     a = Issue.create('state' => 'open')
-    b = Issue.create({'state' => 'closed'}, a)
-    c = Issue.create({'state' => 'closed'}, a)
+    b = Issue.save('state' => 'closed')
+    a.link(b)
+    
+    c = Issue.save('state' => 'closed')
+    a.link(c)
     
     assert_equal [a], Issue.find(nil, 'state' => 'closed')
   end
@@ -49,7 +56,8 @@ class IssueTest < Test::Unit::TestCase
     a = Issue.create('title' => 'a', 'state' => 'open')
     b = Issue.update(a, 'title' => 'b')
     c = Issue.update(a, 'title' => 'c')
-    d = Issue.create({'title' => 'd', 'state' => 'open'}, b)
+    d = Issue.save('title' => 'd', 'state' => 'open')
+    b.link(d)
     
     a.reset
     assert_equal ['b', 'c'], a.graph_heads.collect {|head| head.title }.sort
@@ -64,9 +72,12 @@ class IssueTest < Test::Unit::TestCase
   
   def test_graph_tails_returns_all_graph_tails
     a = Issue.create('title' => 'a', 'state' => 'open')
-    b = Issue.create({'title' => 'b', 'state' => 'open'}, a)
+    b = Issue.save('title' => 'b', 'state' => 'open')
+    a.link(b)
+    
     c = Issue.update(b, 'title' => 'c')
-    d = Issue.create({'title' => 'd', 'state' => 'open'}, a)
+    d = Issue.save('title' => 'd', 'state' => 'open')
+    a.link(d)
     
     a.reset
     assert_equal ['c', 'd'], a.graph_tails.collect {|tail| tail.title }.sort
@@ -74,5 +85,4 @@ class IssueTest < Test::Unit::TestCase
     d.reset
     assert_equal ['c', 'd'], d.graph_tails.collect {|tail| tail.title }.sort
   end
-  
 end

@@ -65,11 +65,6 @@ module Gitgo
         Repo.current
       end
       
-      # Returns the index on repo.
-      def index
-        repo.index
-      end
-      
       # Returns the type string for self.
       def type
         types[self]
@@ -88,18 +83,10 @@ module Gitgo
       
       # Creates a new document with the attrs.  The document is saved,
       # created, and indexed before being returned.
-      def create(attrs={}, *parents)
+      def create(attrs={})
         update_index
         doc = save(attrs)
-        
-        if parents.empty?
-          doc.create
-        else
-          parents.each do |parent|
-            Document[parent].link(doc)
-          end
-        end
-        
+        doc.create
         doc
       end
       
@@ -178,7 +165,7 @@ module Gitgo
       def find(all={}, any=nil)
         update_index
         
-        index.select(
+        repo.index.select(
           :basis => basis, 
           :all => all, 
           :any => any, 
@@ -192,15 +179,16 @@ module Gitgo
       #
       # Specify reindex to clobber and completely rebuild the index.
       def update_index(reindex=false)
+        index = repo.index
         index.clear if reindex
-        repo_head, index_head = repo.head, index.head
+        git_head, index_head = repo.git.head, index.head
         
         # if the index is up-to-date save the work of doing diff
-        if repo_head.nil? || repo_head == index_head
+        if git_head.nil? || git_head == index_head
           return []
         end
         
-        shas = repo.diff(index_head, repo_head)
+        shas = repo.diff(index_head, git_head)
         shas.each do |source|
           self[source].reindex
           repo.each_assoc(source) do |target, type|
@@ -208,7 +196,7 @@ module Gitgo
           end
         end
         
-        index.write(repo.head)
+        index.write(git_head)
         shas
       end
       
@@ -222,7 +210,7 @@ module Gitgo
       # Document itself will filter all documents with an email; which should
       # typically represent all possible documents.
       def basis
-        type ? index['type'][type] : index.all('email')
+        type ? repo.index['type'][type] : repo.index.all('email')
       end
       
       # Registers self as the specified type.  The previous registered type is
@@ -414,7 +402,7 @@ module Gitgo
     
     def normalize!
       attrs['author'] ||= begin
-        author = repo.author
+        author = repo.git.author
         "#{author.name} <#{author.email}>"
       end
       

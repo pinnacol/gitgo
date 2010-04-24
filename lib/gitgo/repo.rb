@@ -184,19 +184,6 @@ module Gitgo
       @env = env
     end
     
-    # The gitgo head, ie the head of the branch where gitgo documents are
-    # stored.
-    def head
-      git.head
-    end
-    
-    # The git author, used as the default author for documents with no author.
-    def author
-      git.author
-    end
-    
-    # Resolves sha (which could be a sha, a short-sha, or treeish) to a full
-    # sha.  Returns nil if the sha cannot be resolved.
     def resolve(sha)
       git.resolve(sha) rescue sha
     end

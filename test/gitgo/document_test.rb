@@ -347,13 +347,13 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [b].sort, index.select(:all => {'tags' => 'one'}, :shas => true).sort
   end
   
-  def test_update_index_updates_index_head_to_repo_head
+  def test_update_index_updates_index_head_to_git_head
     Document.create
     index.clear
     
     assert_equal nil, index.head
     Document.update_index
-    assert_equal repo.head, index.head
+    assert_equal repo.git.head, index.head
   end
   
   def test_update_index_does_not_update_index_head_if_repo_head_is_nil

@@ -6,7 +6,7 @@ module Gitgo
       class << self
         def find(all={}, any=nil, update_index=true)
           self.update_index if update_index
-          index.select(
+          repo.index.select(
             :basis => basis, 
             :all => all, 
             :any => any, 
@@ -18,7 +18,7 @@ module Gitgo
         protected
         
         def basis
-          index['type'][type] - index['filter']['tail']
+          repo.index['type'][type] - repo.index['filter']['tail']
         end
       end
       
