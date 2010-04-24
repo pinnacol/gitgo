@@ -32,6 +32,20 @@ a.scope do
   end
 end
 
+mapping = Hash.new do |hash, key|
+  raise "missing sha: #{key}"
+end
+
+a.each do |sha|
+  attrs = a.read(sha)
+  attrs['type'] = 'issue'
+  attrs.delete('origin')
+  if state = attrs['state']
+    (attrs['tags'] ||= []) << state
+  end
+  mapping[sha] = b.git.set(:blob, JSON.generate(attrs))
+end
+
 def sha_path(sha, *paths)
   paths.unshift sha[2,38]
   paths.unshift sha[0,2]
@@ -43,12 +57,12 @@ UPDATE_MODE   = '100640'.to_sym
 
 empty_sha = b.git.set(:blob, "")
 origins.each do |sha|
-  b.git[sha_path(sha, empty_sha)] = [DEFAULT_MODE, sha]
+  b.git[sha_path(mapping[sha], empty_sha)] = [DEFAULT_MODE, mapping[sha]]
 end
 
 (origins + others).each do |source|
   a.each_link(source) do |target, is_update|
-    b.git[sha_path(source, target)] = [is_update ? UPDATE_MODE : DEFAULT_MODE, target]
+    b.git[sha_path(mapping[source], mapping[target])] = [is_update ? UPDATE_MODE : DEFAULT_MODE, mapping[target]]
   end
 end
 
