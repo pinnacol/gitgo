@@ -16,7 +16,7 @@
   <dt class="type"><% if doc.graph_head? %>New <% end %><%= doc.type.capitalize %></dt><% if doc.type == 'issue' %>
   <dd class="type"><%= format.issue_a(doc) %></dd>
   <dt class="tags">Tags</dt>
-  <dd class="tags"><%= format.tags doc.tags %></dd><% else %>
+  <dd class="tags"><%= format.tags doc.graph_tags %></dd><% else %>
   <dd class="type"><%= format.sha_a doc.sha %></dd><% end %>
   <dt class="author">Author</dt>
   <dd class="author"><%= format.author doc.author %></dd>

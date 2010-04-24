@@ -78,5 +78,10 @@ module Gitgo
         :active_sha => session_head
       }
     end
+    
+    def build_query(params)
+      params.delete_if {|key, value| value.nil? }
+      super(params)
+    end
   end
 end
