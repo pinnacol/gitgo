@@ -9,7 +9,13 @@ module Gitgo
     set :views, File.expand_path("views/app", ROOT)
     set :static, true
     
-    get('/')         { repo.head.nil? ? welcome : timeline }
+    before do
+      if repo.git.head.nil? && request.get? && request.path_info != '/welcome'
+        redirect '/welcome'
+      end
+    end
+    
+    get('/')         { timeline }
     get('/timeline') { timeline }
     get('/welcome')  { welcome }
     post('/setup')   { setup }
@@ -20,22 +26,26 @@ module Gitgo
     use Controllers::Repo
     
     def welcome
+      git = repo.git
+      
       erb :welcome, :locals => {
         :path => git.path,
-        :branch => git.branch
+        :branch => git.branch,
+        :remotes => git.grit.remotes
       }
     end
     
     def setup
-      unless repo.head.nil?
+      git = repo.git
+       
+      unless git.head.nil?
         raise "#{git.branch} branch already exists"
       end
         
-      remote_branch = request['remote_branch']
-      
-      unless remote_branch.nil? || remote_branch.empty?
-        git.track(remote_branch)
-        git.pull(remote_branch)
+      upstream_branch = request[:upstream_branch]
+      unless upstream_branch.nil? || upstream_branch.empty?
+        git.track(upstream_branch)
+        git.pull(upstream_branch)
         Document.update_index
       end
       
@@ -49,7 +59,7 @@ module Gitgo
       per_page = (request[:per_page] || 5).to_i
       
       author = request[:author].to_s
-      timeline = repo.timeline(:n => per_page, :offset => page * per_page) do |sha|
+      docs = repo.timeline(:n => per_page, :offset => page * per_page) do |sha|
         author.empty? || repo[sha]['author'].include?("<#{author}>")
       end.collect do |sha|
         Document.cast(repo[sha], sha)
@@ -60,9 +70,9 @@ module Gitgo
       erb :timeline, :locals => {
         :page => page,
         :per_page => per_page,
+        :docs => docs,
         :author => author,
-        :timeline => timeline,
-        :authors => repo.index.all('author'),
+        :authors => repo.index.values('email'),
         :active_sha => session_head
       }
     end

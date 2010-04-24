@@ -89,7 +89,7 @@ module Gitgo
         when 'issue'
           issue_a(doc)
         else
-          sha_a(doc.origin)
+          sha_a(doc.graph_head)
         end
       end
       
@@ -108,8 +108,8 @@ module Gitgo
         paths
       end
       
-      def each_activity(timeline)
-        timeline.reverse_each do |doc|
+      def each_activity(docs)
+        docs.reverse_each do |doc|
           type = (doc.type || 'unknown').capitalize
           type = "Edit to #{type}" unless doc.node.original?
           yield(doc, escape_html(type), type_a(doc))

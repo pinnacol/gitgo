@@ -1,7 +1,7 @@
 <h1>Gitgo Activity<% unless author.empty? %> for <%= escape_html author %><% end %></h1>
 <ul>
-<li class="newer"><% if timeline && page >= 1 %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page - 1, :per_page => per_page) %>">newer</a><% else %>(newer)<% end %></li>
-<li class="older"><% if timeline && timeline.length == per_page %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page + 1, :per_page => per_page) %>">older</a><% else %>(older)<% end %></li>
+<li class="newer"><% if docs && page >= 1 %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page - 1, :per_page => per_page) %>">newer</a><% else %>(newer)<% end %></li>
+<li class="older"><% if docs && docs.length == per_page %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page + 1, :per_page => per_page) %>">older</a><% else %>(older)<% end %></li>
 </ul>
 
 <ul>
@@ -9,8 +9,8 @@
 <li><a href="<%= url('timeline') %>?<%= build_query(:author => author) %>"><%= escape_html(author) %></a></li><% end %>
 </ul>
 
-<ul class="timeline"><% if timeline.empty? %>
-<li>No activity yet...</li><% else %><% format.each_activity(timeline) do |doc, type, link| %>
+<ul class="timeline"><% if docs.empty? %>
+<li>No activity yet...</li><% else %><% format.each_activity(docs) do |doc, type, link| %>
 <li>
   <dl class="activity" active="<%= doc.active?(active_sha) %>">
   <dt class="type"><%= type %></dt>
