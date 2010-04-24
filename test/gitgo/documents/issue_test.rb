@@ -25,27 +25,27 @@ class IssueTest < Test::Unit::TestCase
   #
   
   def test_find_searches_issues_by_tails
-    a = Issue.create('state' => 'open')
-    b = Issue.save('state' => 'closed')
+    a = Issue.create('tags' => 'open')
+    b = Issue.save('tags' => 'closed')
     a.link(b)
     
-    assert_equal [a], Issue.find('state' => 'closed')
+    assert_equal [a], Issue.find('tags' => 'closed')
     
-    c = Issue.create('state' => 'open')
+    c = Issue.create('tags' => 'open')
     b.link(c)
     
-    assert_equal [], Issue.find('state' => 'closed')
+    assert_equal [], Issue.find('tags' => 'closed')
   end
   
   def test_find_does_not_return_duplicate_issues_for_multiple_matching_tails
-    a = Issue.create('state' => 'open')
-    b = Issue.save('state' => 'closed')
+    a = Issue.create('tags' => 'open')
+    b = Issue.save('tags' => 'closed')
     a.link(b)
     
-    c = Issue.save('state' => 'closed')
+    c = Issue.save('tags' => 'closed')
     a.link(c)
     
-    assert_equal [a], Issue.find(nil, 'state' => 'closed')
+    assert_equal [a], Issue.find(nil, 'tags' => 'closed')
   end
   
   #
@@ -53,10 +53,10 @@ class IssueTest < Test::Unit::TestCase
   #
   
   def test_graph_heads_returns_current_versions_of_graph_head
-    a = Issue.create('title' => 'a', 'state' => 'open')
+    a = Issue.create('title' => 'a', 'tags' => 'open')
     b = Issue.update(a, 'title' => 'b')
     c = Issue.update(a, 'title' => 'c')
-    d = Issue.save('title' => 'd', 'state' => 'open')
+    d = Issue.save('title' => 'd', 'tags' => 'open')
     b.link(d)
     
     a.reset
@@ -71,12 +71,12 @@ class IssueTest < Test::Unit::TestCase
   #
   
   def test_graph_tails_returns_all_graph_tails
-    a = Issue.create('title' => 'a', 'state' => 'open')
-    b = Issue.save('title' => 'b', 'state' => 'open')
+    a = Issue.create('title' => 'a', 'tags' => 'open')
+    b = Issue.save('title' => 'b', 'tags' => 'open')
     a.link(b)
     
     c = Issue.update(b, 'title' => 'c')
-    d = Issue.save('title' => 'd', 'state' => 'open')
+    d = Issue.save('title' => 'd', 'tags' => 'open')
     a.link(d)
     
     a.reset

@@ -2,5 +2,5 @@
 
 <form action="<%= form.url('issue', issue.sha) %>" method="post">
   <input type="hidden" name="_method" value="update"/>
-<%= erb :_issue_form, :locals => {:doc => issue.attrs, :origin => issue.graph_head?, :submit => 'Update', :head => head}, :layout => false %>
+<%= erb :_issue_form, :locals => {:doc => issue, :parents => issue.node.parents }, :layout => false %>
 </form>

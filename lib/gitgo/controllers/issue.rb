@@ -67,7 +67,7 @@ module Gitgo
       end
       
       def preview
-        erb :new, :locals => {:doc => doc_attrs, :head => session_head}
+        erb :new, :locals => {:doc => Issue.new(doc_attrs)}
       end
     
       def create(sha=nil)
@@ -83,7 +83,7 @@ module Gitgo
         end
         
         issue.merge!(doc_attrs)
-        erb :edit, :locals => {:issue => issue, :head => session_head}
+        erb :edit, :locals => {:issue => issue}
       end
       
       def update(sha)
@@ -98,30 +98,10 @@ module Gitgo
           raise "unknown issue: #{sha.inspect}"
         end
         
-        current_tails = issue.graph_tails
-        current_tags = []
-        current_states = []
-        current_tails.each do |tail|
-          current_tags.concat tail.tags
-          current_states << tail.state
-        end
-        current_tags.uniq!
-        current_states.uniq!
-        
-        current_titles = issue.graph_heads.collect {|head| head.title }
-        
-        update = request['doc'] ? doc_attrs : {
-          'tags' => current_tags, 
-          'parents' => current_tails
-        }
-        
         erb :show, :locals => {
           :issue => issue,
-          :update => update,
-          :current_titles => current_titles,
-          :current_tags => current_tags,
-          :current_states => current_states,
-          :head => session_head
+          :doc => issue.inherit(doc_attrs),
+          :active_sha => session_head
         }
       end
       
@@ -131,7 +111,7 @@ module Gitgo
       end
       
       def doc_attrs
-        attrs = request['doc'] || {}
+        attrs = request['doc'] || {'at' => session_head}
         if tags = attrs['tags']
           if tags.kind_of?(String)
             attrs['tags'] = tags.split(',').collect {|tag| tag.strip }

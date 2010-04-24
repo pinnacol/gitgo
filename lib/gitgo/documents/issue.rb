@@ -24,7 +24,6 @@ module Gitgo
       
       define_attributes do
         attr_accessor(:title)
-        attr_accessor(:state)   {|state| validate_not_blank(state) }
         attr_accessor(:content)
       end
       
@@ -32,24 +31,25 @@ module Gitgo
         graph[graph_head].versions.collect {|sha| Issue[sha] }
       end
       
-      def titles
+      def graph_titles
         graph_heads.collect {|head| head.title }
       end
       
-      def states
+      def graph_states
         graph_tails.collect {|tail| tail.state }
+      end
+      
+      def graph_tags
+        graph_tails.collect {|tail| tail.tags }.flatten.uniq
       end
       
       def graph_tails
         graph.tails.collect {|tail| Issue[tail] }
       end
       
-      def each_index
-        if state = attrs['state']
-          yield('state', state)
-        end
-        
-        super
+      def inherit(attrs={})
+        attrs['tags'] ||= graph_tags
+        self.class.new(attrs, repo)
       end
     end
   end

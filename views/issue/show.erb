@@ -2,16 +2,14 @@
 
 <dl class="issue">
 <dt class="title">Title</dt>
-<dd class="title"><%= format.titles current_titles %></dd>
+<dd class="title"><%= format.titles issue.graph_titles %></dd>
 <dt class="tags">Tags</dt>
-<dd class="tags"><%= format.tags current_tags %></dd>
-<dt class="state">State</dt>
-<dd class="state"><%= format.states current_states %></dd>
+<dd class="tags"><%= format.tags issue.graph_tags %></dd>
 </dl>
 
 <div class="doc" id="doc-<%= issue.sha %>">
   <ul><% format.graph(issue.graph) do |sha, attrs| %>
-  <li graph="<%= attrs %>"><%= erb :_issue, :locals => {:issue => Gitgo::Documents::Issue.read(sha), :head => head}, :layout => false %></li><% end %>
+  <li graph="<%= attrs %>"><%= erb :_issue, :locals => {:issue => Gitgo::Documents::Issue.read(sha), :active_sha => active_sha}, :layout => false %></li><% end %>
   </ul>
   <script>
   var doc = Gitgo.Graph.draw("#doc-<%= issue.sha %>");
@@ -20,7 +18,5 @@
 </div>
 
 <form action="<%= form.url('issue', issue.sha) %>" method="post" style="clear:both">
-  <input type="hidden" name="doc[origin]" value="<%= issue.sha %>" /><% (update['parents'] || []).each do |sha| %>
-  <input type="hidden" name="doc[parents][]" value="<%= form.value sha %>" /><% end %>
-<%= erb :_issue_form, :locals => {:doc => update, :origin => false, :submit => 'Submit', :head => head}, :layout => false %>
+<%= erb :_issue_form, :locals => {:doc => doc, :parents => issue.graph_tails}, :layout => false %>
 </form>

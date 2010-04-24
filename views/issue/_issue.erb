@@ -1,11 +1,9 @@
 
-  <dl class="issue" active="<%= issue.active?(head) %>">
+  <dl class="issue" active="<%= issue.active?(active_sha) %>">
   <dt class="content"><%= issue.graph_head? ? 'Description' : 'Comment' %></dt>
   <dd class="content"><%= format.content issue.content %></dd>
   <dt class="tags">Tags</dt>
   <dd class="tags"><%= format.tags issue.tags %></dd>
-  <dt class="state">State</dt>
-  <dd class="state"><%= format.state issue.state %></dd>
   <dt class="author">Author</dt>
   <dd class="author"><%= format.author issue.author %></dd>
   <dt class="date">Date</dt>

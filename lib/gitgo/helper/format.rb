@@ -69,7 +69,7 @@ module Gitgo
       end
       
       def issue_a(doc)
-        "<a class=\"#{state(doc.state)}\" id=\"#{doc.sha}\" href=\"#{url('issue', doc.graph_head)}\">#{titles(doc.titles)}</a>"
+        "<a id=\"#{doc.sha}\" href=\"#{url('issue', doc.graph_head)}\">#{titles(doc.graph_titles)}</a>"
       end
       
       def index_key_a(key)
@@ -148,16 +148,8 @@ module Gitgo
       end
 
       def tags(tags)
-        # add links/clouds
-        escape_html(tags.nil? ? '' : tags.join(', '))
-      end
-      
-      def state(state)
-        escape_html state
-      end
-      
-      def states(states)
-        escape_html(states.nil? ? '' : states.join(', '))
+        tags << '(unclassified)' if tags.empty?
+        escape_html tags.join(', ')
       end
       
       def graph(graph)

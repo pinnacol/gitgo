@@ -1,40 +1,34 @@
   
+
   <div class="preview"><% if preview? %>
-    <dl><% if origin %>
+    <dl><% if parents.empty? %>
     <dt class="title">Title</dt>
-    <dd class="title"><%= format.title doc['title'] %></dd><% end %>
+    <dd class="title"><%= format.title doc.title %></dd><% end %>
     <dt class="content">Description</dt>
-    <dd class="content"><%= format.content doc['content'] %></dd>
+    <dd class="content"><%= format.content doc.content %></dd>
     <dt class="tags">Tags</dt>
-    <dd class="tags"><%= format.tags doc['tags'] %></dd>
-    <dt class="state">State</dt>
-    <dd class="state"><%= format.state doc['state'] %></dd>
+    <dd class="tags"><%= format.tags doc.tags %></dd>
     <dt class="at">At</dt>
-    <dd class="at"><%= format.at doc['at'] %></dd>
-    </dl><% end %>
-  </div>
+    <dd class="at"><%= format.at doc.at %></dd>
+    </dl>
+  </div><% end %><% parents.each do |sha| %>
+  <input type="hidden" name="parents[]" value="<%= form.value sha %>" /><% end %>
   
-  <dl><% if origin %>
+  <dl><% if parents.empty? %>
   <dt><label for="title">Title</label></dt>
-  <dd><input id="title" type="text" name="doc[title]" value="<%= form.title_value doc['title'] %>" /></dd><% end %>
-  <dt><label for="content"><%= origin ? 'Description' : 'Comment' %></label></dt>
-  <dd><textarea id="content" name="doc[content]"><%= form.content_value doc['content'] %></textarea></dd>
+  <dd><input id="title" type="text" name="doc[title]" value="<%= form.title_value doc.title %>" /></dd><% end %>
+  <dt><label for="content"><%= parents.empty? ? 'Description' : 'Comment' %></label></dt>
+  <dd><textarea id="content" name="doc[content]"><%= form.content_value doc.content %></textarea></dd>
   <dt><label for="tags">Tags (comma-separated)</label></dt>
-  <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value doc['tags'] %>" /></dd>
-  <dt><label for="state">State</label></dt>
-  <dd>
-    <select id="state" name="doc[state]"><% form.each_state(doc['state']) do |value, selection, content| %>
-    <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
-    </select>
-  </dd>
+  <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value doc.tags %>" /></dd>
   <dt><label for="at">At</label></dt>
   <dd>
-    <select id="at" name="doc[at]"><% form.each_ref_name(doc['at'] || head) do |value, selection, content| %>
+    <select id="at" name="doc[at]"><% form.each_ref_name(repo.git.grit.refs, doc.at) do |value, selection, content| %>
     <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
     </select>
   </dd>
   <dt><label for="preview">Preview</label></dt>
   <dd><input id="preview" type="checkbox" name="preview" value="true"/></dd>
-  <dt><input type="submit" value="<%= submit %>" /></dt>
+  <dt><input type="submit" value="<%= parents.empty? && !doc.saved? ? 'Create' : 'Update' %>" /></dt>
   <dd></dd>
   </dl>
