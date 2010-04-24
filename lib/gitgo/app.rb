@@ -58,9 +58,11 @@ module Gitgo
       page = (request[:page] || 0).to_i
       per_page = (request[:per_page] || 5).to_i
       
-      author = request[:author].to_s
+      author = request[:author]
+      author = '' if author == 'unknown'
+      
       docs = repo.timeline(:n => per_page, :offset => page * per_page) do |sha|
-        author.empty? || repo[sha]['author'].include?("<#{author}>")
+        author.nil? || repo[sha]['author'].include?("<#{author}>")
       end.collect do |sha|
         Document.cast(repo[sha], sha)
       end.sort_by do |doc|

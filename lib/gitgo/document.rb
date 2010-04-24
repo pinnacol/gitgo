@@ -403,7 +403,7 @@ module Gitgo
     def normalize!
       attrs['author'] ||= begin
         author = repo.git.author
-        "#{author.name} <#{author.email}>"
+        "#{author.name} <#{author.email.strip}>"
       end
       
       attrs['date'] ||= Time.now.iso8601
@@ -454,8 +454,8 @@ module Gitgo
     
     def each_index
       if author = attrs['author']
-        actor = Grit::Actor.from_string(author)
-        yield('email', blank?(actor.email) ? 'unknown' : actor.email)
+        email = Grit::Actor.from_string(author).email
+        yield('email', blank?(email) ? 'unknown' : email)
       end
       
       if date = attrs['date']
