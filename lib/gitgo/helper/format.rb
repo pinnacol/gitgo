@@ -69,11 +69,7 @@ module Gitgo
       end
       
       def issue_a(doc)
-        title = doc.title
-        title = "(nameless issue)" if title.to_s.empty?
-        state = escape_html doc.state
-        
-        "<a class=\"#{state}\" id=\"#{doc.sha}\" href=\"#{url('issue', doc.graph.head)}\">#{escape_html title}</a>"
+        "<a class=\"#{state(doc.state)}\" id=\"#{doc.sha}\" href=\"#{url('issue', doc.graph_head)}\">#{titles(doc.titles)}</a>"
       end
       
       def index_key_a(key)
@@ -82,15 +78,6 @@ module Gitgo
       
       def index_value_a(key, value)
         "<a href=\"#{url('repo', 'index', key, value)}\">#{escape_html value}</a>"
-      end
-      
-      def type_a(doc)
-        case doc.type
-        when 'issue'
-          issue_a(doc)
-        else
-          sha_a(doc.graph_head)
-        end
       end
       
       def each_path(treeish, path)
@@ -106,14 +93,6 @@ module Gitgo
 
         yield(base) if base
         paths
-      end
-      
-      def each_activity(docs)
-        docs.reverse_each do |doc|
-          type = (doc.type || 'unknown').capitalize
-          type = "Edit to #{type}" unless doc.node.original?
-          yield(doc, escape_html(type), type_a(doc))
-        end
       end
       
       #
@@ -137,9 +116,13 @@ module Gitgo
         render(nodes, io, &block)
       end
       
-      # a document title
       def title(title)
         escape_html(title)
+      end
+      
+      def titles(titles)
+        titles << "(nameless)" if titles.empty?
+        escape_html titles.join(', ')
       end
       
       def content(str)
@@ -163,11 +146,7 @@ module Gitgo
       def origin(origin)
         sha(origin)
       end
-      
-      def titles(titles)
-        escape_html(titles.nil? ? '' : titles.join(', '))
-      end
-      
+
       def tags(tags)
         # add links/clouds
         escape_html(tags.nil? ? '' : tags.join(', '))

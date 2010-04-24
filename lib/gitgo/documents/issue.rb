@@ -32,6 +32,14 @@ module Gitgo
         graph[graph_head].versions.collect {|sha| Issue[sha] }
       end
       
+      def titles
+        graph_heads.collect {|head| head.title }
+      end
+      
+      def states
+        graph_tails.collect {|tail| tail.state }
+      end
+      
       def graph_tails
         graph.tails.collect {|tail| Issue[tail] }
       end

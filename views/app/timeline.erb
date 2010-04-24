@@ -10,11 +10,14 @@
 </ul>
 
 <ul class="timeline"><% if docs.empty? %>
-<li>No activity yet...</li><% else %><% format.each_activity(docs) do |doc, type, link| %>
+<li>No activity yet...</li><% else %><% docs.reverse_each do |doc| %>
 <li>
-  <dl class="activity" active="<%= doc.active?(active_sha) %>">
-  <dt class="type"><%= type %></dt>
-  <dd class="type"><%= link %></dd>
+  <dl active="<%= doc.active?(active_sha) %>">
+  <dt class="type"><% if doc.graph_head? %>New <% end %><%= doc.type.capitalize %></dt><% if doc.type == 'issue' %>
+  <dd class="type"><%= format.issue_a(doc) %></dd>
+  <dt class="state">State</dt>
+  <dd class="state"><%= format.state doc.state %></dd><% else %>
+  <dd class="type"><%= format.sha_a doc.sha %></dd><% end %>
   <dt class="author">Author</dt>
   <dd class="author"><%= format.author doc.author %></dd>
   <dt class="date">Date</dt>
