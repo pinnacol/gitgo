@@ -414,16 +414,14 @@ module Gitgo
     end
     
     # Returns an array of revisions (commits) reachable from the sha.  These
-    # revisions are cached into the index for quick retreival.
+    # revisions are cached for quick retreival.
     def rev_list(sha)
-      sha = resolve(sha)
-      rev_lists = index['cache']
-      
-      unless rev_lists.has_key?(sha)
-        rev_lists[sha] = git.rev_list(sha)
+      sha = sha.to_sym
+      unless cache.has_key?(sha)
+        cache[sha] = git.rev_list(sha.to_s)
       end
       
-      rev_lists[sha]
+      cache[sha]
     end
     
     # Returns a list of document shas that have been added ('A') between a and
