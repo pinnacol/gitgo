@@ -31,8 +31,14 @@ module Gitgo
       Issue = Documents::Issue
       
       def index
-        any = request['any']
         all = request['all']
+        any = request['any']
+        
+        if tags = request['tags']
+          tags = [tags] unless tags.kind_of?(Array)
+          ((all ||= {})['tags'] ||= []).concat(tags)
+        end
+        
         issues = Issue.find(all, any)
         
         # sort results

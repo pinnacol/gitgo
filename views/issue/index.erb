@@ -5,14 +5,9 @@
 </form>
 
 <form class="issue" action="<%= form.url('issue') %>" method="get">
-  <h3>Tags (all)</h3>
+  <h3>Tags</h3>
   <ul><% form.each_tag(tags, *all['tags']) do |value, selection, content| %>
-  <li><input type="checkbox" name="all[tags][]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
-  </ul>
-  
-  <h3>Tags (any)</h3>
-  <ul><% form.each_tag(tags, *any['tags']) do |value, selection, content| %>
-  <li><input type="checkbox" name="any[tags][]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
+  <li><input type="checkbox" name="tags[]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
   </ul>
   
   <h3>Sort</h3>
@@ -22,7 +17,7 @@
   <li><input type="checkbox" name="reverse" value="true" <%= html.check(reverse) %>>Reverse</input>
   </ul>
   
-  <input type="submit" value="Filter" >
+  <input type="submit" value="Find" >
 </form>
 
 <div class="issues">
