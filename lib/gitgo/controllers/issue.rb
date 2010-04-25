@@ -30,20 +30,10 @@ module Gitgo
       
       Issue = Documents::Issue
       
-      # Processes requests like: /index?key=value
-      #
-      # Where the key-value pairs are filter criteria.  Multiple criteria can
-      # be specified per-request (ex a[]=one&a[]=two&b=three).  Any of the
-      # Issue::ATTRIBUTES can be used to filter.
-      #
-      # Sort on a specific key using sort=key (date is the default).  Reverse
-      # the sort with reverse=true. Multiple sort criteria are currently not
-      # supported.
       def index
-        states = request['state'] || []
-        tags = request['tags'] || []
-        
-        issues = Issue.find('state' => states, 'tags' => tags)
+        any = request['any']
+        all = request['all']
+        issues = Issue.find(all, any)
         
         # sort results
         sort = request['sort'] || 'date'
@@ -54,8 +44,9 @@ module Gitgo
         
         erb :index, :locals => {
           :issues => issues,
-          :states => states,
-          :tags => tags,
+          :any => any || {},
+          :all => all || {},
+          :tags => repo.index.values('tags'),
           :sort => sort,
           :reverse => reverse, 
           :active_sha => session_head

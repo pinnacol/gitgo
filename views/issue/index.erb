@@ -5,9 +5,14 @@
 </form>
 
 <form class="issue" action="<%= form.url('issue') %>" method="get">
-  <h3>Tags</h3>
-  <ul><% form.each_tag(*tags) do |value, selection, content| %>
-  <li><input type="checkbox" name="tags[]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
+  <h3>Tags (all)</h3>
+  <ul><% form.each_tag(tags, *all['tags']) do |value, selection, content| %>
+  <li><input type="checkbox" name="all[tags][]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
+  </ul>
+  
+  <h3>Tags (any)</h3>
+  <ul><% form.each_tag(tags, *any['tags']) do |value, selection, content| %>
+  <li><input type="checkbox" name="any[tags][]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
   </ul>
   
   <h3>Sort</h3>
@@ -22,7 +27,7 @@
 
 <div class="issues">
   <ul class="issues"><% issues.each do |issue| %>
-  <li id="<%= issue.sha %>" active="issue.graph_tails.any? {|tail| tail.active?(active_sha) }"><%= format.issue_a issue %></li><% end %>
+  <li id="<%= issue.sha %>" active="<%= issue.graph_active?(active_sha) %>"><%= format.issue_a issue %></li><% end %>
   </ul>
 </div>
 

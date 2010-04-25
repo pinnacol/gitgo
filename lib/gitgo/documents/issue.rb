@@ -43,6 +43,10 @@ module Gitgo
         graph_tails.collect {|tail| tail.tags }.flatten.uniq
       end
       
+      def graph_active?(commit=nil)
+        graph_tails.any? {|tail| tail.active?(commit) }
+      end
+      
       def graph_tails
         graph.tails.collect {|tail| Issue[tail] }
       end
