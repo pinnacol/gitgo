@@ -38,14 +38,21 @@
   </form>
   <p><em>Updates can fail silently, for example when the remote cannot be reached, but such failures cause no damage.</em></p>
 </dd>
-<dt>Links</dt>
+<dt>Maintenance</dt>
 <dd>
   <ul>
   <li><a href="<%= format.url('/repo/status') %>">Status</a></li>
   <li><a href="<%= format.url('/repo/index') %>">Index</a></li>
-  <li><a href="<%= format.url('/repo/maintenance') %>">Maintenance</a></li>
-  <li><a href="<%= format.url('/repo/reference') %>">Reference</a></li>
+  <li><a href="<%= format.url('/repo/fsck') %>">Fsck</a></li>
   </ul>
+</dd>
+<dt>Troubleshoot</dt>
+<dd>
+  <p>Clear all caches and reindex.<p>
+  <form action="<%= form.url('repo', 'reset') %>" method="post">
+    <input type="hidden" name="full" value="true">
+    <input type="submit" value="Reset" />
+  </form>
 </dd>
 </dl>
 

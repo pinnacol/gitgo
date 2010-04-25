@@ -10,7 +10,7 @@ module Gitgo
       get('/repo/index/:key')  {|key| show_idx(key) }
       get('/repo/index/:k/:v') {|key, value| show_idx(key, value) }
       get('/repo/status')    { repo_status }
-      get('/repo/maintenance') { maintenance }
+      get('/repo/fsck') { fsck }
       get('/repo/*')         {|path| template(path) }
       
       post('/repo/track')    { track }
@@ -74,8 +74,8 @@ module Gitgo
         }
       end
       
-      def maintenance
-        erb :maintenance, :locals => {
+      def fsck
+        erb :fsck, :locals => {
           :branch => git.branch,
           :head => session_head,
           :issues => git.fsck.split("\n"),
@@ -131,12 +131,12 @@ module Gitgo
       
       def prune
         git.prune
-        redirect url('/repo/maintenance')
+        redirect url('/repo/fsck')
       end
       
       def gc
         git.gc
-        redirect url('/repo/maintenance')
+        redirect url('/repo/fsck')
       end
       
       def setup

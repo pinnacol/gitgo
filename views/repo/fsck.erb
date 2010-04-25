@@ -1,8 +1,5 @@
-<h1>Maintenance</h1>
-
 <div>
-  <h2>Fsck</h2>
-
+  <h1>Fsck</h1>
   <p>
     This is a listing of any invalid or disconnected objects in the git repo
     (not just the branch used by gitgo). Normally prune will remove some of
@@ -20,7 +17,7 @@
 </div>
 
 <div>
-  <h2>Stats</h2>
+  <h1>Stats</h1>
   <dl><% stats.keys.sort.each do |key| %>
   <dt class="stat"><%= escape_html key %></dt>
   <dd class="stat"><%= escape_html stats[key] %></dd><% end %>
