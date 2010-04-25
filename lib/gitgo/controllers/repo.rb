@@ -40,8 +40,9 @@ module Gitgo
           :branch => git.branch,
           :commit => git.head.nil? ? nil : grit.commit(git.head),
           :upstream_branch => git.upstream_branch,
+          :refs => grit.refs,
+          :active_sha => session_head,
           :active_commit => session_head ? grit.commit(session_head) : nil,
-          :head => session_head
         }
       end
       
@@ -139,12 +140,14 @@ module Gitgo
       end
       
       def setup
-        if branch = request['branch']
+        gitgo = request['gitgo'] || {}
+        if branch = gitgo['branch']
           git.checkout(branch)
         end
         
-        if head = request['head']
-          self.head = head.strip.empty? ? nil : head
+        session = request['session'] || {}
+        if head = session['head']
+          self.session_head = head.strip.empty? ? nil : head
         end
         
         redirect env['HTTP_REFERER'] || url('/repo')

@@ -1,4 +1,11 @@
 <h1>Index</h1>
+
+<form action="<%= form.url('repo', 'reindex') %>" method="post">
+  <input type="hidden" name="key" value="<%= form.value current_key %>">
+  <input type="hidden" name="value" value="<%= form.value current_value %>">
+  <input type="submit" value="Reindex" />
+</form>
+
 <ul><% index_keys.each do |key| %>
 <li><%= format.index_key_a key %></li><% end %>
 </ul>
@@ -14,9 +21,3 @@
 <li>None</li><% end %><% shas.each do |sha| %>
 <li><%= format.sha_a(sha) %></li><% end %>
 </ul><% end %>
-
-<form action="<%= form.url('repo', 'reindex') %>" method="post">
-  <input type="hidden" name="key" value="<%= form.value current_key %>">
-  <input type="hidden" name="value" value="<%= form.value current_value %>">
-  <input type="submit" value="Reindex" />
-</form>
