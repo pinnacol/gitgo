@@ -109,7 +109,9 @@ module Gitgo
       # instance as per cast.  Returns nil if the document doesn't exist.
       def [](sha)
         sha = repo.resolve(sha)
-        cast(repo[sha], sha)
+        attrs = repo[sha]
+        
+        attrs ? cast(attrs, sha) : nil
       end
       
       # Casts the attributes hash into a document instance.  The document
@@ -533,6 +535,20 @@ module Gitgo
       reset
     end
     
+    def update_to(*old_docs)
+      originals = old_docs.collect {|old_doc| old_doc.node.original }.uniq
+      
+      unless originals.length == 1
+        old_docs.collect! {|old_doc| old_doc.sha }
+        raise "cannot update unrelated documents: #{old_docs.inspect}"
+      end
+      
+      old_docs.each do |old_doc|
+        old_doc.update(self)
+      end
+      self
+    end
+    
     # Links the child document to self. Returns self.
     def link(child)
       unless saved?
@@ -553,6 +569,20 @@ module Gitgo
       
       child.reset
       reset
+    end
+    
+    def link_to(*parents)
+      graph_heads = parents.collect {|parent| parent.graph_head }.uniq
+      
+      unless graph_heads.length == 1
+        parents.collect! {|parent| parent.sha }
+        raise "cannot link to unrelated documents: #{parents.inspect}"
+      end
+      
+      parents.each do |parent|
+        parent.link(self)
+      end
+      self
     end
     
     # Deletes self.  Delete raises an error if unsaved. Returns self.

@@ -73,19 +73,17 @@ module Gitgo
       def create(sha=nil)
         return(sha.nil? ? preview : show(sha)) if preview?
         
-        parents = request['parents']
-        if parents
-          parents.collect! {|parent| Issue[parent] }
-        end
-          
         issue = Issue.save(doc_attrs)
         
-        if parents
-          parents.each do |parent|
-            parent.link(issue)
-          end
-        else
+        parents = request['parents']
+        if parents.nil? || parents.empty?
           issue.create
+        else
+          parents = [parents] unless parents.kind_of?(Array)
+          parents.collect! do |parent|
+            Issue[parent] or raise "invalid parent: #{parent.inspect}"
+          end
+          issue.link_to(*parents)
         end
         
         issue.commit!
