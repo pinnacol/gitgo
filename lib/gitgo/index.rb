@@ -163,6 +163,7 @@ module Gitgo
       source_idx = idx(source)
       target_idx = idx(target)
       map[target_idx] = source_idx
+      tail_filter << source_idx
       self
     end
     
@@ -188,7 +189,7 @@ module Gitgo
     
     def delete(source)
       source_idx = idx(source)
-      cache['filter']['tail'] << source_idx
+      tail_filter << source_idx
       self
     end
     
@@ -370,6 +371,10 @@ module Gitgo
       head_idx == idx ? idx : deconvolute(head_idx, map, visited)
     end
     
+    def tail_filter
+      cache['filter']['tail']
+    end
+    
     def associate(type, source, target) # :nodoc:
       if source == target
         raise "#{type} fail: #{source} -> #{target} (cannot #{type} with self)"
@@ -389,7 +394,7 @@ module Gitgo
       end
       
       map[target_idx] = source_head_idx
-      cache['filter']['tail'] << source_idx
+      tail_filter << source_idx
 
       self
     end
