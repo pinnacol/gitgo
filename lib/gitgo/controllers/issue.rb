@@ -52,11 +52,14 @@ module Gitgo
           :issues => issues,
           :any => any || {},
           :all => all || {},
-          :tags => repo.index.values('tags'),
           :sort => sort,
           :reverse => reverse, 
           :active_sha => session_head
         }
+      end
+      
+      def tags
+        repo.index.values('tags')
       end
       
       def preview?
@@ -64,13 +67,28 @@ module Gitgo
       end
       
       def preview
-        erb :new, :locals => {:doc => Issue.new(doc_attrs)}
+        erb :new, :locals => {:doc => Issue.new(doc_attrs) }
       end
     
       def create(sha=nil)
         return(sha.nil? ? preview : show(sha)) if preview?
         
-        issue = Issue.create(doc_attrs).commit!
+        parents = request['parents']
+        if parents
+          parents.collect! {|parent| Issue[parent] }
+        end
+          
+        issue = Issue.save(doc_attrs)
+        
+        if parents
+          parents.each do |parent|
+            parent.link(issue)
+          end
+        else
+          issue.create
+        end
+        
+        issue.commit!
         redirect_to_issue(issue)
       end
       
@@ -104,11 +122,16 @@ module Gitgo
       
       def destroy(sha)
         issue = Issue.delete(sha).commit!
-        redirect_to_issue(issue)
+        
+        if issue.graph_head?
+          redirect "/issue"
+        else
+          redirect_to_issue(issue)
+        end
       end
       
       def doc_attrs
-        attrs = request['doc'] || {'at' => session_head}
+        attrs = request['doc'] || {'tags' => ['open'], 'at' => session_head}
         if tags = attrs['tags']
           if tags.kind_of?(String)
             attrs['tags'] = tags.split(',').collect {|tag| tag.strip }

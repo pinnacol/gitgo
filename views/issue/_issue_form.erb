@@ -19,8 +19,13 @@
   <dd><input id="title" type="text" name="doc[title]" value="<%= form.title_value doc.title %>" /></dd><% end %>
   <dt><label for="content"><%= parents.empty? ? 'Description' : 'Comment' %></label></dt>
   <dd><textarea id="content" name="doc[content]"><%= form.content_value doc.content %></textarea></dd>
-  <dt><label for="tags">Tags (comma-separated)</label></dt>
-  <dd><input type="text" id="tags" name="doc[tags]" value="<%= form.tags_value doc.tags %>" /></dd>
+  <dt><label for="tags">Tags</label></dt>
+  <dd>
+    <ul><% form.each_tag(tags, *doc.tags) do |value, selection, content| %>
+    <li><input type="checkbox" name="doc[tags][]" value="<%= value %>"<%= html.check(selection) %>><%= content %></input></li><% end %>
+    <li><input type="input" name="doc[tags][]" /></li>
+    </ul>
+  </dd>
   <dt><label for="at">At</label></dt>
   <dd>
     <select id="at" name="doc[at]"><% form.each_ref_name(repo.git.grit.refs, doc.at) do |value, selection, content| %>

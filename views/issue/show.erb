@@ -18,5 +18,10 @@
 </div>
 
 <form action="<%= form.url('issue', issue.sha) %>" method="post" style="clear:both">
-<%= erb :_issue_form, :locals => {:doc => doc, :parents => issue.graph_tails}, :layout => false %>
+<%= erb :_issue_form, :locals => {:doc => doc, :parents => issue.graph_tails.collect {|tail| tail.sha }}, :layout => false %>
+</form>
+
+<form action="<%= form.url('issue', issue.sha) %>" method="post">
+  <input type="hidden" name="_method" value="delete"/>
+  <input type="submit" value="Delete" />
 </form>

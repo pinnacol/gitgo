@@ -104,7 +104,7 @@ module Gitgo
         key_hash[key] = Hash.new do |value_hash, value|
           value_hash[value] = begin
             index = self.path(FILTER, key, value)
-            File.exists?(index) ? IdxFile.read(index) : []
+            File.file?(index) ? IdxFile.read(index) : []
           end
         end
       end

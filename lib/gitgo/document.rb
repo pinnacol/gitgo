@@ -173,6 +173,12 @@ module Gitgo
         ).collect! {|sha| self[sha] }
       end
       
+      def delete(sha)
+        doc = self[sha]
+        doc.delete
+        doc
+      end
+      
       # Performs a partial update of the document index.  All documents added
       # between the index-head and the repo-head are updated using this
       # method.
@@ -413,7 +419,9 @@ module Gitgo
       end
       
       if tags = attrs['tags']
-        attrs['tags'] = arrayify(tags)
+        tags = arrayify(tags)
+        tags.delete_if {|tag| tag.to_s.empty? }
+        attrs['tags'] = tags
       end
       
       unless type = attrs['type']
