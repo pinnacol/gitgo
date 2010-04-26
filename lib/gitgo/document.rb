@@ -200,7 +200,7 @@ module Gitgo
         shas.each do |source|
           self[source].reindex
           repo.each_assoc(source) do |target, type|
-            index.assoc(source, target)
+            index.assoc(source, target, type)
           end
         end
         

@@ -159,11 +159,12 @@ module Gitgo
       deconvolute(idx, map)
     end
     
-    def assoc(source, target)
+    def assoc(source, target, type)
       source_idx = idx(source)
       target_idx = idx(target)
       map[target_idx] = source_idx
       tail_filter << source_idx
+      delete_filter << source_idx if type == :delete
       self
     end
     
@@ -190,6 +191,7 @@ module Gitgo
     def delete(source)
       source_idx = idx(source)
       tail_filter << source_idx
+      delete_filter << source_idx
       self
     end
     
@@ -244,8 +246,9 @@ module Gitgo
       end
     end
     
-    def each_sha(key, values)
+    def each_sha(key, values, filter=delete_filter)
       each_idx(key, values) do |idx|
+        next if filter.include?(idx)
         yield list[idx]
       end
     end
@@ -369,6 +372,10 @@ module Gitgo
       end
       
       head_idx == idx ? idx : deconvolute(head_idx, map, visited)
+    end
+    
+    def delete_filter
+      cache['filter']['delete']
     end
     
     def tail_filter

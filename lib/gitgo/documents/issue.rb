@@ -28,7 +28,7 @@ module Gitgo
       end
       
       def graph_heads
-        graph[graph_head].versions.collect {|sha| Issue[sha] }
+        graph[graph_head].versions.collect {|head| Issue[head] or raise "missing head: #{head.inspect} (#{sha})" }
       end
       
       def graph_titles
@@ -48,7 +48,7 @@ module Gitgo
       end
       
       def graph_tails
-        graph.tails.collect {|tail| Issue[tail] }
+        graph.tails.collect {|tail| Issue[tail] or raise "missing tail: #{tail.inspect} (#{sha})" }
       end
       
       def inherit(attrs={})

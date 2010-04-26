@@ -25,8 +25,8 @@ class RepoControllerTest < Test::Unit::TestCase
   #
   
   def test_index_shows_current_commit
-    sha = repo.save({})
-    repo.commit!
+    repo.save({})
+    sha = repo.commit!
     
     get("/repo")
     assert last_response.ok?
@@ -55,33 +55,33 @@ class RepoControllerTest < Test::Unit::TestCase
   end
   
   #
-  # maintenance test
+  # fsck test
   #
   
-  def test_maintenance_shows_no_issues_for_clean_repo
-    get("/repo/maintenance")
+  def test_fsck_shows_no_issues_for_clean_repo
+    get("/repo/fsck")
     assert last_response.ok?
     assert last_response.body.include?("No issues found")
   end
   
-  def test_maintenance_shows_issues_for_repo_with_issues
+  def test_fsck_shows_issues_for_repo_with_issues
     sha = git.set(:blob, "blah blah blob")
     
-    get("/repo/maintenance")
+    get("/repo/fsck")
     assert last_response.ok?
     assert !last_response.body.include?("No issues found")
     assert last_response.body =~ /dangling blob.*#{sha}/
   end
   
   #
-  # reference test
+  # help test
   #
   
-  def test_references_are_available
-    get("/repo/reference")
+  def test_help_is_available
+    get("/repo/help")
     assert last_response.ok?
     
-    get("/repo/reference/design")
+    get("/repo/help/faq")
     assert last_response.ok?
   end
   
@@ -92,12 +92,12 @@ class RepoControllerTest < Test::Unit::TestCase
   def test_prune_prunes_dangling_blobs
     sha = git.set(:blob, "blah blah blob")
     
-    get("/repo/maintenance")
+    get("/repo/fsck")
     assert last_response.body =~ /dangling blob.*#{sha}/
     
     post("/repo/prune")
     assert last_response.redirect?
-    assert_equal "/repo/maintenance", last_response['Location']
+    assert_equal "/repo/fsck", last_response['Location']
     
     follow_redirect!
     assert last_response.body.include?("No issues found")
@@ -112,12 +112,12 @@ class RepoControllerTest < Test::Unit::TestCase
     repo.create(sha)
     repo.commit!
     
-    get("/repo/maintenance")
+    get("/repo/fsck")
     assert last_response.body =~ /count[^\d]+?5/m
     
     post("/repo/gc")
     assert last_response.redirect?
-    assert_equal "/repo/maintenance", last_response['Location']
+    assert_equal "/repo/fsck", last_response['Location']
     
     follow_redirect!
     assert last_response.body =~ /count[^\d]+?0/m

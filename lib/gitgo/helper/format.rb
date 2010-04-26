@@ -69,7 +69,8 @@ module Gitgo
       end
       
       def issue_a(doc)
-        "<a id=\"#{doc.sha}\" href=\"#{url('issue', doc.graph_head)}\">#{titles(doc.graph_titles)}</a>"
+        target = doc.graph_head? ? doc.graph_head : "#{doc.graph_head}##{doc.sha}"
+        "<a id=\"#{doc.sha}\" href=\"#{url('issue', target)}\">#{titles(doc.graph_titles)}</a>"
       end
       
       def index_key_a(key)
