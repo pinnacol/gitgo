@@ -450,7 +450,6 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_status_returns_formatted_lines_of_status
-    # repo.setup!
     assert_equal '', repo.status
     
     a, b, c = shas('a', 'b', 'c')
@@ -466,8 +465,6 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_status_converts_shas_as_determined_by_block
-    # repo.setup!
-    
     a, b, c = shas('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)
@@ -494,5 +491,20 @@ class RepoTest < Test::Unit::TestCase
     sha = repo.commit
     
     assert_equal status, git.get(:commit, sha).message
+  end
+  
+  def test_commit_sets_up_repo_if_necessary
+    a = git.set(:blob, 'content')
+    repo.create(a)
+    
+    sha = repo.commit('created content')
+    assert_equal true, repo.branch?(sha)
+    
+    commit = git.get(:commit, sha)
+    assert_equal 'created content', commit.message
+    
+    parent = commit.parents[0]
+    assert_equal 'setup gitgo', parent.message
+    assert_equal repo.base_sha, parent.tree.id
   end
 end

@@ -523,7 +523,7 @@ module Gitgo
     # message is inferred from the status, if left unspecified.  Commit will
     # raise an error if there are no changes to commit.
     def commit(msg=status)
-      # setup unless git.head
+      setup_gitgo unless git.head
       sha = git.commit(msg)
       index.write(sha)
       sha
@@ -533,7 +533,7 @@ module Gitgo
     # when you know there are changes to commit and don't want the overhead of
     # checking for changes.
     def commit!(msg=status)
-      # setup unless git.head
+      setup_gitgo unless git.head
       sha = git.commit!(msg)
       index.write(sha)
       sha
@@ -545,6 +545,10 @@ module Gitgo
     end
     
     protected
+    
+    def setup_gitgo # :nodoc:
+      git.commit("setup gitgo", :tree => base_sha)
+    end
     
     def state_str(state) # :nodoc:
       case state
