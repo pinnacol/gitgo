@@ -221,4 +221,30 @@ class RepoControllerTest < Test::Unit::TestCase
     assert last_response.ok?
     assert !last_response.body.include?(sha)
   end
+  
+  #
+  # setup test
+  #
+  
+  def test_setup_sets_up_tracking_of_upstream_branch
+    repo.checkout('orig')
+    repo.setup
+    remote_head = repo.head
+    
+    local_clone = git.clone(method_root.path('clone'))
+    local_repo = Gitgo::Repo.new Gitgo::Repo::GIT => local_clone
+    local_repo.checkout('new')
+    
+    @app = Gitgo::App.new
+    
+    assert_equal nil, local_clone.head
+    assert_equal nil, local_clone.upstream_branch
+    
+    post('/repo/setup', {'upstream_branch' => 'origin/orig'}, {Gitgo::Repo::REPO => local_repo})
+    assert last_response.redirect?
+    assert_equal '/repo', last_response['Location']
+    
+    assert_equal remote_head, local_clone.head
+    assert_equal 'origin/orig', local_clone.upstream_branch
+  end
 end

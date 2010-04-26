@@ -142,7 +142,11 @@ module Gitgo
       def setup
         gitgo = request['gitgo'] || {}
         if branch = gitgo['branch']
-          git.checkout(branch)
+          repo.checkout(branch)
+        end
+        
+        if upstream_branch = request['upstream_branch']
+          repo.setup(upstream_branch)
         end
         
         session = request['session'] || {}

@@ -18,7 +18,6 @@ module Gitgo
     get('/')         { timeline }
     get('/timeline') { timeline }
     get('/welcome')  { welcome }
-    post('/setup')   { setup }
     
     use Controllers::Code
     use Controllers::Issue
@@ -26,33 +25,11 @@ module Gitgo
     use Controllers::Repo
     
     def welcome
-      git = repo.git
-      
-      remotes = git.grit.remotes
-      remotes = [] unless remotes.any? {|ref| ref.name == 'origin/gitgo'}
-      
       erb :welcome, :locals => {
-        :path => git.path,
-        :branch => git.branch,
+        :path => repo.path,
+        :branch => repo.branch,
         :remotes => repo.refs
       }
-    end
-    
-    def setup
-      git = repo.git
-       
-      unless git.head.nil?
-        raise "#{git.branch} branch already exists"
-      end
-        
-      upstream_branch = request[:upstream_branch]
-      unless upstream_branch.nil? || upstream_branch.empty?
-        git.track(upstream_branch)
-        git.pull(upstream_branch)
-        Document.update_index
-      end
-      
-      redirect url('')
     end
     
     def timeline

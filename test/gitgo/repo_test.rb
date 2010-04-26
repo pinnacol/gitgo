@@ -564,16 +564,4 @@ class RepoTest < Test::Unit::TestCase
     err = assert_raises(RuntimeError) { repo.setup(upstream_branch) }
     assert_equal "not a gitgo branch: #{upstream_branch.inspect}", err.message
   end
-  
-  def test_setup_resets_index
-    repo.index['key']['value'] << 'one'
-    repo.setup
-    assert_equal [], repo.index['key']['value']
-  end
-  
-  def test_setup_resets_cache
-    repo.cache['key'] = 'value'
-    repo.setup
-    assert_equal nil, repo.cache['key']
-  end
 end

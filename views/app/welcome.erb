@@ -9,7 +9,7 @@
   To setup tracking of an existing remote, use the form below:
 </p>
 
-<form action="<%= form.url('setup') %>" method="post">
+<form action="<%= form.url('repo', 'setup') %>" method="post">
   <select name="upstream_branch"><% form.each_ref_name(remotes, Gitgo::Git::DEFAULT_UPSTREAM_BRANCH) do |value, selection, content| %>
   <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
   </select>

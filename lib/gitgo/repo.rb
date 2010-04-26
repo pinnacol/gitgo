@@ -572,20 +572,20 @@ module Gitgo
         raise "already setup on: #{branch} (#{head})"
       end
       
-      if upstream_branch
-        unless branch?(upstream_branch)
-          raise "not a gitgo branch: #{upstream_branch.inspect}"
-        end
-        
-        if git.tracking_branch?(upstream_branch)
-          git.track(upstream_branch)
-          git.pull(upstream_branch)
-        else
-          git.merge(upstream_branch)
-        end
-        
-      else
+      unless upstream_branch
         git.commit!("setup gitgo", :tree => base_sha)
+        return self
+      end
+      
+      unless branch?(upstream_branch)
+        raise "not a gitgo branch: #{upstream_branch.inspect}"
+      end
+      
+      if git.tracking_branch?(upstream_branch)
+        git.track(upstream_branch)
+        git.pull(upstream_branch)
+      else
+        git.merge(upstream_branch)
       end
       
       cache.clear

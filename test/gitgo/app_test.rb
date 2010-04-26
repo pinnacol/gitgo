@@ -26,10 +26,10 @@ class AppTest < Test::Unit::TestCase
   
   def test_welcome_provides_form_to_track_gitgo_branches
     repo.git.checkout('one')
-    repo.setup!
+    repo.setup
     
     repo.git.checkout('two')
-    repo.setup!
+    repo.setup
     
     repo.git.checkout('master')
     get('/welcome')
@@ -76,7 +76,7 @@ class AppTest < Test::Unit::TestCase
   end
   
   def test_timeline_shows_helpful_message_if_no_results_are_available
-    repo.setup!
+    repo.setup
     
     get('/timeline')
     assert last_response.body.include?('No activity yet...')
