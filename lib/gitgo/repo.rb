@@ -184,6 +184,14 @@ module Gitgo
       @env = env
     end
     
+    def head
+      git.head
+    end
+    
+    def branch
+      git.branch
+    end
+    
     def resolve(sha)
       git.resolve(sha) rescue sha
     end
@@ -258,9 +266,16 @@ module Gitgo
     def branch?(sha)
       return false if sha.nil?
       
-      list = git.rev_list(sha.to_s)
+      list = rev_list(sha)
       commit = git.get(:commit, list.last)
       commit.tree.id == base_sha
+    end
+    
+    # Returns an array of refs representing gitgo branches.
+    def refs
+      git.grit.refs.select do |ref|
+        branch?(ref.commit.id)
+      end
     end
     
     # Serializes and sets the attributes as a blob in the git repo and caches
@@ -523,7 +538,8 @@ module Gitgo
     # message is inferred from the status, if left unspecified.  Commit will
     # raise an error if there are no changes to commit.
     def commit(msg=status)
-      setup_gitgo unless git.head
+      setup!
+      
       sha = git.commit(msg)
       index.write(sha)
       sha
@@ -533,10 +549,18 @@ module Gitgo
     # when you know there are changes to commit and don't want the overhead of
     # checking for changes.
     def commit!(msg=status)
-      setup_gitgo unless git.head
+      setup!
+      
       sha = git.commit!(msg)
       index.write(sha)
       sha
+    end
+    
+    def setup!
+      unless git.head
+        git.commit!("setup gitgo", :tree => base_sha)
+      end
+      self
     end
     
     # Sets self as the current Repo for the duration of the block.
@@ -545,10 +569,6 @@ module Gitgo
     end
     
     protected
-    
-    def setup_gitgo # :nodoc:
-      git.commit("setup gitgo", :tree => base_sha)
-    end
     
     def state_str(state) # :nodoc:
       case state

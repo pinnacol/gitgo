@@ -34,7 +34,7 @@ module Gitgo
       erb :welcome, :locals => {
         :path => git.path,
         :branch => git.branch,
-        :remotes => remotes
+        :remotes => repo.refs
       }
     end
     

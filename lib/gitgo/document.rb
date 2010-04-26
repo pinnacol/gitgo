@@ -395,6 +395,10 @@ module Gitgo
       self['tags'] ||= []
     end
     
+    def summary
+      sha
+    end
+    
     def merge(attrs)
       dup.merge!(attrs)
     end

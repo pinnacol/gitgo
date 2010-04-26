@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + "/../test_helper"
+require File.dirname(__FILE__) + '/../test_helper'
 require 'gitgo/app'
 
 class AppTest < Test::Unit::TestCase
@@ -11,52 +11,37 @@ class AppTest < Test::Unit::TestCase
   
   def setup
     super
-    @repo = Gitgo::Repo.init(setup_repo("simple.git"))
+    @repo = Gitgo::Repo.init(method_root.path)
     @server = Gitgo::App.new
     
     @app = lambda do |env|
-      env['gitgo.repo'] = repo
+      env[Gitgo::Repo::REPO] = repo
       server.call(env)
     end
   end
   
-  def git
-    repo.git
-  end
-  
   #
-  # setup test
+  # welcome test
   #
   
-  def test_setup_sets_up_tracking_of_specified_remote
-    @repo = Gitgo::Repo.new Gitgo::Repo::GIT => git.clone(method_root.path('clone'))
-    @app = Gitgo::App.new(nil, repo)
+  def test_welcome_provides_form_to_track_gitgo_branches
+    repo.git.checkout('one')
+    repo.setup!
     
-    assert_equal nil, git.head
+    repo.git.checkout('two')
+    repo.setup!
     
-    post("/setup", :remote_branch => 'origin/caps')
-    assert last_response.redirect?
-    assert_equal "/", last_response['Location']
+    repo.git.checkout('master')
+    get('/welcome')
     
-    # the caps head
-    assert_equal '19377b7ec7b83909b8827e52817c53a47db96cf0', git.head
+    assert last_response.body.include?('<option value="one"')
+    assert last_response.body.include?('<option value="one"')
+    assert last_response.body.include?('<input type="submit"')
   end
   
-  def test_remote_tracking_setup_reindexes_repo
-    git.checkout('track')
-    sha = repo.store('content' => 'new doc', 'tags' => ['tag'])
-    repo.commit!
-    git.checkout('gitgo')
-    
-    @repo = Gitgo::Repo.new(Gitgo::Repo::GIT => git.clone(method_root.path('clone')))
-    
-    post("/setup", {:remote_branch => 'origin/track'}, {Gitgo::Repo::REPO => repo})
-    assert last_response.redirect?
-    assert_equal "/", last_response['Location']
-    
-    get("/repo/index/tags/tag", {}, {Gitgo::Repo::REPO => repo})
-    assert last_response.ok?
-    assert last_response.body.include?(sha), last_response.body
+  def test_welcome_skips_the_form_if_no_gitgo_branches_are_available
+    get('/welcome')
+    assert !last_response.body.include?('<input type="submit"')
   end
   
   #
@@ -65,31 +50,35 @@ class AppTest < Test::Unit::TestCase
   
   def last_doc
     assert last_response.redirect?
-    url, anchor = last_response['Location'].split('#', 2)
-    anchor || File.basename(url)
+    url, anchor = File.basename(last_response['Location']).split('#', 2)
+    anchor || url
   end
   
   def test_timeline_shows_latest_activity
-    post("/issue", "doc[title]" => "New Issue", "doc[state]" => "open", "doc[date]" => "2010-03-19T14:51:53-06:00")
-    issue = last_doc
+    sha = repo.empty_sha
     
-    post("/comment", "doc[origin]" => "ee9a1c", "doc[content]" => "New comment", "doc[date]" => "2010-03-19T14:51:54-06:00")
-    comment = last_doc
+    post('/issue', 'doc[title]' => 'New Issue', 'doc[tags]' => 'open', 'doc[date]' => '2010-03-19T14:51:53-06:00')
+    a = last_doc
     
-    post("/comment", "doc[origin]" => "ee9a1c", "parents" => [comment], "doc[content]" => "Comment on a comment", "doc[date]" => "2010-03-19T14:51:55-06:00")
-    assert last_response.redirect?
+    post('/comment', 'doc[content]' => 'New comment', 'doc[re]' => sha, 'doc[date]' => '2010-03-19T14:51:54-06:00')
+    b = last_doc
     
-    post("/issue/#{issue}", "doc[origin]" => issue, "parents" => [issue], "doc[state]" => "closed", "doc[date]" => "2010-03-19T14:51:56-06:00")
-    assert last_response.redirect? 
+    post('/comment', 'doc[content]' => 'Comment on a comment', 'doc[re]' => sha, 'parents' => [b], 'doc[date]' => '2010-03-19T14:51:55-06:00')
+    c = last_doc
+    
+    post("/issue", 'parents' => [a], 'doc[tags]' => 'closed', 'doc[date]' => '2010-03-19T14:51:56-06:00')
+    d = last_doc
 
-    get("/timeline")
+    get('/timeline')
     
-    assert last_response.body =~ /#{issue}.*ee9a1ca4441ab2bf937808b26eab784f3d041643.*ee9a1ca4441ab2bf937808b26eab784f3d041643.*#{issue}/m
-    assert last_response.body =~ /Issue.*Comment.*Comment.*Issue/m, last_response.body
+    assert last_response.body =~ /#{a}##{d}.*#{b}##{c}.*#{b}.*#{a}/m
+    assert last_response.body =~ /Issue.*Comment.*Comment.*Issue/m
   end
   
   def test_timeline_shows_helpful_message_if_no_results_are_available
-    get("/timeline")
-    assert last_response.body.include?('No activity yet...'), last_response.body
+    repo.setup!
+    
+    get('/timeline')
+    assert last_response.body.include?('No activity yet...')
   end
 end
