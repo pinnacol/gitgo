@@ -49,7 +49,7 @@ module Gitgo
         issues.reverse! if reverse
         
         erb :index, :locals => {
-          :issues => issues,
+          :docs => issues,
           :any => any || {},
           :all => all || {},
           :sort => sort,
@@ -67,78 +67,77 @@ module Gitgo
       end
       
       def preview
-        erb :new, :locals => {:doc => Issue.new(doc_attrs) }
+        doc = Issue.new(attrs)
+        # doc.normalize!
+        erb :new, :locals => {:doc => doc}
       end
     
       def create(sha=nil)
         return(sha.nil? ? preview : show(sha)) if preview?
         
-        issue = Issue.save(doc_attrs)
+        doc = Issue.save(attrs)
         
         parents = request['parents']
         if parents.nil? || parents.empty?
-          issue.create
+          doc.create
         else
           parents = [parents] unless parents.kind_of?(Array)
           parents.collect! do |parent|
             Issue[parent] or raise "invalid parent: #{parent.inspect}"
           end
-          issue.link_to(*parents)
+          doc.link_to(*parents)
         end
         
-        issue.commit!
-        redirect_to_issue(issue)
+        doc.commit!
+        redirect_to_doc(doc)
       end
       
       def edit(sha)
-        unless issue = Issue.read(sha)
+        unless doc = Issue.read(sha)
           raise "unknown issue: #{sha.inspect}"
         end
         
-        issue.merge!(doc_attrs)
-        erb :edit, :locals => {:issue => issue}
+        doc.merge!(attrs)
+        erb :edit, :locals => {:doc => doc}
       end
       
       def update(sha)
         return edit(sha) if preview?
         
-        issue = Issue.update(sha, doc_attrs).commit!
-        redirect_to_issue(issue)
+        doc = Issue.update(sha, attrs).commit!
+        redirect_to_doc(doc)
       end
       
       def show(sha)
-        unless issue = Issue.read(sha)
+        unless doc = Issue.read(sha)
           raise "unknown issue: #{sha.inspect}"
         end
         
+        new_doc = doc.inherit(attrs)
+        # new_doc.normalize!
+        
         erb :show, :locals => {
-          :issue => issue,
-          :doc => issue.inherit(doc_attrs),
+          :doc => doc,
+          :new_doc => new_doc,
           :active_sha => session_head
         }
       end
       
       def destroy(sha)
-        issue = Issue.delete(sha).commit!
+        doc = Issue.delete(sha).commit!
         
-        if issue.graph_head?
+        if doc.graph_head?
           redirect "/issue"
         else
-          redirect_to_issue(issue)
+          redirect_to_doc(doc)
         end
       end
       
-      def doc_attrs
-        attrs = request['doc'] || {'tags' => ['open'], 'at' => session_head}
-        if tags = attrs['tags']
-          if tags.kind_of?(String)
-            attrs['tags'] = tags.split(',').collect {|tag| tag.strip }
-          end
-        end
-        attrs
+      def attrs
+        request['doc'] || {'tags' => ['open'], 'at' => session_head}
       end
       
-      def redirect_to_issue(doc)
+      def redirect_to_doc(doc)
         sha = doc.graph_head? ? doc.graph.head : "#{doc.graph.head}##{doc.sha}"
         redirect "/issue/#{sha}"
       end

@@ -18,6 +18,15 @@ module Gitgo
         controller.url(paths)
       end
       
+      def refs
+        @refs ||= controller.repo.git.grit.refs
+      end
+      
+      def ref_name(sha)
+        reference = refs.find {|ref| ref.commit.id == sha}
+        reference ? reference.name : sha
+      end
+      
       #
       # general formatters
       #
@@ -141,7 +150,7 @@ module Gitgo
       end
       
       def at(at)
-        at.nil? || at.empty? ? '(none)' : sha(at)
+        at.nil? || at.empty? ? '(none)' : sha_a(at)
       end
       
       def origin(origin)

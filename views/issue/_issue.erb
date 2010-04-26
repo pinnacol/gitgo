@@ -1,15 +1,15 @@
 
-  <dl class="issue" id="<%= issue.sha %>" active="<%= issue.active?(active_sha) %>">
-  <dt class="content"><%= issue.graph_head? ? 'Description' : 'Comment' %></dt>
-  <dd class="content"><%= format.content issue.content %></dd>
+  <dl class="issue" id="<%= doc.sha %>" active="<%= doc.active?(active_sha) %>">
+  <dt class="content"><%= doc.graph_head? ? 'Description' : 'Comment' %></dt>
+  <dd class="content"><%= format.content doc.content %></dd>
   <dt class="tags">Tags</dt>
-  <dd class="tags"><%= format.tags issue.tags %></dd>
+  <dd class="tags"><%= format.tags doc.tags %></dd>
   <dt class="author">Author</dt>
-  <dd class="author"><%= format.author issue.author %></dd>
+  <dd class="author"><%= format.author doc.author %></dd>
   <dt class="date">Date</dt>
-  <dd class="date"><%= format.date issue.date %></dd>
+  <dd class="date"><%= format.date doc.date %></dd>
   <dt class="at">At</dt>
-  <dd class="at"><%= format.at issue.at %></dd><% if issue.saved? %>
-  <dt class="edit"><a href="<%= format.url('issue', issue.sha, 'edit') %>">Edit</a></dt>
+  <dd class="at"><%= format.at doc.at %></dd><% if doc.saved? %>
+  <dt class="edit"><a href="<%= format.url('issue', doc.sha, 'edit') %>">Edit</a></dt>
   <dd></dd><% end %>
   </dl>
