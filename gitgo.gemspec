@@ -38,7 +38,6 @@ Gem::Specification.new do |s|
   s.files = %W{
     lib/gitgo.rb
     lib/gitgo/app.rb
-    lib/gitgo/constants.rb
     lib/gitgo/controller.rb
     lib/gitgo/controllers/code.rb
     lib/gitgo/controllers/issue.rb
@@ -46,7 +45,6 @@ Gem::Specification.new do |s|
     lib/gitgo/controllers/wiki.rb
     lib/gitgo/document.rb
     lib/gitgo/document/invalid_document_error.rb
-    lib/gitgo/document/utils.rb
     lib/gitgo/documents/comment.rb
     lib/gitgo/documents/issue.rb
     lib/gitgo/git.rb
@@ -59,11 +57,14 @@ Gem::Specification.new do |s|
     lib/gitgo/helper/html.rb
     lib/gitgo/helper/utils.rb
     lib/gitgo/index.rb
-    lib/gitgo/index/index_file.rb
+    lib/gitgo/index/idx_file.rb
+    lib/gitgo/index/sha_file.rb
     lib/gitgo/patches/grit.rb
     lib/gitgo/repo.rb
     lib/gitgo/repo/graph.rb
+    lib/gitgo/repo/node.rb
     lib/gitgo/repo/utils.rb
+    lib/gitgo/rest.rb
     lib/gitgo/server.rb
     lib/gitgo/version.rb
     public/css/gitgo.css
@@ -97,15 +98,13 @@ Gem::Specification.new do |s|
     views/issue/show.erb
     views/layout.erb
     views/not_found.erb
+    views/repo/fsck.erb
+    views/repo/help.textile
+    views/repo/help/faq.textile
+    views/repo/help/howto.textile
+    views/repo/help/trouble.textile
     views/repo/idx.erb
     views/repo/index.erb
-    views/repo/maintenance.erb
-    views/repo/reference.textile
-    views/repo/reference/code.textile
-    views/repo/reference/design.textile
-    views/repo/reference/faq.textile
-    views/repo/reference/howto.textile
-    views/repo/reference/trouble.textile
     views/repo/status.erb
     views/wiki/index.erb
   }
