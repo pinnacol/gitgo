@@ -206,10 +206,10 @@ module Gitgo
     DEFAULT_WORK_DIR = 'gitgo'
     
     # The default blob mode used for added content
-    DEFAULT_BLOB_MODE = "100644".to_sym
+    DEFAULT_BLOB_MODE = '100644'.to_sym
     
     # The default tree mode used for added trees
-    DEFAULT_TREE_MODE = "40000".to_sym
+    DEFAULT_TREE_MODE = '40000'.to_sym
     
     # A regexp matching a valid sha sum
     SHA  = /\A[A-Fa-f\d]{40}\z/
@@ -238,6 +238,12 @@ module Gitgo
     # The path to the temporary index_file
     attr_reader :index_file
     
+    # The default blob mode for self (see DEFAULT_BLOB_MODE)
+    attr_reader :default_blob_mode
+    
+    # The default tree mode for self (see DEFAULT_TREE_MODE)
+    attr_reader :default_tree_mode
+    
     # Initializes a new Git bound to the repository at the specified path.
     # Raises an error if no such repository exists.  Options can specify the
     # following:
@@ -256,6 +262,18 @@ module Gitgo
       
       self.author = options[:author] || nil
       self.checkout options[:branch] || DEFAULT_BRANCH
+      self.default_blob_mode = options[:default_blob_mode] || DEFAULT_BLOB_MODE
+      self.default_tree_mode = options[:default_tree_mode] || DEFAULT_TREE_MODE
+    end
+    
+    # Sets the default blob mode
+    def default_blob_mode=(mode)
+      @default_blob_mode = mode.to_sym
+    end
+    
+    # Sets the default tree mode
+    def default_tree_mode=(mode)
+      @default_tree_mode = mode.to_sym
     end
     
     # Returns the specified path relative to the git repository (ie the .git
@@ -466,7 +484,7 @@ module Gitgo
     def commit!(message, options={})
       now = Time.now
       
-      tree_id = options.delete(:tree) || write_tree(tree)[1]
+      sha = options.delete(:tree) || tree.write_to(self).at(1)
       parents = options.delete(:parents) || (head ? [head] : [])
       author = options[:author] || self.author
       authored_date = options[:authored_date] || now
@@ -486,7 +504,7 @@ module Gitgo
       # Note there is a trailing newline after the message.
       #
       lines = []
-      lines << "tree #{tree_id}"
+      lines << "tree #{sha}"
       parents.each do |parent|
         lines << "parent #{parent}"
       end
@@ -906,8 +924,8 @@ module Gitgo
     
     def convert_to_entry(content) # :nodoc:
       case content
-      when String then [DEFAULT_BLOB_MODE, set(:blob, content)]
-      when Symbol then [DEFAULT_BLOB_MODE, content]
+      when String then [default_blob_mode, set(:blob, content)]
+      when Symbol then [default_blob_mode, content]
       when Array, nil then content
       else raise "invalid content: #{content.inspect}"
       end
@@ -916,41 +934,6 @@ module Gitgo
     def commit_tree # :nodoc:
       tree = head ? get(:commit, head).tree : nil
       Tree.new(tree)
-    end
-    
-    # tree format:
-    #---------------------------------------------------
-    #   mode name\0[packedsha]mode name\0[packedsha]...
-    #---------------------------------------------------
-    # note there are no newlines separating tree entries.
-    def write_tree(tree) # :nodoc:
-      tree_mode = tree.mode ||= DEFAULT_TREE_MODE
-      tree_id   = tree.sha  ||= begin
-        lines = []
-        tree.each_pair(false) do |key, entry|
-          mode, id = case entry
-          when Tree  then write_tree(entry)
-          when Array then entry
-          else [entry.mode, entry.id]
-          end
-          
-          line = "#{mode} #{key}\0#{[id].pack("H*")}"
-          
-          # modes should not begin with zeros (although it is not fatal
-          # if they do), otherwise fsck will print warnings like this:
-          #
-          # warning in tree 980127...: contains zero-padded file modes
-          if line =~ /\A0+(.*)\z/
-            line = $1
-          end
-          
-          lines << line
-        end
-        
-        set(:tree, lines.join)
-      end
-      
-      [tree_mode, tree_id]
     end
   end
 end

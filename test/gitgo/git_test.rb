@@ -142,6 +142,16 @@ class GitTest < Test::Unit::TestCase
     assert_equal "content", git["path"]
   end
   
+  def test_init_allows_specification_of_alternative_default_modes
+    git = Git.init(method_root.path,
+      :default_blob_mode => '100600',
+      :default_tree_mode => '040777'
+    )
+    
+    assert_equal '100600'.to_sym, git.default_blob_mode
+    assert_equal '040777'.to_sym, git.default_tree_mode
+  end
+  
   #
   # author test
   #
@@ -339,6 +349,12 @@ class GitTest < Test::Unit::TestCase
     assert_equal nil, git["/a/b.txt", false, true]
   end
 
+  def test_ASET_sets_content_using_default_blob_mode
+    git.default_blob_mode = '100640'
+    git["/a.txt"] = "content"
+    assert_equal '100640'.to_sym, git["/a.txt", true][0]
+  end
+  
   #
   # commit test
   #

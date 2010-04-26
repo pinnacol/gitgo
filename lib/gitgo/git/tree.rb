@@ -60,7 +60,7 @@ module Gitgo
       end
       
       # Sets mode, symbolizing if necessary.  Mode may be set to nil in which
-      # case the Git::DEFAULT_TREE_MODE is adopted when a repo is commited.
+      # case the git.default_tree_mode is adopted when the tree is written.
       def mode=(mode)
         @mode = mode ? mode.to_sym : nil
       end
@@ -231,6 +231,44 @@ module Gitgo
       # Returns true if the to_hash results of self and another are equal.
       def ==(another)
         self.to_hash == another.to_hash
+      end
+      
+      # Writes self to the git instance.  All subtrees will likewise be
+      # written.  Returns a [mode, sha] entry.
+      #
+      # Tree format:
+      #
+      #   mode name\0[packedsha]mode name\0[packedsha]...
+      #
+      # Note there are no newlines separating tree entries.
+      def write_to(git)
+        self.mode ||= git.default_tree_mode
+        self.sha  ||= begin
+          lines = []
+          each_pair(false) do |key, entry|
+            mode, sha = case entry
+            when Tree  then entry.write_to(git)
+            when Array then entry
+            else [entry.mode, entry.id]
+            end
+
+            line = "#{mode} #{key}\0#{[sha].pack("H*")}"
+
+            # modes should not begin with zeros (although it is not fatal
+            # if they do), otherwise fsck will print warnings like this:
+            #
+            # warning in tree 980127...: contains zero-padded file modes
+            if line =~ /\A0+(.*)\z/
+              line = $1
+            end
+
+            lines << line
+          end
+
+          git.set(:tree, lines.join)
+        end
+
+        [mode, sha]
       end
       
       protected
