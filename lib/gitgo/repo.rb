@@ -2,7 +2,6 @@ require 'json'
 require 'gitgo/git'
 require 'gitgo/index'
 require 'gitgo/repo/graph'
-require 'gitgo/repo/utils'
 
 module Gitgo
   # Repo represents the internal data store used by Gitgo. Repos consist of a
@@ -154,7 +153,6 @@ module Gitgo
         env[REPO] ||= new(env)
       end
     end
-    include Utils
     
     ENVIRONMENT  = 'gitgo.env'
     PATH         = 'gitgo.path'
@@ -172,8 +170,10 @@ module Gitgo
     #
     DOCUMENT_PATH = /^(.{2})\/(.{38})\/(.{40})$/
     
+    # The default blob mode used for added blobs
     DEFAULT_MODE  = '100644'.to_sym
     
+    # The blob mode used to identify updates
     UPDATE_MODE   = '100640'.to_sym
     
     # The repo env, typically the same as a request env.
@@ -227,6 +227,40 @@ module Gitgo
     # Sets the cached attrs for the specified sha.
     def []=(sha, attrs)
       cache[sha] = attrs
+    end
+    
+    # Returns the sha for an empty string, and ensures the corresponding
+    # object is set in the repo.
+    def empty_sha
+      @empty_sha ||= git.set(:blob, '')
+    end
+    
+    # Returns the sha for the base tree, a tree with an empty 'gitgo' file in
+    # it, and ensures the corresponding object is set in the repo.
+    def base_sha
+      @base_sha ||= begin
+        tree = Git::Tree.new
+        tree['gitgo'] = [git.default_blob_mode, empty_sha]
+        mode, sha = tree.write_to(git)
+        sha
+      end
+    end
+    
+    # Creates a nested sha path like: ab/xyz/paths
+    def sha_path(sha, *paths)
+      paths.unshift sha[2,38]
+      paths.unshift sha[0,2]
+      paths
+    end
+    
+    # Returns true if the given ref begins with a commit that has base_sha as
+    # it's tree.
+    def branch?(sha)
+      return false if sha.nil?
+      
+      list = git.rev_list(sha.to_s)
+      commit = git.get(:commit, list.last)
+      commit.tree.id == base_sha
     end
     
     # Serializes and sets the attributes as a blob in the git repo and caches
@@ -445,8 +479,10 @@ module Gitgo
     end
     
     # Generates a status message based on currently uncommitted changes.
-    def status(&block)
-      block ||= lambda {|sha| sha}
+    def status
+      unless block_given?
+        return status {|sha| sha}
+      end
       
       lines = []
       git.status.each_pair do |path, state|
@@ -458,13 +494,14 @@ module Gitgo
         
         status = case assoc_type(source, target)
         when :create
-          create_status(sha, self[sha], &block)
+          type = self[sha]['type']
+          [type || 'doc', yield(sha)]
         when :link
-          link_status(source, target, &block)
+          ['link', "#{yield(source)} to  #{yield(target)}"]
         when :update
-          update_status(source, target, &block)
+          ['update', "#{yield(target)} was #{yield(source)}"]
         when :delete
-          delete_status(sha, &block)
+          ['delete', yield(sha)]
         else
           ['unknown', path]
         end
@@ -475,13 +512,18 @@ module Gitgo
         end
       end
       
-      format_status(lines).join("\n")
+      indent = lines.collect {|(state, type, msg)| type.length }.max
+      format = "%s %-#{indent}s %s"
+      lines.collect! {|ary| format % ary }
+      lines.sort!
+      lines.join("\n")
     end
     
     # Commits any changes to git and writes the index to disk.  The commit
     # message is inferred from the status, if left unspecified.  Commit will
     # raise an error if there are no changes to commit.
     def commit(msg=status)
+      # setup unless git.head
       sha = git.commit(msg)
       index.write(sha)
       sha
@@ -491,20 +533,25 @@ module Gitgo
     # when you know there are changes to commit and don't want the overhead of
     # checking for changes.
     def commit!(msg=status)
+      # setup unless git.head
       sha = git.commit!(msg)
       index.write(sha)
       sha
     end
     
-    def setup!
-      empty_sha
-      git.commit!("setup gitgo")
-      self
-    end
-    
     # Sets self as the current Repo for the duration of the block.
     def scope
       Repo.with_env(REPO => self) { yield }
+    end
+    
+    protected
+    
+    def state_str(state) # :nodoc:
+      case state
+      when :add then '+'
+      when :rm  then '-'
+      else '~'
+      end
     end
   end
 end

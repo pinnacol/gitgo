@@ -4,7 +4,6 @@ require 'gitgo/repo'
 class RepoTest < Test::Unit::TestCase
   acts_as_file_test
   Repo = Gitgo::Repo
-  include Repo::Utils
   
   attr_accessor :repo
   
@@ -145,6 +144,55 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
+  # empty_sha
+  #
+  
+  def test_empty_sha_returns_the_sha_for_an_empty_file
+    assert_equal '', git.get(:blob, repo.empty_sha).data
+  end
+  
+  #
+  # base_sha
+  #
+  
+  def test_base_sha_returns_sha_for_tree_with_gitgo_file_in_it
+    tree = git.get(:tree, repo.base_sha)
+    assert_equal '', (tree/'gitgo').data
+  end
+  
+  #
+  # branch? test
+  #
+  
+  def test_branch_returns_true_if_first_commit_for_sha_has_base_sha_as_its_tree
+    assert_equal false, repo.branch?(git.head)
+    
+    git['gitgo'] = ''
+    git.commit!("setup")
+    
+    assert_equal true, repo.branch?(git.head)
+    
+    git['a'] = 'content'
+    git.commit!("added a")
+    
+    assert_equal true, repo.branch?(git.head)
+    assert_equal true, repo.branch?(git.branch)
+    
+    git.checkout('fail_one')
+    git['gitgo'] = 'not empty'
+    git.commit!("setup")
+    
+    assert_equal false, repo.branch?(git.head)
+    
+    git.checkout('fail_two')
+    git['not_gitgo'] = ''
+    git.commit!("setup")
+    
+    assert_equal false, repo.branch?(git.head)
+    assert_equal false, repo.branch?(git.branch)
+  end
+  
+  #
   # save test
   #
   
@@ -168,7 +216,7 @@ class RepoTest < Test::Unit::TestCase
     a = shas('a').first
     repo.create(a)
     
-    assert_equal [Repo::DEFAULT_MODE, a], git[sha_path(a, empty_sha), true]
+    assert_equal [Repo::DEFAULT_MODE, a], git[repo.sha_path(a, repo.empty_sha), true]
   end
   
   #
@@ -195,7 +243,7 @@ class RepoTest < Test::Unit::TestCase
     a, b = shas('a', 'b')
     repo.link(a, b)
     
-    assert_equal [Repo::DEFAULT_MODE, b], git[sha_path(a, b), true]
+    assert_equal [Repo::DEFAULT_MODE, b], git[repo.sha_path(a, b), true]
   end
   
   #
@@ -206,7 +254,7 @@ class RepoTest < Test::Unit::TestCase
     a, b = shas('a', 'b')
     repo.update(a, b)
     
-    assert_equal [Repo::UPDATE_MODE, b], git[sha_path(a, b), true]
+    assert_equal [Repo::UPDATE_MODE, b], git[repo.sha_path(a, b), true]
   end
   
   #
@@ -217,7 +265,7 @@ class RepoTest < Test::Unit::TestCase
     a = shas('a').first
     repo.delete(a)
     
-    assert_equal [Repo::DEFAULT_MODE, empty_sha], git[sha_path(a, a), true]
+    assert_equal [Repo::DEFAULT_MODE, repo.empty_sha], git[repo.sha_path(a, a), true]
   end
   
   #
@@ -231,7 +279,7 @@ class RepoTest < Test::Unit::TestCase
     repo.update(b, c)
     repo.delete(c)
     
-    assert_equal a, repo.assoc_sha(a, empty_sha)
+    assert_equal a, repo.assoc_sha(a, repo.empty_sha)
     assert_equal b, repo.assoc_sha(a, b)
     assert_equal c, repo.assoc_sha(b, c)
     assert_equal c, repo.assoc_sha(c, c)
@@ -248,7 +296,7 @@ class RepoTest < Test::Unit::TestCase
     repo.update(b, c)
     repo.delete(c)
     
-    assert_equal Repo::DEFAULT_MODE, repo.assoc_mode(a, empty_sha)
+    assert_equal Repo::DEFAULT_MODE, repo.assoc_mode(a, repo.empty_sha)
     assert_equal Repo::DEFAULT_MODE, repo.assoc_mode(a, b)
     assert_equal Repo::UPDATE_MODE, repo.assoc_mode(b, c)
     assert_equal Repo::DEFAULT_MODE, repo.assoc_mode(c, c)
@@ -265,13 +313,13 @@ class RepoTest < Test::Unit::TestCase
     repo.update(b, c)
     repo.delete(c)
     
-    assert_equal :create, repo.assoc_type(a, empty_sha)
+    assert_equal :create, repo.assoc_type(a, repo.empty_sha)
     assert_equal :link, repo.assoc_type(a, b)
     assert_equal :update, repo.assoc_type(b, c)
     assert_equal :delete, repo.assoc_type(c, c)
     
     assert_equal :invalid, repo.assoc_type(a, a)
-    assert_equal :invalid, repo.assoc_type(b, empty_sha)
+    assert_equal :invalid, repo.assoc_type(b, repo.empty_sha)
   end
   
   #
@@ -402,7 +450,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_status_returns_formatted_lines_of_status
-    repo.setup!
+    # repo.setup!
     assert_equal '', repo.status
     
     a, b, c = shas('a', 'b', 'c')
@@ -418,7 +466,7 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_status_converts_shas_as_determined_by_block
-    repo.setup!
+    # repo.setup!
     
     a, b, c = shas('a', 'b', 'c')
     repo.create(a)

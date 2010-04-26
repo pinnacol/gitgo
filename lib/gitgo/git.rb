@@ -205,7 +205,7 @@ module Gitgo
     # The default directory for gitgo-related files
     DEFAULT_WORK_DIR = 'gitgo'
     
-    # The default blob mode used for added content
+    # The default blob mode used for added blobs
     DEFAULT_BLOB_MODE = '100644'.to_sym
     
     # The default tree mode used for added trees
