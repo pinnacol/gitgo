@@ -507,4 +507,73 @@ class RepoTest < Test::Unit::TestCase
     assert_equal 'setup gitgo', parent.message
     assert_equal repo.base_sha, parent.tree.id
   end
+  
+  #
+  # setup test
+  #
+  
+  def test_setup_sets_up_tracking_of_remote_upstream_branch
+    repo.checkout('orig')
+    repo.setup
+    
+    clone = git.clone(method_root.path('clone'))
+    clone.checkout('new')
+    
+    assert_equal nil, clone.head
+    assert_equal nil, clone.upstream_branch
+    
+    Repo.new(Repo::GIT => clone).setup('origin/orig')
+    
+    assert_equal repo.head, clone.head
+    assert_equal 'origin/orig', clone.upstream_branch
+  end
+  
+  def test_setup_advances_self_to_local_upstream_branch
+    repo.checkout('orig')
+    repo.setup
+    orig_head = repo.head
+    
+    repo.checkout('new')
+    
+    assert_equal nil, repo.head
+    assert_equal nil, repo.upstream_branch
+    
+    repo.setup('orig')
+    
+    assert_equal orig_head, repo.head
+    assert_equal nil, repo.upstream_branch
+  end
+  
+  def test_setup_raises_error_if_head_is_not_nil
+    git['file'] = 'content'
+    git.commit!('made a commit')
+    
+    err = assert_raises(RuntimeError) { repo.setup }
+    assert_equal "already setup on: gitgo (#{git.head})", err.message
+  end
+  
+  def test_setup_raises_error_if_upstream_branch_is_not_a_gitgo_branch
+    git['file'] = 'content'
+    git.commit!('made a commit')
+    
+    upstream_branch = git.branch
+    assert_equal false, repo.branch?(upstream_branch)
+    
+    repo.checkout('new')
+    
+    err = assert_raises(RuntimeError) { repo.setup(upstream_branch) }
+    assert_equal "not a gitgo branch: #{upstream_branch.inspect}", err.message
+  end
+  
+  def test_setup_resets_index
+    repo.index['key']['value'] << 'one'
+    repo.setup
+    assert_equal [], repo.index['key']['value']
+  end
+  
+  def test_setup_resets_cache
+    repo.cache['key'] = 'value'
+    repo.setup
+    assert_equal nil, repo.cache['key']
+  end
 end

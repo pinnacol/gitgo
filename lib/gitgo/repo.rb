@@ -192,6 +192,10 @@ module Gitgo
       git.branch
     end
     
+    def upstream_branch
+      git.upstream_branch
+    end
+    
     def resolve(sha)
       git.resolve(sha) rescue sha
     end
@@ -275,6 +279,13 @@ module Gitgo
     def refs
       git.grit.refs.select do |ref|
         branch?(ref.commit.id)
+      end
+    end
+    
+    # Returns an array of remotes representing gitgo branches.
+    def remotes
+      git.grit.remotes.select do |remote|
+        branch?(remote.commit.id)
       end
     end
     
@@ -538,7 +549,7 @@ module Gitgo
     # message is inferred from the status, if left unspecified.  Commit will
     # raise an error if there are no changes to commit.
     def commit(msg=status)
-      setup!
+      setup unless head
       
       sha = git.commit(msg)
       index.write(sha)
@@ -549,17 +560,48 @@ module Gitgo
     # when you know there are changes to commit and don't want the overhead of
     # checking for changes.
     def commit!(msg=status)
-      setup!
+      setup unless head
       
       sha = git.commit!(msg)
       index.write(sha)
       sha
     end
     
-    def setup!
-      unless git.head
+    def setup(upstream_branch=nil)
+      if head
+        raise "already setup on: #{branch} (#{head})"
+      end
+      
+      if upstream_branch
+        unless branch?(upstream_branch)
+          raise "not a gitgo branch: #{upstream_branch.inspect}"
+        end
+        
+        if git.tracking_branch?(upstream_branch)
+          git.track(upstream_branch)
+          git.pull(upstream_branch)
+        else
+          git.merge(upstream_branch)
+        end
+        
+      else
         git.commit!("setup gitgo", :tree => base_sha)
       end
+      
+      cache.clear
+      index.reset
+      self
+    end
+    
+    def checkout(branch)
+      git.checkout(branch)
+      self
+    end
+    
+    def reset(full=false)
+      git.reset(full)
+      cache.clear
+      index.reset
       self
     end
     

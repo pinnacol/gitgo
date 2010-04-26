@@ -396,7 +396,7 @@ module Gitgo
     
     # Sets branch to track the specified upstream_branch.  The upstream_branch
     # must be an existing tracking branch; an error is raised if this
-    # requriement is not met (see the Tracking, Push/Pull notes above).
+    # requirement is not met (see the Tracking, Push/Pull notes above).
     def track(upstream_branch)
       if upstream_branch.nil?
         # currently grit.config does not support unsetting (grit-2.0.0)
@@ -436,6 +436,12 @@ module Gitgo
     # setup.
     def remote
       grit.config["branch.#{branch}.remote"] || 'origin'
+    end
+    
+    # Returns true if the specified ref is a tracking branch, ie it is the
+    # name of an existing remote ref.
+    def tracking_branch?(ref)
+      ref && grit.remotes.find {|remote| remote.name == ref }
     end
     
     #########################################################################
@@ -641,9 +647,9 @@ module Gitgo
       self
     end
     
-    # Pushes the tracking branch to it's remote.  No other branches are
-    # pushed.  Raises an error if given a non-tracking branch (see the
-    # Tracking, Push/Pull notes above).
+    # Pushes branch to the tracking branch.  No other branches are pushed. 
+    # Raises an error if given a non-tracking branch (see the Tracking,
+    # Push/Pull notes above).
     def push(tracking_branch=upstream_branch)
       sandbox do |git, work_tree, index_file|
         remote, remote_branch = parse_tracking_branch(tracking_branch)
@@ -651,9 +657,9 @@ module Gitgo
       end
     end
     
-    # Fetches the tracking branch from it's remote and merges with branch. No
-    # other branches are fetched. Raises an error if given a non-tracking
-    # branch (see the Tracking, Push/Pull notes above).
+    # Fetches the tracking branch and merges with branch. No other branches
+    # are fetched. Raises an error if given a non-tracking branch (see the
+    # Tracking, Push/Pull notes above).
     def pull(tracking_branch=upstream_branch)
       sandbox do |git, work_tree, index_file|
         remote, remote_branch = parse_tracking_branch(tracking_branch)
@@ -909,10 +915,6 @@ module Gitgo
     end
     
     protected
-    
-    def tracking_branch?(ref) # :nodoc:
-      ref && grit.remotes.find {|remote| remote.name == ref }
-    end
 
     def parse_tracking_branch(ref) # :nodoc:
       unless tracking_branch?(ref)
