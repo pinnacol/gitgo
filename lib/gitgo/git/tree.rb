@@ -134,6 +134,13 @@ module Gitgo
         @sha = nil
       end
       
+      def merge!(another)
+        another.each_pair do |path, entry|
+          self[path] = entry
+        end
+        self
+      end
+      
       # Yields each (path, entry) pair to the block, as an array, ordered by
       # path. Implemented to get access to the enumerable methods.
       def each

@@ -176,6 +176,8 @@ module Gitgo
     # The blob mode used to identify updates
     UPDATE_MODE   = '100640'.to_sym
     
+    FILE = 'gitgo'
+    
     # The repo env, typically the same as a request env.
     attr_reader :env
     
@@ -247,17 +249,6 @@ module Gitgo
       @empty_sha ||= git.set(:blob, '')
     end
     
-    # Returns the sha for the base tree, a tree with an empty 'gitgo' file in
-    # it, and ensures the corresponding object is set in the repo.
-    def base_sha
-      @base_sha ||= begin
-        tree = Git::Tree.new
-        tree['gitgo'] = [git.default_blob_mode, empty_sha]
-        mode, sha = tree.write_to(git)
-        sha
-      end
-    end
-    
     # Creates a nested sha path like: ab/xyz/paths
     def sha_path(sha, *paths)
       paths.unshift sha[2,38]
@@ -265,14 +256,14 @@ module Gitgo
       paths
     end
     
-    # Returns true if the given ref begins with a commit that has base_sha as
-    # it's tree.
+    # Returns true if the given commit has an empty 'gitgo' file in it's tree.
     def branch?(sha)
       return false if sha.nil?
+      return false unless sha = resolve(sha)
       
-      list = rev_list(sha)
-      commit = git.get(:commit, list.last)
-      commit.tree.id == base_sha
+      commit = git.get(:commit, sha)
+      blob = commit.tree/FILE
+      blob && blob.data.empty? ? true : false
     end
     
     # Returns an array of refs representing gitgo branches.
@@ -573,7 +564,15 @@ module Gitgo
       end
       
       unless upstream_branch
-        git.commit!("setup gitgo", :tree => base_sha)
+        tree = Git::Tree.new
+        tree[FILE] = [git.default_blob_mode, empty_sha]
+        mode, sha = tree.write_to(git)
+        git.commit!("setup gitgo", :tree => sha)
+        
+        current_tree = git.tree
+        git.reset
+        git.tree.merge!(current_tree)
+        
         return self
       end
       

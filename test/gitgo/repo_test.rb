@@ -152,19 +152,10 @@ class RepoTest < Test::Unit::TestCase
   end
   
   #
-  # base_sha
-  #
-  
-  def test_base_sha_returns_sha_for_tree_with_gitgo_file_in_it
-    tree = git.get(:tree, repo.base_sha)
-    assert_equal '', (tree/'gitgo').data
-  end
-  
-  #
   # branch? test
   #
   
-  def test_branch_returns_true_if_first_commit_for_sha_has_base_sha_as_its_tree
+  def test_branch_returns_true_if_commit_has_an_empty_gitgo_file_in_it
     assert_equal false, repo.branch?(git.head)
     
     git['gitgo'] = ''
@@ -505,7 +496,6 @@ class RepoTest < Test::Unit::TestCase
     
     parent = commit.parents[0]
     assert_equal 'setup gitgo', parent.message
-    assert_equal repo.base_sha, parent.tree.id
   end
   
   #
