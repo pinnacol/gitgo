@@ -28,10 +28,13 @@ module Gitgo
     def welcome
       git = repo.git
       
+      remotes = git.grit.remotes
+      remotes = [] unless remotes.any? {|ref| ref.name == 'origin/gitgo'}
+      
       erb :welcome, :locals => {
         :path => git.path,
         :branch => git.branch,
-        :remotes => git.grit.remotes
+        :remotes => remotes
       }
     end
     
