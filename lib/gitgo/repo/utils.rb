@@ -11,7 +11,11 @@ module Gitgo
       # Returns the sha for an empty string, and ensures the corresponding
       # object is set in the repo.
       def empty_sha # :nodoc:
-        @empty_sha ||= git.set(:blob, "")
+        @empty_sha ||= begin
+          empty_sha = git.set(:blob, "")
+          git['gitgo'] = ['100644'.to_sym, empty_sha]
+          empty_sha
+        end
       end
       
       # Creates a nested sha path like: ab/xyz/paths

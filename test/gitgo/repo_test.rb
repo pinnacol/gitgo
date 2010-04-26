@@ -402,6 +402,7 @@ class RepoTest < Test::Unit::TestCase
   #
   
   def test_status_returns_formatted_lines_of_status
+    repo.setup!
     assert_equal '', repo.status
     
     a, b, c = shas('a', 'b', 'c')
@@ -417,6 +418,8 @@ class RepoTest < Test::Unit::TestCase
   end
   
   def test_status_converts_shas_as_determined_by_block
+    repo.setup!
+    
     a, b, c = shas('a', 'b', 'c')
     repo.create(a)
     repo.link(a, b)

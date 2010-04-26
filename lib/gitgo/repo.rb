@@ -371,6 +371,8 @@ module Gitgo
     # sources.
     def each
       git.tree.each_pair(true) do |ab, xyz_tree|
+        next unless ab.length == 2
+        
         xyz_tree.each_pair(true) do |xyz, target_tree|
           source = "#{ab}#{xyz}"
           
@@ -492,6 +494,12 @@ module Gitgo
       sha = git.commit!(msg)
       index.write(sha)
       sha
+    end
+    
+    def setup!
+      empty_sha
+      git.commit!("setup gitgo")
+      self
     end
     
     # Sets self as the current Repo for the duration of the block.
