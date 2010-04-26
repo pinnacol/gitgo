@@ -52,6 +52,9 @@ def sha_path(sha, *paths)
   paths
 end
 
+b.git['gitgo'] = ''
+b.git.commit!('setup gitgo')
+
 DEFAULT_MODE  = '100644'.to_sym
 UPDATE_MODE   = '100640'.to_sym
 
