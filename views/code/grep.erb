@@ -14,7 +14,7 @@
   <dd><input id="fixed_strings" type="checkbox" name="fixed_strings" value="true" <%= html.check(fixed_strings) %>/></dd>
   <dt><label for="at">At</label></dt>
   <dd>
-    <select id="at" name="at"><% form.each_ref(grit.head.name) do |value, selection, content| %>
+    <select id="at" name="at"><% form.each_ref(refs, grit.head.name) do |value, selection, content| %>
     <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
     <option value="">(none)</option>
     </select>

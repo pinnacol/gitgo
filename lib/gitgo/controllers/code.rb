@@ -4,6 +4,8 @@ require 'gitgo/documents/comment'
 module Gitgo
   module Controllers
     class Code < Controller
+      include Rest
+      
       set :views, File.expand_path("views/code", ROOT)
       
       get('/code')            { index }
@@ -41,6 +43,10 @@ module Gitgo
         @grit ||= git.grit
       end
       
+      def model
+        Comment
+      end
+      
       #
       # actions
       #
@@ -75,7 +81,8 @@ module Gitgo
         erb :grep, :locals => options.merge!(
           :type => 'blob',
           :at => treeish,
-          :selected => selected
+          :selected => selected,
+          :refs => grit.refs
         )
       end
 
@@ -90,7 +97,8 @@ module Gitgo
         erb :grep, :locals => options.merge!(
           :type => 'tree',
           :at => treeish,
-          :selected => selected
+          :selected => selected,
+          :refs => grit.refs
         )
       end
 
@@ -184,38 +192,6 @@ module Gitgo
             :obj => obj
           }, :views => path('views/code/obj')
         end
-      end
-      
-      def create
-        comment = Comment.save(request['doc'], *request['parents'])
-        repo.commit! if request['commit']
-        redirect_to_origin(comment)
-      end
-    
-      def update(sha)
-        comment = Comment.update(sha, request['doc'])
-        repo.commit! if request['commit']
-        redirect_to_origin(comment)
-      end
-
-      def destroy(sha)
-        comment = Comment.delete(sha)
-        repo.commit! if request['commit']
-        redirect_to_origin(comment)
-      end
-      
-      def render_comments(sha)
-        # comments = comment.tree(sha)
-        # 
-        # if comments.empty?
-        #   erb(:_comment_form, :locals => {:sha => sha, :parent => nil}, :layout => false)
-        # else
-        #   erb(:_comments, :locals => {:comments => comments}, :layout => false)
-        # end
-      end
-      
-      def redirect_to_origin(doc)
-        redirect "#{doc.graph_head}##{doc.sha}"
       end
     end
   end

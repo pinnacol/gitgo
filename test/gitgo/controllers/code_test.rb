@@ -19,8 +19,8 @@ class CodeControllerTest < Test::Unit::TestCase
   
   def last_comment
     assert last_response.redirect?
-    url, anchor = last_response['Location'].split('#', 2)
-    anchor
+    url, anchor = File.basename(last_response['Location']).split('#', 2)
+    anchor ? anchor : url
   end
   
   #
@@ -274,41 +274,41 @@ tag of project with one, two, three only
   #
   
   def test_post_comment_creates_comment
-    post('/comment', 'doc[origin]' => SHA, 'doc[content]' => 'content')
+    post('/comment', 'doc[re]' => SHA, 'doc[content]' => 'content')
     
     comment = repo.read(last_comment)
     assert_equal 'content', comment['content']
-    assert_equal SHA, comment['origin']
+    assert_equal SHA, comment['re']
   end
   
   def test_post_rev_parses_re
-    post('/comment', 'doc[origin]' => 'caps', 'doc[content]' => 'comment content')
+    post('/comment', 'doc[re]' => 'caps', 'doc[content]' => 'comment content')
     comment = repo.read(last_comment)
     
     assert_equal 'comment content', comment['content']
-    assert_equal '19377b7ec7b83909b8827e52817c53a47db96cf0', comment['origin']
+    assert_equal '19377b7ec7b83909b8827e52817c53a47db96cf0', comment['re']
   end
   
   def test_post_links_comment_to_parent_comment
-    post('/comment', 'doc[origin]' => SHA, 'doc[content]' => 'comment a')
+    post('/comment', 'doc[re]' => SHA, 'doc[content]' => 'comment a')
     a = last_comment
     
-    post('/comment', 'doc[origin]' => SHA, 'doc[content]' => 'comment b', 'doc[parents]' => [a])
+    post('/comment', 'doc[re]' => SHA, 'doc[content]' => 'comment b', 'parents' => [a])
     b = last_comment
     
-    assert_equal [b], repo.links(a)
+    assert_equal [b], repo.graph(a)[a].children
   end
   
   def test_post_validates_parent_regards_the_same_object
-    post('/comment', 'doc[origin]' => SHA, 'doc[content]' => 'comment a')
+    post('/comment', 'doc[re]' => SHA, 'doc[content]' => 'comment a')
     a = last_comment
     
-    err = assert_raises(RuntimeError) { post('/comment', 'doc[origin]' => 'd0ad25', 'doc[content]' => 'comment b', 'doc[parents]' => [a]) }
+    err = assert_raises(RuntimeError) { post('/comment', 'doc[re]' => 'd0ad25', 'doc[content]' => 'comment b', 'parents' => [a]) }
     assert_equal "parent and child have different origins", err.message
   end
   
   def test_post_raises_error_for_no_content
-    err = assert_raises(InvalidDocumentError) { post('/comment', 'doc[origin]' => 'ee9a1c') }
+    err = assert_raises(InvalidDocumentError) { post('/comment', 'doc[re]' => 'ee9a1c') }
     assert_equal 'nothing specified', err.errors['content'].message
   end
   
@@ -317,7 +317,7 @@ tag of project with one, two, three only
   #
   
   def new_comment(content, parents=[], object=SHA)
-    post('/comment', 'doc[origin]' => object, 'doc[content]' => content, 'doc[parents]' => [*parents])
+    post('/comment', 'doc[re]' => object, 'doc[content]' => content, 'parents' => [*parents])
     last_comment
   end
   
@@ -326,11 +326,11 @@ tag of project with one, two, three only
     
     put("/comment/#{a}", 'doc[content]' => 'b')
     b = last_comment
-    assert_equal [b], repo.updates(a)
+    assert_equal [b], repo.graph(a)[a].versions
     
     document = repo.read(b)
     assert_equal 'b', document['content']
-    assert_equal SHA, document['origin']
+    assert_equal SHA, document['re']
   end
   
   def test_put_rev_parses_comment
@@ -338,7 +338,7 @@ tag of project with one, two, three only
     
     put("/comment/#{a[0,8]}", 'doc[content]' => 'b')
     b = last_comment
-    assert_equal [b], repo.updates(a)
+    assert_equal [b], repo.graph(a)[a].versions
   end
   
   def test_put_raises_error_for_no_content

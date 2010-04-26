@@ -2,6 +2,7 @@ require 'erb'
 require 'sinatra/base'
 require 'gitgo/helper'
 require 'gitgo/document'
+require 'gitgo/rest'
 
 module Gitgo
   class Controller < Sinatra::Base
