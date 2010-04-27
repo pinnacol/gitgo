@@ -663,7 +663,7 @@ module Gitgo
     def pull(tracking_branch=upstream_branch)
       sandbox do |git, work_tree, index_file|
         remote, remote_branch = parse_tracking_branch(tracking_branch)
-        git.fetch({}, remote, "#{remote_branch}:#{tracking_branch}")
+        git.fetch({}, remote, "#{remote_branch}:remotes/#{tracking_branch}")
         merge(tracking_branch)
       end
       reset
