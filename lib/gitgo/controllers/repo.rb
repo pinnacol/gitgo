@@ -36,11 +36,11 @@ module Gitgo
       
       def index
         erb :index, :locals => {
-          :path => git.path,
-          :branch => git.branch,
-          :commit => git.head.nil? ? nil : grit.commit(git.head),
-          :upstream_branch => git.upstream_branch,
-          :refs => grit.refs,
+          :path => repo.path,
+          :branch => repo.branch,
+          :commit => repo.head.nil? ? nil : grit.commit(repo.head),
+          :upstream_branch => repo.upstream_branch,
+          :refs => repo.refs,
           :active_sha => session_head,
           :active_commit => session_head ? grit.commit(session_head) : nil,
         }
@@ -62,7 +62,7 @@ module Gitgo
           :index_keys => index.keys.sort,
           :current_value => value,
           :index_values => key ? index.values(key).sort : [],
-          :shas => key && value ? index[key][value].collect {|idx| index.list[idx] } : []
+          :shas => key && value ? index[key][value].collect {|idx| index.list[idx] } : index.list
         }
       end
       

@@ -21,3 +21,9 @@
 <li>None</li><% end %><% shas.each do |sha| %>
 <li><%= format.sha_a(sha) %></li><% end %>
 </ul><% end %>
+<% if !current_key && !current_value %>
+<h2>List:</h2>
+<ol><% if shas.empty? %>
+<li>None</li><% end %><% shas.each do |sha| %>
+<li><%= format.sha_a(sha) %></li><% end %>
+</ol><% end %>

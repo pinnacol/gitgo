@@ -35,10 +35,6 @@ module Gitgo
         graph_heads.collect {|head| head.title }
       end
       
-      def graph_states
-        graph_tails.collect {|tail| tail.state }
-      end
-      
       def graph_tags
         graph_tails.collect {|tail| tail.tags }.flatten.uniq
       end

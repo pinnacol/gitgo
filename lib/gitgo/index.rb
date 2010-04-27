@@ -163,7 +163,7 @@ module Gitgo
       source_idx = idx(source)
       target_idx = idx(target)
       map[target_idx] = source_idx
-      tail_filter << source_idx
+      tail_filter << source_idx unless type == :create
       delete_filter << source_idx if type == :delete
       self
     end

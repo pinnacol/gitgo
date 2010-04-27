@@ -55,12 +55,6 @@ module Gitgo
         content
       end
       
-      def each_state(*selected) # :yields: value, select_or_check, content
-        states.each do |state|
-          yield escape_html(state), selected.include?(state), escape_html(state)
-        end
-      end
-      
       def each_tag(tags, *selected) # :yields: value, select_or_check, content
         tags.sort.each do |tag|
           yield escape_html(tag), selected.include?(tag), escape_html(tag)

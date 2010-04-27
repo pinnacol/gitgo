@@ -198,7 +198,9 @@ module Gitgo
         
         shas = repo.diff(index_head, git_head)
         shas.each do |source|
-          self[source].reindex
+          doc = self[source]
+          doc.reindex
+          
           repo.each_assoc(source) do |target, type|
             index.assoc(source, target, type)
           end
