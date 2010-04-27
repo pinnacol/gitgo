@@ -258,18 +258,12 @@ module Gitgo
             when Array then entry
             else [entry.mode, entry.id]
             end
-
-            line = "#{mode} #{key}\0#{[sha].pack("H*")}"
-
+            
             # modes should not begin with zeros (although it is not fatal
             # if they do), otherwise fsck will print warnings like this:
             #
             # warning in tree 980127...: contains zero-padded file modes
-            if line =~ /\A0+(.*)\z/
-              line = $1
-            end
-
-            lines << line
+            lines << zero_strip("#{mode} #{key}\0#{[sha].pack("H*")}")
           end
 
           git.set(:tree, lines.join)
@@ -307,6 +301,14 @@ module Gitgo
       # converts obj into a [:mode, sha] entry
       def to_entry(obj) # :nodoc:
         [obj.mode.to_sym, string(obj.id)]
+      end
+      
+      def zero_strip(str) # :nodoc:
+        return str unless str[0] == ?0
+        
+        index = 1
+        index += 1 while str[index] == ?0
+        str[index, str.length - index]
       end
     end
   end
