@@ -69,6 +69,7 @@ Gem::Specification.new do |s|
     public/css/gitgo.css
     public/javascript/gitgo.js
     public/javascript/jquery-1.4.2.min.js
+    views/app/index.erb
     views/app/timeline.erb
     views/app/welcome.erb
     views/code/_comment.erb
