@@ -260,8 +260,8 @@ module Gitgo
     def branch?(sha)
       return false if sha.nil?
       return false unless sha = resolve(sha)
+      return false unless commit = git.get(:commit, sha)
       
-      commit = git.get(:commit, sha)
       blob = commit.tree/FILE
       blob && blob.data.empty? ? true : false
     end
