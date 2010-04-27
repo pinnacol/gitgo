@@ -63,7 +63,7 @@
   <p>No commit has been selected as active (or the selected commit is invalid).</p><% else %><%= erb :_commit, :locals => {:commit => active_commit}, :views => path('views/code'), :layout => false %><% end %>
   <p>The session head indicates the code seen as current by the user, for example 'version-1.0' or 'development'.</p>
   <form action="<%= form.url('repo', 'setup') %>" method="post">
-    <select name="session[head]"><% form.each_ref_name(refs, active_sha) do |value, selection, content| %>
+    <select name="session[head]"><% form.each_ref_name(repo.git.grit.refs, active_sha) do |value, selection, content| %>
     <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
     </select>
     <input type="submit" value="Change" />
