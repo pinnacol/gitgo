@@ -21,10 +21,10 @@ class AppTest < Test::Unit::TestCase
   end
   
   #
-  # welcome test
+  # index test
   #
   
-  def test_welcome_provides_form_to_track_gitgo_branches
+  def test_index_provides_form_to_track_gitgo_branches_when_head_is_nil
     repo.git.checkout('one')
     repo.setup
     
@@ -32,15 +32,17 @@ class AppTest < Test::Unit::TestCase
     repo.setup
     
     repo.git.checkout('master')
-    get('/welcome')
+    get('/')
     
+    assert last_response.ok?
     assert last_response.body.include?('<option value="one"')
     assert last_response.body.include?('<option value="one"')
     assert last_response.body.include?('<input type="submit"')
   end
   
-  def test_welcome_skips_the_form_if_no_gitgo_branches_are_available
-    get('/welcome')
+  def test_index_skips_the_form_if_no_gitgo_branches_are_available
+    get('/')
+    assert last_response.ok?
     assert !last_response.body.include?('<input type="submit"')
   end
   

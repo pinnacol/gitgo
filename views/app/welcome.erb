@@ -1,13 +1,7 @@
-<h1>Welcome to Gitgo!</h1>
+<h1>Gitgo</h1>
 
-<p>
-  Gitgo will store data on the '<%= branch %>' branch.  You can synchronize
-  your local data with remotes through the <a href="/repo">Repo</a> page.
-</p><% unless remotes.empty? %>
-
-<p>
-  To setup tracking of an existing remote, use the form below:
-</p>
+<p>Welcome! Gitgo will store data on the '<%= branch %>' branch.</p><% unless remotes.empty? %>
+<p>Select a remote to setup tracking (you can change this on the <a href="<%= form.url('repo') %>">repo</a> page):</p>
 
 <form action="<%= form.url('repo', 'setup') %>" method="post">
   <input type="hidden" name="redirect" value="<%= form.url %>">

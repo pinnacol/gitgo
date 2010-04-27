@@ -9,24 +9,20 @@ module Gitgo
     set :views, File.expand_path("views/app", ROOT)
     set :static, true
     
-    before do
-      if repo.head.nil? && request.get? && request.path_info != '/welcome'
-        redirect '/welcome'
-      end
-    end
-    
-    get('/')         { timeline }
+    get('/')         { repo.head ? index : welcome }
     get('/timeline') { timeline }
-    get('/welcome')  { welcome }
     
     use Controllers::Code
     use Controllers::Issue
     use Controllers::Wiki
     use Controllers::Repo
     
+    def index
+      erb :index
+    end
+    
     def welcome
       erb :welcome, :locals => {
-        :path => repo.path,
         :branch => repo.branch,
         :remotes => repo.refs
       }

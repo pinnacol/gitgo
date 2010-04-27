@@ -1,4 +1,4 @@
-<h1>Gitgo Activity<% unless author.nil? %> for <%= escape_html author %><% end %></h1>
+<h1>Timeline<% unless author.nil? %> for <%= escape_html(author.empty? ? 'unknown' : author) %><% end %></h1>
 <ul>
 <li class="newer"><% if docs && page >= 1 %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page - 1, :per_page => per_page) %>">newer</a><% else %>(newer)<% end %></li>
 <li class="older"><% if docs && docs.length == per_page %><a href="<%= url('timeline') %>?<%= build_query(:author => author, :page => page + 1, :per_page => per_page) %>">older</a><% else %>(older)<% end %></li>
