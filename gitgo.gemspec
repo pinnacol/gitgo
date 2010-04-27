@@ -63,7 +63,6 @@ Gem::Specification.new do |s|
     lib/gitgo/repo.rb
     lib/gitgo/repo/graph.rb
     lib/gitgo/repo/node.rb
-    lib/gitgo/repo/utils.rb
     lib/gitgo/rest.rb
     lib/gitgo/server.rb
     lib/gitgo/version.rb
