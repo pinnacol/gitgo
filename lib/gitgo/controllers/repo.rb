@@ -154,7 +154,7 @@ module Gitgo
           self.session_head = head.strip.empty? ? nil : head
         end
         
-        redirect env['HTTP_REFERER'] || url('/repo')
+        redirect request['redirect'] || env['HTTP_REFERER'] || url('/repo')
       end
       
       # Renders template as erb, then formats using RedCloth.

@@ -268,16 +268,12 @@ module Gitgo
     
     # Returns an array of refs representing gitgo branches.
     def refs
-      git.grit.refs.select do |ref|
-        branch?(ref.commit.id)
-      end
+      select_branches(git.grit.refs)
     end
     
     # Returns an array of remotes representing gitgo branches.
     def remotes
-      git.grit.remotes.select do |remote|
-        branch?(remote.commit.id)
-      end
+      select_branches(git.grit.remotes)
     end
     
     # Serializes and sets the attributes as a blob in the git repo and caches
@@ -563,7 +559,7 @@ module Gitgo
         raise "already setup on: #{branch} (#{head})"
       end
       
-      unless upstream_branch
+      if upstream_branch.nil? || upstream_branch.empty?
         tree = Git::Tree.new
         tree[FILE] = [git.default_blob_mode, empty_sha]
         mode, sha = tree.write_to(git)
@@ -582,10 +578,8 @@ module Gitgo
       
       if git.tracking_branch?(upstream_branch)
         git.track(upstream_branch)
-        git.pull(upstream_branch)
-      else
-        git.merge(upstream_branch)
       end
+      git.merge(upstream_branch)
       
       cache.clear
       index.reset
@@ -610,6 +604,16 @@ module Gitgo
     end
     
     protected
+    
+    def select_branches(refs) # :nodoc:
+      results = {}
+      refs.select do |ref|
+        sha = ref.commit.id
+        results[sha] ||= (branch?(sha) ? ref : nil)
+      end
+      
+      results.values.compact
+    end
     
     def state_str(state) # :nodoc:
       case state

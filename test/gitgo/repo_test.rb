@@ -534,6 +534,22 @@ class RepoTest < Test::Unit::TestCase
     assert_equal nil, repo.upstream_branch
   end
   
+  def test_setup_adds_gitgo_file_for_nil_upstream_branch
+    assert_equal nil, repo.head
+    repo.setup(nil)
+    
+    blob = git.get(:commit, repo.head).tree/Repo::FILE
+    assert_equal '', blob.data
+  end
+  
+  def test_setup_adds_gitgo_file_for_empty_upstream_branch
+    assert_equal nil, repo.head
+    repo.setup('')
+    
+    blob = git.get(:commit, repo.head).tree/Repo::FILE
+    assert_equal '', blob.data
+  end
+  
   def test_setup_raises_error_if_head_is_not_nil
     git['file'] = 'content'
     git.commit!('made a commit')

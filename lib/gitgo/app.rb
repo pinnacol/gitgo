@@ -10,7 +10,7 @@ module Gitgo
     set :static, true
     
     before do
-      if repo.git.head.nil? && request.get? && request.path_info != '/welcome'
+      if repo.head.nil? && request.get? && request.path_info != '/welcome'
         redirect '/welcome'
       end
     end

@@ -10,6 +10,7 @@
 </p>
 
 <form action="<%= form.url('repo', 'setup') %>" method="post">
+  <input type="hidden" name="redirect" value="<%= form.url %>">
   <select name="upstream_branch"><% form.each_ref_name(remotes, Gitgo::Git::DEFAULT_UPSTREAM_BRANCH) do |value, selection, content| %>
   <option value="<%= value %>"<%= html.select(selection) %>><%= content %></option><% end %>
   </select>
