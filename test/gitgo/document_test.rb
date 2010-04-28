@@ -487,6 +487,15 @@ class DocumentTest < Test::Unit::TestCase
   def test_set_author_stringifies_actors
     doc.author = author
     assert_equal 'John Doe <john.doe@email.com>', doc.attrs['author']
+    
+    doc.author = Grit::Actor.new('John Doe', nil)
+    assert_equal 'John Doe', doc.attrs['author']
+    
+    doc.author = Grit::Actor.new(nil, 'john.doe@email.com')
+    assert_equal '<john.doe@email.com>', doc.attrs['author']
+    
+    doc.author = Grit::Actor.new(nil, nil)
+    assert_equal nil, doc.attrs['author']
   end
   
   #
@@ -720,6 +729,12 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal author.email, doc.author.email
   end
   
+  def test_normalize_bang_is_ok_when_author_email_or_name_is_unset
+    repo.git.author = Grit::Actor.new(nil, nil)
+    doc.normalize!
+    assert_equal nil, doc.author
+  end
+  
   def test_normalize_bang_sets_date_if_unset
     assert_equal nil, doc.date
     doc.normalize!
@@ -776,6 +791,9 @@ class DocumentTest < Test::Unit::TestCase
     assert_equal [['email', 'unknown']], doc.indexes
     
     doc['author'] = 'Jane Doe'
+    assert_equal [['email', 'unknown']], doc.indexes
+    
+    doc['author'] = ''
     assert_equal [['email', 'unknown']], doc.indexes
   end
   

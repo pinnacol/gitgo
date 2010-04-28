@@ -360,7 +360,8 @@ module Gitgo
     
     def author=(author)
       if author.kind_of?(Grit::Actor)
-        author = author.email ? "#{author.name} <#{author.email}>" : author.name
+        email = author.email
+        author = blank?(email) ? author.name : "#{author.name} <#{email}>".lstrip
       end
       self['author'] = author
     end
@@ -415,12 +416,8 @@ module Gitgo
     end
     
     def normalize!
-      attrs['author'] ||= begin
-        author = repo.git.author
-        "#{author.name} <#{author.email.strip}>"
-      end
-      
-      attrs['date'] ||= Time.now.iso8601
+      self.author ||= repo.git.author
+      self.date   ||= Time.now
       
       if at = attrs['at']
         attrs['at'] = repo.resolve(at)
