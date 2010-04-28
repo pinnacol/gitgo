@@ -1,3 +1,7 @@
+== 0.3.3 2010-04-28
+
+Fixed (hopefully) usage in repos with no user name/email set.
+
 == 0.3.2 2010-04-27
 
 Fixed (hopefully) the cause of zero-padded file modes warning.
